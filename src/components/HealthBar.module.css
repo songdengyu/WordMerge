@@ -1,0 +1,103 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+}
+
+.bossTimer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(180deg, #4a1040 0%, #2a0820 100%);
+  color: #ff6b8a;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 2px solid #c9184a;
+  min-width: 56px;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(201, 24, 74, 0.4);
+  animation: timerPulse 1s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+.timerIcon {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ff6b8a;
+  border-radius: 50%;
+  position: relative;
+}
+
+.timerIcon::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 2px;
+  height: 5px;
+  background: #ff6b8a;
+  border-radius: 1px;
+}
+
+.barContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #2a1a3d 0%, #1a0f2e 100%);
+  border: 2px solid var(--fantasy-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.name {
+  color: var(--fantasy-text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  min-width: 56px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.track {
+  flex: 1;
+  height: 16px;
+  background: #1a0a1e;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #4a2040;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.fill {
+  height: 100%;
+  background: linear-gradient(180deg, #ff6b6b 0%, var(--fantasy-hp) 40%, var(--fantasy-hp-dark) 100%);
+  border-radius: 3px;
+  transition: width 0.1s ease;
+  box-shadow: 0 0 8px rgba(230, 57, 70, 0.5);
+}
+
+.bossFill {
+  background: linear-gradient(180deg, #c77dff 0%, var(--fantasy-magic) 40%, #6b2fa0 100%);
+  box-shadow: 0 0 10px rgba(157, 78, 221, 0.6);
+}
+
+.hp {
+  color: var(--fantasy-text-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 72px;
+  text-align: right;
+}

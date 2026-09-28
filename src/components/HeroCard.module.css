@@ -1,0 +1,158 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(61, 40, 88, 0.6) 0%, rgba(42, 26, 61, 0.8) 100%);
+  border-radius: 10px;
+  border: 2px solid rgba(139, 105, 20, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.deployed {
+  border-color: rgba(124, 179, 66, 0.6);
+  background: linear-gradient(135deg, rgba(45, 80, 22, 0.35) 0%, rgba(42, 26, 61, 0.8) 100%);
+  box-shadow: 0 0 10px rgba(124, 179, 66, 0.15);
+}
+
+.locked {
+  border-color: #51475a;
+  background: linear-gradient(135deg, rgba(45, 39, 49, 0.8), rgba(28, 24, 32, 0.9));
+}
+
+.locked > :not(.actions) {
+  opacity: 0.55;
+  filter: grayscale(0.65);
+}
+
+.affordable {
+  border-color: var(--fantasy-gold);
+  box-shadow: 0 0 12px rgba(240, 193, 75, 0.24);
+}
+
+.affordable > :not(.actions) {
+  opacity: 0.9;
+  filter: none;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  color: var(--fantasy-text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.level {
+  color: var(--fantasy-text-muted);
+  font-family: var(--font-body);
+}
+
+.dps {
+  color: var(--fantasy-gold);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  max-width: 46%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actions button {
+  padding: 7px 8px;
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btnDeploy {
+  background: linear-gradient(180deg, #6aab4a 0%, #4a7c3f 100%);
+  color: #fff;
+  border-color: #3d6b32;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.btnDeploy:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btnWithdraw {
+  background: linear-gradient(180deg, #e07b39 0%, #c45c1a 100%);
+  color: #fff;
+  border-color: #a04810;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.btnDisabled {
+  background: rgba(61, 40, 88, 0.5);
+  color: var(--fantasy-text-muted);
+  border-color: rgba(139, 105, 20, 0.2);
+  cursor: not-allowed;
+}
+
+.btnUpgrade {
+  background: linear-gradient(180deg, #6b4b91, #46305f);
+  color: #fff;
+  border-color: #8f69b8 !important;
+}
+
+.btnUpgrade span,
+.btnUpgrade strong {
+  display: block;
+  font-size: 10px;
+}
+
+.btnUpgrade strong {
+  margin-top: 2px;
+  color: var(--fantasy-gold-light);
+}
+
+.btnUpgrade:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btnUpgrade.unlockReady {
+  border-color: #ffe08a !important;
+  color: #2d1b05;
+  background: linear-gradient(180deg, #ffe58c, #e7a92b);
+  box-shadow: 0 0 13px rgba(240, 193, 75, 0.7);
+  text-shadow: none;
+  animation: unlockPulse 1.3s ease-in-out infinite;
+}
+
+.btnUpgrade.unlockReady strong {
+  color: #4c2b05;
+}
+
+@keyframes unlockPulse {
+  50% { filter: brightness(1.15); box-shadow: 0 0 19px rgba(255, 215, 92, 0.88); }
+}

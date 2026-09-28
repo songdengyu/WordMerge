@@ -1,0 +1,120 @@
+.tab { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 6px 10px 0; }
+.header { display: flex; flex-shrink: 0; justify-content: space-between; align-items: center; padding: 2px 38px 6px 2px; }
+.header h2 { margin: 1px 0 0; color: var(--fantasy-gold-light); font: 700 16px var(--font-display); }
+.eyebrow { color: var(--fantasy-text-muted); font: 700 9px var(--font-body); letter-spacing: 2px; }
+.guide { flex-shrink: 0; margin: 0 0 6px; padding: 5px 8px; color: #c5b9ae; font: 10px/1.3 var(--font-body); background: rgba(111,72,143,.16); border-left: 3px solid #9d4edd; }
+.error { margin: 0 0 8px; padding: 7px; border: 1px solid #a94f57; border-radius: 6px; background: #3b2029; color: #ffb1b8; font: 9px/1.35 var(--font-body); }
+.list { flex: 1 1 0; height: auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 0 2px 10px 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.list::-webkit-scrollbar { width: 5px; }
+.list::-webkit-scrollbar-thumb { background: var(--fantasy-border); border-radius: 3px; }
+.skillCard { --skill-color: #fff; --skill-accent: #fff; position: relative; overflow: hidden; display: grid; grid-template-columns: 40px 1fr 50px; gap: 6px; align-items: center; min-height: 62px; padding: 4px 6px; border: 1px solid var(--skill-color); border-radius: 7px; background: linear-gradient(110deg, color-mix(in srgb, var(--skill-color) 13%, #261934), #1b1328 70%); box-shadow: inset 0 0 18px rgba(0,0,0,.28); cursor: pointer; }
+.locked { border-color: #51475a; background: linear-gradient(110deg, #29232f, #1b1720 70%); }
+.locked .skillIcon, .locked .skillInfo { filter: saturate(.3); opacity: .62; }
+.unlockable { border-color: #58a4c1; background: linear-gradient(110deg, rgba(52,124,148,.32), #1b1328 70%); box-shadow: inset 0 0 18px rgba(88,164,193,.12), 0 0 10px rgba(88,164,193,.2); }
+.unlockable .skillIcon, .unlockable .skillInfo { filter: none; opacity: 1; }
+.affordable { border-color: var(--fantasy-gold); background: linear-gradient(110deg, rgba(122,91,25,.38), #241b2d 70%); box-shadow: inset 0 0 18px rgba(255,214,96,.12), 0 0 10px rgba(240,193,75,.2); }
+.affordable .skillIcon, .affordable .skillInfo { filter: none; opacity: 1; }
+.skillIcon, .detailIcon { position: relative; width: 38px; height: 38px; border: 2px solid var(--skill-color); border-radius: 8px; background: radial-gradient(circle, color-mix(in srgb, var(--skill-color) 35%, transparent), #160f21 70%); box-shadow: 0 0 12px color-mix(in srgb, var(--skill-color) 45%, transparent); overflow: hidden; }
+.skillIcon { display: grid; place-items: center; color: var(--fantasy-gold-light); font: 900 18px/1 var(--font-display); }
+.type2 { color: #65dfff; }
+.type3 { color: #c982ff; }
+.skillIcon span, .detailIcon span { position: absolute; inset: 12px; background: var(--skill-accent); filter: drop-shadow(0 0 6px var(--skill-color)); }
+.icon_slash span { clip-path: polygon(0 78%,100% 0,73% 100%,58% 64%); }
+.icon_fireball span { border-radius: 50%; background: radial-gradient(circle at 35% 30%,#fff,var(--skill-accent) 25%,var(--skill-color) 58%,transparent 64%); }
+.icon_lightning span { clip-path: polygon(55% 0,100% 0,63% 41%,91% 41%,17% 100%,40% 55%,9% 55%); }
+.icon_frost span { clip-path: polygon(50% 0,61% 34%,85% 15%,66% 39%,100% 50%,66% 61%,85% 85%,61% 66%,50% 100%,39% 66%,15% 85%,34% 61%,0 50%,34% 39%,15% 15%,39% 34%); }
+.icon_meteor span { border-radius: 50%; box-shadow: -14px -12px 0 -5px var(--skill-color),-24px -20px 0 -8px var(--skill-accent); }
+.icon_void span { border-radius: 50%; background: #10051c; border: 6px solid var(--skill-color); box-shadow: 0 0 0 3px var(--skill-accent),0 0 15px var(--skill-color); }
+.skillInfo { min-width: 0; }
+.skillTitle { display: flex; align-items: baseline; gap: 6px; }
+.skillTitle strong { color: #fff; font: 700 12px var(--font-display); }
+.skillTitle span { color: var(--skill-accent); font: 700 9px var(--font-body); }
+.skillInfo p { margin: 1px 0; color: #b9acb9; font: 9px/1.25 var(--font-body); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.damage { color: var(--skill-color); font: 800 9px var(--font-body); }
+.damage span { color: #9f93a5; margin-left: 3px; }
+.requirement { margin-top: 2px; color: #ff8b91; font: 9px var(--font-body); }
+.actionBtn { position: relative; overflow: hidden; min-height: 40px; padding: 3px 2px; border: 1px solid #51475a; border-radius: 6px; color: #81778a; background: #241e2b; font-family: var(--font-body); cursor: pointer; }
+.actionBtn span, .actionBtn strong { display: block; font-size: 9px; }
+.actionBtn strong { margin-top: 1px; }
+.actionBtn:disabled { cursor: not-allowed; }
+.unlock.ready { border-color: #58a4c1; color: #fff; background: linear-gradient(#347c94, #204b5c); }
+.unlock.ready strong { color: #b8efff; }
+.upgrade.ready { border-color: #8f7130; color: #26180a; background: linear-gradient(#e2b94d, #95691c); }
+.upgrade.ready strong { color: #fff0ad; }
+.actionBtn i { position: absolute; right: -4px; top: -4px; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #ed394f; box-shadow: 0 0 7px #ed394f; }
+.fxBurst, .cardBurst { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; }
+.fxBurst { z-index: 2; }
+.flashPress { animation: btnPunch .38s ease-out; }
+.fxBurst::before, .cardBurst::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, var(--fx-shine) 50%, transparent 70%);
+  animation: shineSweep .45s ease-out forwards;
+}
+.fxBurst::after, .cardBurst::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--fx-ring);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: ringBurst .48s ease-out forwards;
+}
+.cardBurst { z-index: 4; box-shadow: inset 0 0 12px var(--fx-glow); animation: cardGlow .5s ease-out; }
+.fxGold { --fx-shine: rgba(255, 252, 230, .95); --fx-ring: #ffe08a; --fx-glow: rgba(240, 193, 75, .55); }
+.fxCyan { --fx-shine: rgba(210, 248, 255, .8); --fx-ring: #9ee7ff; --fx-glow: rgba(88, 164, 193, .5); }
+.fxSweep {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.fxSweep::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, .18) 22%,
+    var(--fx-shine) 50%,
+    rgba(255, 255, 255, .18) 78%,
+    transparent 100%
+  );
+  transform: translateX(-140%) skewX(-18deg);
+  animation: shineSweepLTR .5s ease-out forwards;
+}
+@keyframes btnPunch {
+  0% { transform: scale(0.86); filter: brightness(1.7); }
+  45% { transform: scale(1.08); filter: brightness(1.35); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes shineSweep { from { transform: translateX(-80%); } to { transform: translateX(80%); opacity: 0; } }
+@keyframes shineSweepLTR {
+  from { transform: translateX(-140%) skewX(-18deg); }
+  to { transform: translateX(320%) skewX(-18deg); }
+}
+@keyframes ringBurst { to { width: 140%; height: 220%; opacity: 0; } }
+@keyframes cardGlow {
+  0% { filter: brightness(1.45); }
+  100% { filter: brightness(1); }
+}
+.detailOverlay { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 24px; background: rgba(8,5,15,.78); backdrop-filter: blur(3px); }
+.detail { position: relative; width: min(300px,90vw); padding: 20px; text-align: center; border: 2px solid var(--fantasy-border); border-radius: 14px; background: linear-gradient(#372546,#1d1428); box-shadow: 0 16px 50px #000; }
+.closeBtn { position: absolute; right: 8px; top: 6px; border: 0; background: none; color: #d8cadd; font-size: 25px; cursor: pointer; }
+.detailIcon { margin: 4px auto 10px; width: 72px; height: 72px; font: 900 28px/1 var(--font-display); }
+.detailIcon span { inset: 17px; }
+.detail h3 { margin: 0 0 8px; color: var(--fantasy-gold-light); font: 700 19px var(--font-display); }
+.detail p { color: #c7bac9; font: 12px/1.5 var(--font-body); }
+.detailStats { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 14px; }
+.detailStats span { padding: 7px; color: #9f93a5; font: 9px var(--font-body); background: #17101f; border-radius: 6px; }
+.detailStats b { display: block; margin-top: 2px; color: #fff; font-size: 11px; }

@@ -1,0 +1,386 @@
+.combat {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 18% 4% at 18% 63%, rgba(25, 66, 34, 0.22) 0 62%, transparent 66%),
+    radial-gradient(ellipse 24% 5% at 76% 72%, rgba(27, 69, 35, 0.2) 0 62%, transparent 66%),
+    radial-gradient(ellipse 15% 3% at 45% 88%, rgba(34, 82, 42, 0.18) 0 62%, transparent 66%),
+    linear-gradient(
+      180deg,
+      #2f214f 0%,
+      #4c3268 21%,
+      #765078 38%,
+      #c67b68 50%,
+      #538d4b 52%,
+      #3d763e 73%,
+      #326436 100%
+    );
+}
+
+.combatTap {
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.battleZone {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 52%;
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+.battleZone::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -3px;
+  left: 0;
+  z-index: 0;
+  height: 14px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 18px 8px at 8% 100%, #79a954 0 60%, transparent 64%),
+    radial-gradient(ellipse 24px 9px at 31% 100%, #6e9f4c 0 60%, transparent 64%),
+    radial-gradient(ellipse 20px 8px at 56% 100%, #82b15a 0 60%, transparent 64%),
+    radial-gradient(ellipse 26px 9px at 83% 100%, #6b9b49 0 60%, transparent 64%),
+    linear-gradient(180deg, #76a952, #4d813f);
+  border-bottom: 2px solid rgba(37, 76, 39, 0.55);
+}
+
+.skyTop {
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.skyGlow {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 200px;
+  background: none;
+  pointer-events: none;
+}
+
+.mountains {
+  position: absolute;
+  bottom: 28%;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: none;
+  opacity: 0;
+  clip-path: polygon(0 100%, 0 55%, 12% 35%, 25% 50%, 38% 28%, 52% 45%, 65% 22%, 78% 40%, 90% 30%, 100% 42%, 100% 100%);
+  pointer-events: none;
+}
+
+.castle {
+  position: absolute;
+  bottom: 32%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160px;
+  height: 70px;
+  background: none;
+  clip-path: polygon(
+    0% 100%, 0% 45%, 8% 45%, 8% 25%, 16% 25%, 16% 45%,
+    24% 45%, 24% 15%, 32% 15%, 32% 45%, 40% 45%, 40% 5%,
+    48% 5%, 48% 45%, 56% 45%, 56% 20%, 64% 20%, 64% 45%,
+    72% 45%, 72% 30%, 80% 30%, 80% 45%, 88% 45%, 88% 35%,
+    96% 35%, 96% 45%, 100% 45%, 100% 100%
+  );
+  opacity: 0;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+.ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: linear-gradient(180deg, rgba(118, 170, 84, 0.18), rgba(40, 72, 44, 0.1));
+  pointer-events: none;
+}
+
+.groundTexture {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 35%;
+  background: none;
+  pointer-events: none;
+}
+
+.hud {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(26, 15, 46, 0.75) 0%, transparent 100%);
+  padding-bottom: 4px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 4px 12px 10px;
+}
+
+.progress {
+  background: linear-gradient(180deg, #3d2858 0%, #2a1a3d 100%);
+  color: var(--fantasy-gold-light);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 2px solid var(--fantasy-border);
+  min-width: 52px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.stage {
+  color: var(--fantasy-text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.currencies {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gold {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(180deg, #3d2858 0%, #2a1a3d 100%);
+  color: var(--fantasy-gold);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 2px solid var(--fantasy-border);
+  transition: transform 0.15s ease, color 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.diamonds {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(180deg, #1d3a4c 0%, #142833 100%);
+  color: #7edfff;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 2px solid #477a96;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.coinIcon {
+  width: 16px;
+  height: 16px;
+  color: var(--fantasy-gold);
+}
+
+.goldFlash {
+  transform: scale(1.12);
+  color: var(--fantasy-gold-light);
+}
+
+.bossBtn {
+  background: linear-gradient(180deg, #9d4edd 0%, #6b2fa0 100%);
+  color: #fff;
+  border: 2px solid #c77dff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 12px rgba(157, 78, 221, 0.5);
+  animation: bossPulse 1.5s ease-in-out infinite;
+  min-width: 92px;
+}
+
+.coinDropLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.coinDrop {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  color: var(--fantasy-gold);
+  opacity: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+  animation: coinCollect 0.85s cubic-bezier(.2, .75, .35, 1) forwards;
+}
+
+.coinDrop svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes coinCollect {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35); }
+  18% { opacity: 1; transform: translate(-50%, calc(-50% - 28px)) scale(1.2) rotate(100deg); }
+  62% { opacity: 1; transform: translate(calc(-50% + var(--coin-mid-x)), calc(-50% + var(--coin-mid-y))) scale(1) rotate(300deg); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--coin-x)), calc(-50% + var(--coin-y))) scale(0.45) rotate(540deg); }
+}
+
+@keyframes bossPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(157, 78, 221, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(157, 78, 221, 0.7); }
+}
+
+.arena {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.battlefield {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  min-height: 0;
+}
+
+.monsterArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  padding-bottom: 4px;
+}
+
+.heroWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -12px;
+  z-index: 2;
+  animation: heroBob 1.2s ease-in-out infinite;
+}
+
+.heroRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: -12px;
+}
+
+.heroRow .heroWrap {
+  margin-top: 0;
+}
+
+.autoBattleBtn {
+  position: absolute;
+  left: calc(50% + 42px);
+  top: 11px;
+  width: 74px;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 8px 1fr;
+  align-items: center;
+  gap: 1px 5px;
+  padding: 5px 7px;
+  border: 2px solid #655873;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #393044, #201a2a);
+  color: #b8a99a;
+  font-family: var(--font-body);
+  font-size: 9px;
+  line-height: 1.1;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  touch-action: manipulation;
+}
+
+.autoBattleBtn strong {
+  grid-column: 2;
+  font-size: 10px;
+  color: #d0c6bc;
+  text-align: left;
+}
+
+.autoBattleDot {
+  grid-row: 1 / 3;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #786f80;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.autoBattleOn {
+  border-color: var(--fantasy-gold-dark);
+  color: var(--fantasy-gold-light);
+  background: linear-gradient(180deg, #51401f, #2d2418);
+}
+
+.autoBattleOn strong {
+  color: #8ee28c;
+}
+
+.autoBattleOn .autoBattleDot {
+  background: #6bd06f;
+  box-shadow: 0 0 8px rgba(107, 208, 111, 0.8);
+}
+
+.heroDps {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--fantasy-gold);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-top: 4px;
+  background: rgba(26, 15, 46, 0.7);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--fantasy-border);
+}
+
+@keyframes heroBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}

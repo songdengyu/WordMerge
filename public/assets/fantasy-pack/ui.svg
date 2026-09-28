@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg"><defs><style>.i{fill:none;stroke:currentColor;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}</style>
+<symbol id="equipment" viewBox="0 0 64 64"><path class="i" d="M13 8l35 35m3-35L16 43m-6 8l8-8 3 3-8 8zm44 0-8-8-3 3 8 8zM9 8l8 2-6 6zM55 8l-8 2 6 6z"/></symbol>
+<symbol id="skills" viewBox="0 0 64 64"><path class="i" d="M32 5l5 17 17 5-17 5-5 17-5-17-17-5 17-5zM50 45l2 7 7 2-7 2-2 7-2-7-7-2 7-2z"/></symbol>
+<symbol id="heroes" viewBox="0 0 64 64"><path class="i" d="M12 53h40l-4-27-10 10-6-23-6 23-10-10zM15 53v6h34v-6"/></symbol>
+<symbol id="craft" viewBox="0 0 64 64"><path class="i" d="M24 7h16M28 7v18L13 50q-4 7 5 7h28q9 0 5-7L36 25V7M20 43h24"/></symbol>
+<symbol id="armor" viewBox="0 0 64 64"><path class="i" d="M32 5l23 9v17q0 18-23 28Q9 49 9 31V14zM22 23h20v17H22z"/></symbol>
+<symbol id="relic" viewBox="0 0 64 64"><path class="i" d="M21 6h22l8 15-19 38-19-38zM13 21h38M21 6l11 15L43 6M32 21v38"/></symbol>
+<symbol id="prestige" viewBox="0 0 64 64"><path class="i" d="M51 23A22 22 0 1019 52M51 23V9m0 14H37M18 41l14-25 14 25z"/></symbol>
+<symbol id="shop" viewBox="0 0 64 64"><path class="i" d="M10 25h44l-5-17H15zM14 25v31h36V25M24 56V39h16v17"/></symbol>
+<symbol id="quest" viewBox="0 0 64 64"><path class="i" d="M15 7h34v50H15zM23 19h18M23 30h18M23 41h10"/></symbol>
+<symbol id="coin" viewBox="0 0 64 64"><circle class="i" cx="32" cy="32" r="25"/><path class="i" d="M39 22q-4-5-11-2-7 3-3 9 2 3 8 3 8 1 8 7 0 7-8 8-8 1-12-5M32 14v36"/></symbol>
+</defs></svg>

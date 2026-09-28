@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg"><defs><style>.o{stroke:#21182b;stroke-width:4;stroke-linejoin:round}</style>
+<symbol id="iron-sword" viewBox="0 0 96 96"><path class="o" fill="#d7e0e7" d="M59 8l15-3-3 15-38 45-9-9z"/><path class="o" fill="#f2c84b" d="M18 50l28 28-9 9-28-28z"/><path class="o" fill="#76502d" d="M16 70l10 10-13 12L3 82z"/></symbol>
+<symbol id="wood-sword" viewBox="0 0 96 96"><path class="o" fill="#a76c34" d="M57 7l14-2-2 14-38 49-11-11z"/><path class="o" fill="#d39a51" d="M16 50l30 30-9 9-30-30z"/><path fill="none" stroke="#6e4427" stroke-width="3" d="M61 17L29 59"/></symbol>
+<symbol id="battle-axe" viewBox="0 0 96 96"><path class="o" fill="#8a5b32" d="M49 28h10v65H49z"/><path class="o" fill="#c9d2d8" d="M51 12Q27 3 10 20l13 10-13 14q19 12 41-2z"/><path class="o" fill="#a8b3bc" d="M58 14q16-7 29 4l-9 11 8 10q-12 8-28 1z"/></symbol>
+<symbol id="magic-staff" viewBox="0 0 96 96"><path class="o" fill="#84522d" d="M43 31h10v62H43z"/><circle class="o" fill="#8a4ed1" cx="48" cy="22" r="17"/><circle fill="#efdcff" cx="42" cy="16" r="6"/><path fill="#f4cc4d" d="M48 1l4 9 10 1-8 7 3 10-9-5-9 5 3-10-8-7 10-1z"/></symbol>
+<symbol id="elf-bow" viewBox="0 0 96 96"><path class="o" fill="none" d="M25 7q52 40 0 82M25 7v82"/><path class="o" fill="#9cc85b" d="M21 8l9-3q50 43 0 86l-9-3q47-40 0-80z"/><path fill="#e6e6dc" d="M21 47h66v5H21zM86 42l8 8-8 8z"/></symbol>
+<symbol id="flame-blade" viewBox="0 0 96 96"><path class="o" fill="#f9d052" d="M57 8l16-4-4 17-36 44-10-10z"/><path fill="#ff6b2e" d="M61 11q-18 20-13 37 8-9 10-1 9-13 3-36z"/><path class="o" fill="#f2ae35" d="M17 49l30 30-10 10L7 59z"/><path class="o" fill="#8b3a28" d="M16 70l10 10-13 12L3 82z"/></symbol>
+</defs></svg>

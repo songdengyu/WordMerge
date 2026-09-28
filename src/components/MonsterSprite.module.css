@@ -1,0 +1,148 @@
+.monster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  transition: transform 0.1s ease;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transform-origin: 50% 88%;
+}
+
+.hit {
+  animation: monsterHitImpact 0.22s ease-out;
+  filter:
+    drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35))
+    drop-shadow(0 0 12px rgba(255, 238, 154, 0.9))
+    brightness(1.45)
+    saturate(1.25);
+}
+
+.hit::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 54%;
+  aspect-ratio: 1;
+  border: 4px solid rgba(255, 240, 167, 0.9);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: hitShockwave 0.22s ease-out forwards;
+}
+
+.svg {
+  width: 100px;
+  height: 100px;
+  animation: monsterFloat 2.5s ease-in-out infinite;
+}
+
+.boss .svg {
+  width: 140px;
+  height: 280px;
+  animation: bossFloat 3s ease-in-out infinite;
+}
+
+.shadow {
+  width: 70px;
+  height: 14px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.35) 0%, transparent 70%);
+  margin-top: -4px;
+  flex-shrink: 0;
+}
+
+.boss .shadow {
+  width: 120px;
+  height: 18px;
+}
+
+.dying .svg {
+  animation: monsterDeath 0.65s ease-in forwards;
+}
+
+.dying .shadow {
+  animation: shadowFade 0.65s ease-in forwards;
+}
+
+.spawning .svg {
+  animation: monsterSpawn 0.55s ease-out forwards;
+}
+
+.spawning .shadow {
+  animation: shadowSpawn 0.55s ease-out forwards;
+}
+
+@keyframes monsterDeath {
+  0% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  40% {
+    transform: translateY(6px) scale(0.95) rotate(-4deg);
+    opacity: 0.85;
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: translateY(28px) scale(0.2) rotate(12deg);
+    opacity: 0;
+    filter: brightness(0.6);
+  }
+}
+
+@keyframes monsterSpawn {
+  0% {
+    transform: translateY(36px) scale(0.15);
+    opacity: 0;
+  }
+  65% {
+    transform: translateY(-10px) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shadowFade {
+  0% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(0.3); }
+}
+
+@keyframes shadowSpawn {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes monsterFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes bossFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes monsterHitImpact {
+  0% { transform: translateX(0) scale(1, 1); }
+  18% { transform: translateX(-5px) scale(1.1, 0.84) rotate(-3deg); }
+  42% { transform: translateX(5px) scale(0.9, 1.1) rotate(3deg); }
+  68% { transform: translateX(-2px) scale(1.04, 0.96) rotate(-1deg); }
+  100% { transform: translateX(0) scale(1, 1) rotate(0); }
+}
+
+@keyframes hitShockwave {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.65);
+  }
+}

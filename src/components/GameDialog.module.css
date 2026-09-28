@@ -1,0 +1,92 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(13, 8, 24, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(4px);
+  touch-action: none;
+}
+
+.modal {
+  width: 100%;
+  max-width: 320px;
+  animation: dialogIn 0.22s ease;
+}
+
+.frame {
+  background: linear-gradient(180deg, #3d2858 0%, #2a1a3d 50%, #1a0f2e 100%);
+  border: 3px solid var(--fantasy-border);
+  border-radius: 14px;
+  padding: 24px 20px 20px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--fantasy-gold-light);
+  margin: 0 0 12px;
+  letter-spacing: 0.04em;
+}
+
+.message {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--fantasy-text-muted);
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btnConfirm,
+.btnCancel {
+  flex: 1;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 2px solid;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btnConfirm {
+  background: linear-gradient(180deg, #6aab4a 0%, #4a7c3f 100%);
+  border-color: #5a9a4a;
+  color: #fff;
+}
+
+.btnCancel {
+  background: linear-gradient(180deg, #4a3a58 0%, #2a1a3d 100%);
+  border-color: rgba(139, 105, 20, 0.4);
+  color: var(--fantasy-text-muted);
+}
+
+.btnConfirm:active,
+.btnCancel:active {
+  transform: scale(0.97);
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

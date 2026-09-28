@@ -1,0 +1,299 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.bullet {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation: bulletFly 0.28s linear forwards;
+}
+
+.bulletHero {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.hero_round {
+  border-radius: 50%;
+}
+
+.hero_slash {
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color), #fff);
+  box-shadow: 0 0 8px var(--color);
+  transform: translate(-50%, -50%) rotate(-35deg);
+}
+
+.hero_arrow {
+  background: var(--color);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 2px 0 0 var(--color);
+}
+
+.hero_arrow::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 4px solid transparent;
+  border-left-color: var(--color);
+}
+
+.hero_diamond {
+  background: var(--color);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: 0 0 8px var(--color);
+}
+
+.hero_shard {
+  border-radius: 2px 2px 50% 50%;
+  background: linear-gradient(180deg, #fff 0%, var(--color) 40%, var(--color) 100%);
+  box-shadow: 0 0 6px var(--color);
+}
+
+.hero_ring {
+  border-radius: 50%;
+  border: 3px solid var(--color);
+  background: transparent;
+  box-shadow: 0 0 10px var(--color), inset 0 0 6px var(--color);
+}
+
+.hero_comet {
+  border-radius: 50% 0 50% 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, var(--color));
+  box-shadow: -6px 2px 10px var(--color), 0 0 12px var(--color);
+}
+
+.hero_cross {
+  background: var(--color);
+  clip-path: polygon(
+    35% 0%, 65% 0%, 65% 35%, 100% 35%, 100% 65%, 65% 65%, 65% 100%, 35% 100%, 35% 65%, 0% 65%, 0% 35%, 35% 35%
+  );
+  box-shadow: 0 0 8px var(--color);
+}
+
+.hero_bolt {
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 0 8px var(--color);
+}
+
+.bulletSlashFly {
+  animation: bulletFlySlash 0.28s linear forwards;
+}
+
+.mainSlash {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%) scale(3);
+  pointer-events: none;
+}
+
+.mainSlash::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: 6px;
+  background: linear-gradient(90deg, transparent 0%, var(--color) 35%, #fff 55%, color-mix(in srgb, var(--color) 80%, #fff) 75%, transparent 100%);
+  border-radius: 3px;
+  box-shadow: 0 0 10px var(--color), 0 0 18px color-mix(in srgb, var(--color) 50%, transparent);
+  transform: translate(-50%, -50%) rotate(calc(var(--slash-angle) * 1deg)) scaleX(0.15);
+  animation: mainSlashSwing 0.22s ease-out forwards;
+}
+
+.mainSlash::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  border-radius: 2px;
+  opacity: 0.9;
+  transform: translate(-50%, -50%) rotate(calc(var(--slash-angle) * 1deg)) scaleX(0.1);
+  animation: mainSlashSwing 0.22s ease-out 0.02s forwards;
+}
+
+@keyframes mainSlashSwing {
+  0% {
+    transform: translate(-50%, -50%) rotate(calc(var(--slash-angle) * 1deg)) scaleX(0.15);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(calc(var(--slash-angle) * 1deg)) scaleX(1.25);
+    opacity: 0;
+  }
+}
+
+.bullet_bolt {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 0 8px var(--color);
+}
+
+.bullet_slash {
+  width: 20px;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color), #fff);
+  box-shadow: 0 0 10px var(--color);
+  transform: translate(-50%, -50%) rotate(-35deg);
+  animation: bulletFlySlash 0.28s linear forwards;
+}
+
+.bullet_axe {
+  width: 14px;
+  height: 14px;
+  background: var(--color);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 60%);
+  box-shadow: 0 0 6px var(--color);
+}
+
+.bullet_arrow {
+  width: 16px;
+  height: 4px;
+  background: var(--color);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 2px 0 0 var(--color);
+}
+
+.bullet_arrow::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: -2px;
+  border: 4px solid transparent;
+  border-left-color: var(--color);
+}
+
+.bullet_orb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--color));
+  box-shadow: 0 0 12px var(--color), 0 0 20px var(--color);
+}
+
+@keyframes bulletFly {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes bulletFlySlash {
+  0% {
+    transform: translate(-50%, -50%) rotate(-35deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(-35deg) scale(0.5);
+    opacity: 0;
+  }
+}
+
+.damage {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 16px;
+  text-shadow:
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+  animation: damageFloat 0.8s ease-out forwards;
+  white-space: nowrap;
+}
+
+.damageTap {
+  color: var(--fantasy-gold-light);
+  font-size: 20px;
+  text-shadow:
+    0 0 10px rgba(240, 193, 75, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.damageAuto {
+  color: #ff8fa3;
+  font-size: 14px;
+}
+
+@keyframes damageFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  15% {
+    transform: translate(-50%, -65%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -130%) scale(0.85);
+  }
+}
+
+.skillEffect {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  color: var(--skill-accent);
+  filter: drop-shadow(0 0 12px var(--skill-color));
+  animation: skillImpact .9s ease-out forwards;
+}
+
+.skillCore,
+.skillRing {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+}
+
+.skillCore { background: radial-gradient(circle, #fff 0 8%, var(--skill-accent) 10%, var(--skill-color) 42%, transparent 70%); }
+.skillRing { border: 5px solid var(--skill-color); box-shadow: 0 0 18px var(--skill-color), inset 0 0 18px var(--skill-color); animation: skillRing .65s ease-out forwards; }
+.skill_slash { width: 60px; height: 35px; transform: translate(-50%, -50%) rotate(-18deg); }
+.skill_slash .skillCore { border-radius: 100% 0; background: linear-gradient(165deg, transparent 38%, #fff 45%, var(--skill-color) 52%, transparent 61%); }
+.skill_fireball { width: 56px; height: 56px; }
+.skill_fireball .skillCore { background: radial-gradient(circle, #fff 0 7%, var(--skill-accent) 12%, var(--skill-color) 45%, #7e1d18 62%, transparent 68%); }
+.skill_lightning { width: 38px; height: 95px; transform: translate(-50%, -78%); }
+.skill_lightning .skillCore { inset: 0 22%; border-radius: 0; background: linear-gradient(100deg, transparent 35%, #fff 38% 48%, var(--skill-color) 52% 62%, transparent 65%); clip-path: polygon(60% 0, 100% 0, 62% 40%, 90% 40%, 20% 100%, 40% 55%, 8% 55%); }
+.skill_frost { width: 75px; height: 75px; }
+.skill_frost .skillCore { border-radius: 0; background: var(--skill-accent); clip-path: polygon(50% 0, 61% 35%, 86% 14%, 65% 39%, 100% 50%, 65% 61%, 86% 86%, 61% 65%, 50% 100%, 39% 65%, 14% 86%, 35% 61%, 0 50%, 35% 39%, 14% 14%, 39% 35%); }
+.skill_meteor { width: 84px; height: 84px; transform: translate(-50%, -60%) rotate(-35deg); }
+.skill_meteor .skillCore { background: radial-gradient(circle at 65% 65%, #fff 0 8%, var(--skill-accent) 12%, var(--skill-color) 35%, transparent 38%), linear-gradient(45deg, transparent 20%, var(--skill-color) 42%, var(--skill-accent) 66%, transparent 70%); }
+.skill_void { width: 90px; height: 90px; }
+.skill_void .skillCore { background: radial-gradient(circle, #12051e 0 25%, var(--skill-color) 31%, var(--skill-accent) 41%, transparent 64%); }
+.skill_void .skillRing { border-width: 9px; border-style: double; }
+
+@keyframes skillImpact {
+  0% { opacity: 0; scale: .2; }
+  20% { opacity: 1; scale: 1.25; }
+  70% { opacity: .9; scale: 1; }
+  100% { opacity: 0; scale: 1.55; }
+}
+
+@keyframes skillRing {
+  from { transform: scale(.2) rotate(0); opacity: 1; }
+  to { transform: scale(1.7) rotate(160deg); opacity: 0; }
+}

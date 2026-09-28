@@ -1,0 +1,40 @@
+.avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--fantasy-border);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.15),
+    0 3px 8px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.sm {
+  width: 36px;
+  height: 36px;
+}
+
+.md {
+  width: 48px;
+  height: 48px;
+}
+
+.lg {
+  width: 64px;
+  height: 64px;
+}
+
+.svg {
+  width: 100%;
+  height: 100%;
+}
+
+.champion { background: radial-gradient(circle at 30% 20%, #5a4a20, #2a1f0a); }
+.sword { background: radial-gradient(circle at 30% 20%, #3a5080, #1a2848); }
+.archer { background: radial-gradient(circle at 30% 20%, #3a6030, #1a3018); }
+.mage { background: radial-gradient(circle at 30% 20%, #5a3080, #2a1050); }
+.knight { background: radial-gradient(circle at 30% 20%, #607080, #304050); }
+.rogue { background: radial-gradient(circle at 30% 20%, #404060, #1a1a30); }
+.priest { background: radial-gradient(circle at 30% 20%, #807060, #504838); }

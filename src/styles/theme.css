@@ -1,0 +1,25 @@
+:root {
+  --fantasy-bg-deep: #1a0f2e;
+  --fantasy-bg-panel: #2a1a3d;
+  --fantasy-bg-panel-light: #3d2858;
+  --fantasy-gold: #f0c14b;
+  --fantasy-gold-dark: #b8860b;
+  --fantasy-gold-light: #ffe08a;
+  --fantasy-stone: #6b5b4f;
+  --fantasy-stone-dark: #3e342c;
+  --fantasy-stone-light: #9a8575;
+  --fantasy-hp: #e63946;
+  --fantasy-hp-dark: #9b1c2c;
+  --fantasy-mana: #4cc9f0;
+  --fantasy-magic: #9d4edd;
+  --fantasy-grass: #4a7c3f;
+  --fantasy-grass-dark: #2d5016;
+  --fantasy-sky-top: #2b1d4e;
+  --fantasy-sky-mid: #5c3d7a;
+  --fantasy-sky-bottom: #d4845a;
+  --fantasy-text: #f5e6d3;
+  --fantasy-text-muted: #b8a99a;
+  --fantasy-border: #8b6914;
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body: 'Fredoka', 'Segoe UI', sans-serif;
+}

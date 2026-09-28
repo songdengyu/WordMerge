@@ -1,0 +1,33 @@
+.piece {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 82%;
+  aspect-ratio: 1;
+  color: white;
+  user-select: none;
+  pointer-events: none;
+}
+
+.icon { width: 86%; height: 86%; color: white; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55)); }
+
+.compact { width: 35px; }
+.compact .icon { width: 84%; height: 84%; }
+.compact .questionMark { font-size: 19px; }
+.selected { outline: 3px solid #fff1a4; outline-offset: 2px; }
+.shaking { animation: pieceShake 0.34s ease-in-out; }
+.special { animation: specialBreathe 1.45s ease-in-out infinite; }
+.questionMark {
+  color: #fff2aa;
+  font: 900 clamp(20px, 6vw, 32px)/1 var(--font-display);
+  text-shadow: 0 2px 2px #442452;
+}
+@keyframes pieceShake {
+  25% { transform: rotate(-8deg) scale(1.06); }
+  50% { transform: rotate(7deg) scale(1.08); }
+  75% { transform: rotate(-4deg) scale(1.04); }
+}
+
+@keyframes specialBreathe {
+  50% { transform: scale(1.09); filter: brightness(1.15); }
+}

@@ -1,0 +1,43 @@
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.balance {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid #66517e;
+  border-radius: 16px;
+  background: #251936;
+  color: #d5c7e9;
+  font: 600 11px var(--font-body);
+  cursor: pointer;
+}
+
+.balance span {
+  color: #b96cff;
+  text-shadow: 0 0 8px #a94cff;
+}
+
+.balance strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.exchange {
+  padding: 5px 7px;
+  border: 1px solid #477a96;
+  border-radius: 12px;
+  background: #204b5c;
+  color: #b8efff;
+  font: 700 9px var(--font-body);
+  cursor: pointer;
+}
+
+.exchange:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}

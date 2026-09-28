@@ -1,0 +1,16 @@
+.art { display: grid; place-items: center; flex: 0 0 auto; border: 2px solid #756286; border-radius: 10px; background: radial-gradient(circle at 35% 25%, #4b365e, #21172d); color: #f7df99; box-shadow: inset 0 1px rgba(255,255,255,.15), 0 3px 8px rgba(0,0,0,.35); }
+.xs { width: 27px; height: 27px; border-width: 1px; border-radius: 7px; }
+.sm { width: 36px; height: 36px; }
+.md { width: 50px; height: 50px; }
+.lg { width: 66px; height: 66px; }
+.icon { width: 82%; height: 82%; }
+.fallback { font: 900 22px var(--font-display); }
+.type1 { border-color: #e4bd57; }
+.type2 { border-color: #65c9df; }
+.type3 { border-color: #b8c5d4; }
+.type4 { border-color: #bd78df; }
+.type5 { border-color: #c98c59; }
+.type6 { border-color: #66ba82; }
+.type7 { border-color: #f07d48; }
+.type8 { border-color: #668ce0; }
+.type9 { border-color: #e36c9e; }
