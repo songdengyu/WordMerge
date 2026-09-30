@@ -5,6 +5,8 @@ import { addStamina, spendStamina, syncStamina, type StaminaClock } from './stam
 
 export type ItemLocation = { kind: 'board' | 'warehouse'; index: number }
 export interface ItemInstance { id: string; itemId: number; location: ItemLocation; reservedBy: string | null }
+export type SupplyStat = 'hp' | 'hunger' | 'water'
+export interface SupplyOrder { stat: SupplyStat; itemId: number }
 export interface InventoryState {
   board: { instanceId: string | null; lock: CellLock; rewardClaimed: boolean }[]
   warehouse: (string | null)[]
@@ -19,6 +21,7 @@ export interface ProductionState {
   inventory: InventoryState
   stamina: StaminaClock
   vitals: { hp: number; hunger: number; water: number; temperature: number }
+  supplyOrders: SupplyOrder[]
 }
 export type InventoryCommand =
   | { type: 'item-move'; instanceId: string; targetIndex: number; expectedTarget: string | null }
@@ -75,7 +78,7 @@ export function createProduction(catalog: ProductionCatalog, now: number, seed =
     warehouse: Array<string | null>(6).fill(null), items: {}, nextId: 1, randomState: seed >>> 0 || 1,
     gold: 0, gems: 100, completedOrders: [] }
   catalog.initialBoard.forEach((cell, index) => { if (cell.itemId !== null) spawn(inventory, cell.itemId, { kind: 'board', index }) })
-  return { inventory, stamina: { value: 100, anchorMs: now, remainderMs: 0 }, vitals: { hp: 100, hunger: 60, water: 60, temperature: 50 } }
+  return { inventory, stamina: { value: 100, anchorMs: now, remainderMs: 0 }, vitals: { hp: 100, hunger: 60, water: 60, temperature: 50 }, supplyOrders: [] }
 }
 export function availableItems(inventory: InventoryState) {
   return Object.values(inventory.items).filter(item => !item.reservedBy && (item.location.kind === 'warehouse'
@@ -90,6 +93,22 @@ export function matchRequirements(inventory: InventoryState, requirements: reado
     picked.push(found.id)
   }
   return picked
+}
+/** Transactional story exchange; generators always require an unlocked board slot. */
+export function exchangeItems(inventory: InventoryState, catalog: ProductionCatalog, requirements: readonly number[], rewards: readonly number[]) {
+  const draft = structuredClone(inventory), picked = matchRequirements(draft, requirements)
+  if (!picked) return false
+  picked.forEach(id => remove(draft, draft.items[id]))
+  for (const itemId of rewards) {
+    const config = catalog.itemById.get(itemId)
+    if (!config) return false
+    const index = draft.board.findIndex(slot => slot.lock === 0 && slot.instanceId === null)
+    const location: ItemLocation | null = config.itemType === 'generator' ? index < 0 ? null : { kind: 'board', index } : emptyLocation(draft)
+    if (!location) return false
+    spawn(draft, itemId, location)
+  }
+  Object.assign(inventory, draft)
+  return true
 }
 export function activeOrders(inventory: InventoryState, catalog: ProductionCatalog): readonly ProductionOrder[] {
   return catalog.orders.filter(order => !inventory.completedOrders.includes(order.id)).slice(0, 3)
@@ -177,6 +196,7 @@ export function applyInventoryCommand(original: ProductionState, catalog: Produc
       state.vitals[effect.stat] = Math.min(100, state.vitals[effect.stat] + effect.amount)
     }
     remove(inventory, item)
+    state.supplyOrders = state.supplyOrders.filter(order => order.stat !== effect.stat)
     if (config.itemType === 'special' && item.location.kind === 'board') reveal(inventory, item.location.index)
     return success(`使用了${config.name}`)
   }

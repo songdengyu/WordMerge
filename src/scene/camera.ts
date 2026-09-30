@@ -13,6 +13,11 @@ export function worldToGrid(point: Point): Cell {
   return { x: Math.round(point.x / TILE_WIDTH + point.y / TILE_HEIGHT),
     y: Math.round(point.y / TILE_HEIGHT - point.x / TILE_WIDTH) }
 }
+/** Continuous grid coordinates for movement; placement and interactions still use worldToGrid. */
+export function worldToPosition(point: Point): Cell {
+  return { x: Number((point.x / TILE_WIDTH + point.y / TILE_HEIGHT).toFixed(4)),
+    y: Number((point.y / TILE_HEIGHT - point.x / TILE_WIDTH).toFixed(4)) }
+}
 
 export class Camera {
   x = 0

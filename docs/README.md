@@ -12,6 +12,9 @@
 | M1 具体交付、试玩与验证记录 | [implementation/M1-MAP.md](implementation/M1-MAP.md) |
 | M2 合成、体力、存档与配置说明 | [implementation/M2-PRODUCTION-SAVE.md](implementation/M2-PRODUCTION-SAVE.md) |
 | M3 图纸、施工、修复与旧档迁移 | [implementation/M3-CONSTRUCTION.md](implementation/M3-CONSTRUCTION.md) |
+| M4 生存、天气、伙伴、夜袭与救援 | [implementation/M4-SURVIVAL-DEFENSE.md](implementation/M4-SURVIVAL-DEFENSE.md) |
+| M5 首章剧情、区域探索、装扮与三天供需验证 | [implementation/M5-STORY-EXPLORATION-DECOR.md](implementation/M5-STORY-EXPLORATION-DECOR.md) |
+| 日夜图标、环境光照、天气特效和预设测试按钮 | [implementation/ENVIRONMENT-PRESENTATION.md](implementation/ENVIRONMENT-PRESENTATION.md) |
 | 本轮夜袭与伙伴规则建议（未定稿） | [design/NIGHT-DEFENSE-DISCUSSION.md](design/NIGHT-DEFENSE-DISCUSSION.md) |
 | 拷贝过来的游戏目前有哪些规则 | [GAME-BASELINE.md](GAME-BASELINE.md) |
 | 到哪里改代码、配置和美术 | [DEVELOPMENT.md](DEVELOPMENT.md) |

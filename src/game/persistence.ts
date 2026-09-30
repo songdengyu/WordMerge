@@ -66,8 +66,9 @@ export class SaveRepository {
       const saved = validateSave(raw.current, world, catalog)
       if (saved.revision !== this.revision) throw new SaveError('当前存档版本序号不一致')
       this.lastGood = saved
-      return { saved, notice: (raw.current as { schemaVersion?: number }).schemaVersion === 1 ? '已升级营地存档，原有物资与进度已保留。木屋图纸已解锁。'
-        : (raw.current as { configVersion?: string }).configVersion !== saved.configVersion ? '建造时长已更新为 2 秒，已有营地和施工进度已保留。' : null }
+      return { saved, notice: (raw.current as { schemaVersion?: number }).schemaVersion === 1 ? '已升级营地存档，原有物资与进度已保留。木屋图纸与昼夜生存已开启。'
+        : (raw.current as { schemaVersion?: number }).schemaVersion === 2 ? '已开启昼夜生存，原有营地与物资已保留。建造时长已更新为 2 秒。'
+        : (raw.current as { schemaVersion?: number }).schemaVersion === 3 ? '营地手记已开启，原有物资、建筑与守卫进度已保留。' : null }
     } catch (error) {
       // Unknown future versions/configs are not "corruption" and must never roll back silently.
       if (error instanceof SaveError && error.kind === 'incompatible') throw new SaveError(error.message, error.kind, raw)
@@ -93,7 +94,7 @@ export class SaveRepository {
         if (actual !== this.revision || generation !== this.generation) {
           throw new SaveError('另一页面更新或清除了营地。为避免覆盖进度，本页已暂停；请关闭多余页面后重新载入。', 'conflict')
         }
-        const saved: SaveEnvelope = { schemaVersion: 2, configVersion: this.version,
+        const saved: SaveEnvelope = { schemaVersion: 4, configVersion: this.version,
           revision: this.revision + 1, savedAt: now, data: copy }
         if (this.lastGood) await tx.store.put(this.lastGood, 'previous')
         await tx.store.put(saved, 'current')

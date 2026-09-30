@@ -4,6 +4,11 @@ import { WAREHOUSE_EXPANSION_COSTS } from '../../data/mergeRules'
 import type { GameRuntime } from '../../game/GameRuntime'
 import { activeOrders, availableItems, isActiveGenerator, matchRequirements, type InventoryCommand } from '../../game/inventory'
 import { getOrderTarget, orderMaterials } from '../../game/construction'
+import { VitalLine } from './CampCare'
+import { DayCycle } from './DayCycle'
+import { SUPPLY_NAMES, type QuickSupplyCommand } from '../../game/quickSupply'
+import { SURVIVAL_RULES } from '../../game/survivalConfig'
+import type { TamingCommand } from '../../game/taming'
 import styles from './ProductionScreen.module.css'
 
 type Gesture = { id: string; pointerId: number; originX: number; originY: number; startX: number; startY: number; fromWarehouse: boolean; dragging: boolean }
@@ -27,7 +32,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const item = selected ? inventory.items[selected] : null
   const config = item ? catalog.itemById.get(item.itemId) : null
   const selectedLocked = item?.location.kind === 'board' && inventory.board[item.location.index].lock !== 0
-  const send = useCallback(async (command: InventoryCommand) => {
+  const send = useCallback(async (command: InventoryCommand | QuickSupplyCommand | TamingCommand) => {
     const result = await runtime.dispatch(command)
     const text = result.accepted ? `${result.message ?? '操作完成'}${result.persisted === false ? '（尚未保存）' : ''}` : result.reason
     setNotice(text)
@@ -128,7 +133,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
     if (event.button !== 0 || gesture.current) return
     const item = inventory.items[id]
     if (!item) return
-    if (item.reservedBy) { setSelected(id); setNotice('工程已预留，开工前可以在营地建设中取消安排'); return }
+    if (item.reservedBy) { setSelected(id); setNotice('任务已预留，开始前可以在地图气泡上取消安排'); return }
     if (!fromWarehouse && inventory.board[item.location.index].lock === 2) {
       setNotice('先合成邻近的半锁物品，探索这片区域'); return
     }
@@ -156,15 +161,50 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   </div>
 
   return <div ref={root} className={styles.screen} data-testid="production-screen">
-    <header className={styles.header}><div><small>把日子，一点点拼起来</small><h2>林间工坊</h2></div>
-      <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button></header>
-    <div className={styles.worldStatus}><span data-testid="merge-clock">第 {state.day} 天 · {String(state.hour).padStart(2, '0')}:{String(state.minute).padStart(2, '0')}</span>
-      <span>{state.pauseReasons.length ? '营地暂停中' : state.activity === 'building' ? `施工保护中 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '主角正在前行' : '主角在营地停留'}</span></div>
+    <div className={styles.worldStatus}><DayCycle state={state} compact /></div>
     <div className={styles.resources}><span>⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> / 100</small></span>
       <span>◇ {inventory.gems}</span><span>● {inventory.gold}</span>
       <small>{production.stamina.value >= 100 ? '自然恢复已满' : `每 10 秒恢复 1 点`}</small></div>
-    <div className={styles.vitals}>生命 {production.vitals.hp} · 饱食 {production.vitals.hunger} · 水分 {production.vitals.water}</div>
-    <section className={`${styles.orders} ${state.construction.orders.length ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
+    <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
+      message={text => { setNotice(text); message(text) }} />
+      <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button></div>
+    <section className={`${styles.orders} ${state.construction.orders.length || production.supplyOrders.length || state.survival.taming.ordered ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
+      {state.survival.taming.ordered && (() => {
+        const job = state.survival.taming.job, requirements = SURVIVAL_RULES.companion.rescueItems
+        const ready = !job && matchRequirements(inventory, requirements) !== null
+        const counts = new Map<number, number>()
+        requirements.forEach(id => counts.set(id, (counts.get(id) ?? 0) + 1))
+        return <div className={styles.supplyOrder}>
+          <button className={`${styles.order} ${ready ? styles.ready : ''}`} data-testid="taming-order" data-ready={String(ready)}
+            disabled={!!job || !!state.pauseReasons.length} onClick={async () => {
+              const result = await send({ type: 'taming-interact' })
+              if (result.accepted && !result.openProduction) close()
+            }}>
+            <strong>驯服{SURVIVAL_RULES.companion.name}</strong>
+            <div className={styles.requirements}>{requirements.map((id, i) => <span key={i} className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(id)!} compact /></span>)}</div>
+            <small>{[...counts].map(([id, needed]) => `${catalog.itemById.get(id)!.name} ${job ? needed : availableItems(inventory).filter(item => item.itemId === id).length}/${needed}`).join(' · ')}</small>
+            <small>{job ? job.phase === 'taming' ? '驯服中' : '已预留 · 正在前往' : ready ? '点击驯服 · 自动前往' : '合成所需物资'}</small>
+          </button>
+          <button className={styles.cancelSupply} aria-label="取消驯服订单" disabled={job?.phase === 'taming' || !!state.pauseReasons.length}
+            onClick={() => void send({ type: 'taming-cancel' })}>×</button>
+        </div>
+      })()}
+      {production.supplyOrders.map(order => {
+        const item = catalog.itemById.get(order.itemId)!
+        const owned = availableItems(inventory).filter(candidate => candidate.itemId === order.itemId).length
+        const full = production.vitals[order.stat] >= 100
+        return <div className={styles.supplyOrder} key={`supply-${order.stat}`}>
+          <button className={`${styles.order} ${owned ? styles.ready : ''}`} data-testid={`supply-order-${order.stat}`}
+            data-ready={String(owned > 0)} disabled={!!state.pauseReasons.length || full}
+            onClick={() => void send({ type: 'supply-order-use', stat: order.stat })}>
+            <strong>{SUPPLY_NAMES[order.stat]}补给</strong>
+            <div className={styles.requirements}><span className={owned ? styles.owned : ''}><MergePiece item={item} compact /></span></div>
+            <small>{item.name} {owned}/1</small><small>{full ? '状态已充足' : owned ? '点击使用，补充状态' : '合成后点击补充'}</small>
+          </button>
+          <button className={styles.cancelSupply} aria-label={`取消${SUPPLY_NAMES[order.stat]}补给订单`} disabled={!!state.pauseReasons.length}
+            onClick={() => void send({ type: 'supply-order-cancel', stat: order.stat })}>×</button>
+        </div>
+      })}
       {state.construction.orders.map(order => {
         const materials = orderMaterials(state.construction, order)
         const job = state.construction.jobs.find(job => job.orderId === order.id)
@@ -192,7 +232,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
             return <span key={index} className={count ? styles.owned : ''}><MergePiece item={catalog.itemById.get(id)!} compact />{count > 0 && <i>✓</i>}</span>
           })}</div><small>{ready ? '交付领取' : '收集物资'} · ⚡{catalog.effects.get(order.rewardItemId)?.amount ?? 0} / ◇{order.gems}</small></button>
       })}
-      {!activeOrders(inventory, catalog).length && <p>这批营地委托已全部完成，继续储备物资吧。</p>}
+      {!activeOrders(inventory, catalog).length && !state.construction.orders.length && !production.supplyOrders.length && !state.survival.taming.ordered && <p>这批营地委托已全部完成，继续储备物资吧。</p>}
     </section>
     <div ref={boardArea} className={styles.boardArea} data-testid="board-scroll"><div className={styles.board}
       style={{ width: boardWidth, height: (boardWidth - 32) * 9 / 7 + 38 }}>
@@ -202,11 +242,11 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
         const generator = item && isActiveGenerator(inventory, catalog, item.id)
         return <button key={index} data-board-cell={index} data-testid={`board-cell-${index}`} data-instance-id={slot.instanceId ?? ''}
           data-item-id={item?.itemId ?? ''} data-lock={slot.lock} data-reserved={item?.reservedBy ?? ''}
-          className={`${styles.cell} ${styles[`lock${slot.lock}`]} ${!item ? styles.empty : ''} ${selected === slot.instanceId && slot.instanceId ? styles.selected : ''} ${target === index ? styles.target : ''}`}
+          className={`${styles.cell} ${styles[`lock${slot.lock}`]} ${!item ? styles.empty : ''} ${target === index ? styles.target : ''}`}
           aria-label={slot.lock === 2 ? `未探索格 ${index + 1}` : config ? `${config.name} 等级 ${config.level} 棋盘格 ${index + 1}` : `空格 ${index + 1}`}
           onPointerDown={event => item && down(event, item.id, false)}
           onClick={event => { if (event.detail === 0 && item) tap(item.id) }}>
-          {slot.lock === 2 ? <span className={styles.fog}>✧</span> : config && <span className={ghost?.id === item?.id ? styles.hidden : ''}><MergePiece item={config} selected={selected === item?.id} /></span>}
+          {slot.lock === 2 ? <span className={styles.fog}>✧</span> : config && <span className={ghost?.id === item?.id ? styles.hidden : ''}><MergePiece item={config} /></span>}
           {slot.lock === 1 && <span className={styles.lockMark}>⌁</span>}
           {item?.reservedBy && <small className={styles.reserved}>预留</small>}
           {generator && config?.openCost !== null && <small className={styles.cost}>⚡{config?.openCost}</small>}
@@ -215,7 +255,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
       })}
     </div></div>
     <section className={styles.info}><div><strong>{config ? `${config.name} · Lv.${config.level}` : '准备好下一份物资'}</strong>
-      <p>{item?.reservedBy ? '已为工程预留。开工时消耗，开工前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}</section>
+      <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}</section>
     <p className={styles.notice} role="status">{notice}</p>
     <nav className={styles.footer}><button onClick={() => setWarehouseOpen(true)}>▦ 仓库 {usedWarehouse}/{inventory.warehouse.length}</button>
       <button onClick={close}>返回营地</button></nav>
@@ -226,7 +266,6 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
           const item = id ? inventory.items[id] : null
           return <button key={index} data-testid={`warehouse-cell-${index}`} data-instance-id={id ?? ''} data-reserved={item?.reservedBy ?? ''}
             aria-label={item ? `${catalog.itemById.get(item.itemId)!.name} 仓位 ${index + 1}` : `空仓位 ${index + 1}`}
-            className={selected === id && id ? styles.selected : ''}
             onPointerDown={event => id && down(event, id, true)} onClick={event => { if (event.detail === 0 && id) tap(id) }}>
             {item && <MergePiece item={catalog.itemById.get(item.itemId)!} compact />}{item?.reservedBy && <small className={styles.reserved}>预留</small>}</button>
         })}</div>

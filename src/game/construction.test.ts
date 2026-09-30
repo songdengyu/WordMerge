@@ -4,7 +4,7 @@ import { BLUEPRINTS, validateBuildingCatalog } from './buildingConfig'
 import { applyConstructionCommand, constructionNavigation, createConstruction, footprint, localToWorld, placementError, type Building, type Rotation } from './construction'
 import { applyInventoryCommand, type InventoryCommand } from './inventory'
 import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
-import { legacyConfigVersion, parseSaveFile, validateSave, type RuntimeData } from './saveData'
+import { legacyConfigVersion, m3ConfigVersion, parseSaveFile, validateSave, type RuntimeData } from './saveData'
 import { PathSearch } from './navigation'
 import { M3_INITIAL_BUILDING_VERSION } from './migrations/constructionTiming'
 
@@ -143,9 +143,9 @@ describe('atomic orders and construction', () => {
   })
   it('releases unreachable travel without consuming or moving reserved instances', async () => {
     const data = dataFixture(); building(data); supply(data, [202])
-    const { runtime, world, send, pump } = harness(data)
+    const { runtime, send, pump } = harness(data)
     await send({ type: 'building-order', buildingId: 'b1', partId: 'foundation' })
-    const blocked = vi.spyOn(world, 'canStep').mockReturnValue(false)
+    const blocked = vi.spyOn(runtime.world, 'canStep').mockReturnValue(false)
     await send({ type: 'building-claim', orderId: 'b1:foundation' }); pump(200)
     expect(runtime.getSaveData().construction.jobs).toHaveLength(0)
     expect(runtime.getSaveData().production.inventory).toEqual(data.production.inventory)
@@ -272,7 +272,8 @@ describe('M2 migration and M3 validation', () => {
       const { runtime, send, world, catalog } = harness(data)
       await send({ type: 'building-interact', buildingId: 'b1', partId: 'walls' })
       const old = JSON.parse(runtime.exportSave())
-      old.configVersion = old.configVersion.replace(/[^-]+$/, M3_INITIAL_BUILDING_VERSION)
+      old.schemaVersion = 2; delete old.data.survival
+      old.configVersion = m3ConfigVersion(world, catalog).replace(/[^-]+$/, M3_INITIAL_BUILDING_VERSION)
       old.data.construction.jobs[0].remaining = repair ? 3 : 8
       const migrated = validateSave(old, world, catalog)
       expect(migrated.data.construction.jobs[0].remaining).toBeCloseTo(repair ? 1.2 : 1.6)
@@ -294,7 +295,7 @@ describe('M2 migration and M3 validation', () => {
     const oldData = { ...current.data } as Partial<RuntimeData>; delete oldData.construction
     const old = { ...current, schemaVersion: 1, configVersion: legacyConfigVersion(world, catalog), data: oldData }
     const migrated = parseSaveFile(JSON.stringify(old), world, catalog)
-    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.schemaVersion).toBe(4)
     expect(migrated.data.production).toEqual(oldData.production)
     expect(migrated.data.elapsedSeconds).toBe(431)
     expect(migrated.data.construction).toEqual(createConstruction())

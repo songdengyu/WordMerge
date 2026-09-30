@@ -1,0 +1,13 @@
+.cycle { display: flex; flex-direction: column; align-items: center; width: 90px; flex-shrink: 0; color: var(--celestial); }
+.cycle:not(.compact) { transform: scale(1.5); transform-origin: top right; }
+.celestial { position: relative; width: 76px; height: 48px; }
+.celestial > svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 1px 2px #53442a18); }
+.cycle > span { color: var(--header-ink, #52694e); white-space: nowrap; font-size: 10px; letter-spacing: .5px; }
+.weather { position: absolute; top: -5px; right: -5px; width: 23px; height: 23px; filter: drop-shadow(0 1px 2px #263d3940); }
+.weather svg { display: block; width: 100%; height: 100%; }
+.track { opacity: .55; }
+.compact { width: auto; flex-direction: row; gap: 8px; }
+.compact .celestial { width: 26px; height: 18px; }
+.compact > span { color: #7e8c76; font-size: 10px; letter-spacing: 0; }
+.compact .weather { width: 12px; height: 12px; top: -3px; right: -5px; }
+.compact[data-celestial="moon"] { --celestial: #778ea4 !important; }

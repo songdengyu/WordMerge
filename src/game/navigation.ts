@@ -4,7 +4,10 @@ export type NavigationGrid = Pick<WorldMap, 'isWalkable' | 'canStep'>
 
 interface Node { cell: Cell; cost: number; score: number; parent?: Node }
 export type SearchResult = { status: 'pending' } | { status: 'found'; path: Cell[] } | { status: 'unreachable' }
-const distance = (a: Cell, b: Cell) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
+const distance = (a: Cell, b: Cell, diagonal: boolean) => {
+  const x = Math.abs(a.x - b.x), y = Math.abs(a.y - b.y)
+  return diagonal ? Math.max(x, y) + (Math.SQRT2 - 1) * Math.min(x, y) : x + y
+}
 
 /** Budgeted A*. A spent budget is pending, never an unreachable destination. */
 export class PathSearch {
@@ -13,11 +16,11 @@ export class PathSearch {
   private readonly closed = new Set<string>()
   private result: SearchResult = { status: 'pending' }
 
-  constructor(private readonly world: NavigationGrid, from: Cell, private readonly goal: Cell) {
+  constructor(private readonly world: NavigationGrid, from: Cell, private readonly goal: Cell, private readonly diagonal = false) {
     if (!world.isWalkable(from) || !world.isWalkable(goal)) {
       this.result = { status: 'unreachable' }
     } else {
-      this.open.push({ cell: from, cost: 0, score: distance(from, goal) })
+      this.open.push({ cell: from, cost: 0, score: distance(from, goal, diagonal) })
       this.costs.set(cellKey(from), 0)
     }
   }
@@ -37,14 +40,18 @@ export class PathSearch {
         return this.result = { status: 'found', path: path.reverse() }
       }
       this.closed.add(key)
-      for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const directions = this.diagonal ? [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, 1], [-1, -1], [1, -1]] : [[1, 0], [0, 1], [-1, 0], [0, -1]]
+      for (const [dx, dy] of directions) {
         const next = { x: node.cell.x + dx, y: node.cell.y + dy }
         const nextKey = cellKey(next)
-        if (!this.world.canStep(node.cell, next) || this.closed.has(nextKey)) continue
-        const cost = node.cost + 1
+        const horizontal = { x: next.x, y: node.cell.y }, vertical = { x: node.cell.x, y: next.y }
+        const passable = dx && dy ? this.world.canStep(node.cell, horizontal) && this.world.canStep(node.cell, vertical)
+          && this.world.canStep(horizontal, next) && this.world.canStep(vertical, next) : this.world.canStep(node.cell, next)
+        if (!passable || this.closed.has(nextKey)) continue
+        const cost = node.cost + (dx && dy ? Math.SQRT2 : 1)
         if (cost >= (this.costs.get(nextKey) ?? Infinity)) continue
         this.costs.set(nextKey, cost)
-        this.open.push({ cell: next, cost, score: cost + distance(next, this.goal), parent: node })
+        this.open.push({ cell: next, cost, score: cost + distance(next, this.goal, this.diagonal), parent: node })
       }
     }
     if (!this.open.length) this.result = { status: 'unreachable' }

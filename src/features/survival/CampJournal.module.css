@@ -1,0 +1,50 @@
+.journal { position: fixed; inset: auto 0 0; margin: auto auto 0; width: min(500px, 100%); max-width: 100%; max-height: 88dvh; overflow-y: auto; border: 1px solid #ece3cd; border-radius: 22px 22px 0 0; padding: 22px 22px calc(20px + env(safe-area-inset-bottom, 0px)); background: #f7f1e4; color: #485f49; font-family: inherit; }
+.journal::backdrop { background: #273d355e; }
+.journal header, .dialogue header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.journal h2, .dialogue h2 { font: 25px 'Songti SC', serif; margin: 6px 0; }
+.journal small, .dialogue small { font-size: 10px; color: #899179; }
+.journal button, .dialogue button, .regions button { font: inherit; font-size: 12px; color: inherit; cursor: pointer; border: 1px solid #d0d9c0; border-radius: 9px; padding: 11px 12px; background: #e8edda; }
+.journal button:disabled, .dialogue button:disabled, .regions button:disabled { opacity: .5; cursor: default; }
+.journal button:focus-visible, .dialogue button:focus-visible { outline: 2px solid #b08958; outline-offset: 2px; }
+.journal .close { width: 40px; height: 40px; padding: 0; border-radius: 50%; font-size: 24px; }
+.journal nav { display: flex; gap: 6px; margin: 20px 0; }
+.journal nav button { flex: 1; padding: 9px 4px; background: transparent; }
+.journal nav button[aria-pressed="true"] { background: #697f59; color: #fff3da; }
+.chapter { background: #fff9ea; border: 1px solid #e5dbc0; border-radius: 13px; padding: 17px; }
+.journal h3, .regions h3 { font-size: 16px; font-weight: 500; margin: 8px 0; }
+.journal p, .regions p { font-size: 12px; line-height: 1.85; margin: 10px 0; }
+.journal .muted { font-size: 11px; color: #899078; }
+.supplies { display: flex; justify-content: center; gap: 18px; margin: 15px 0; }
+.supplies > span { display: flex; align-items: center; flex-direction: column; width: 96px; }
+.supplies svg { width: 40px; height: 40px; }
+.journal .reward { font-size: 11px; color: #a08055; }
+.journal .primary, .dialogue .primary { width: 100%; background: #698257; color: #fff6de; border-color: #698257; margin-top: 10px; min-height: 44px; }
+.journal .secondary { width: 100%; margin-top: 8px; }
+.sectionTitle { margin-top: 22px !important; }
+.outfits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 12px 0 22px; }
+.outfits button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 3px; font-size: 10px; }
+.outfits svg { width: 45px; height: 50px; }
+.outfits button[aria-pressed="true"] { border-color: #849869; background: #e0e7cc; }
+.decor { display: flex; align-items: center; gap: 9px; padding: 14px 0; border-bottom: 1px solid #dde0c9; }
+.decor > span { font-size: 32px; width: 32px; text-align: center; }
+.decor > div { flex: 1; min-width: 0; }
+.decor strong { font-size: 12px; font-weight: 500; }
+.decor small { display: block; margin-top: 5px; }
+.decor button { padding: 10px 8px; }
+.resident, .memory { padding: 15px 0; border-bottom: 1px solid #dce1cc; }
+.resident b { font-size: 13px; }
+.notice { font-size: 11px; line-height: 1.7; color: #a1754b; min-height: 18px; }
+.regions article { border-top: 1px solid #d6dcc5; padding: 15px 0; }
+.regions small, .regions .muted { color: #89937a; font-size: 11px; }
+.regions button { width: 100%; }
+.dialogue { position: absolute; inset: 0; z-index: 35; overflow-y: auto; display: flex; flex-direction: column; padding: calc(24px + env(safe-area-inset-top, 0px)) 26px calc(18px + env(safe-area-inset-bottom, 0px)); background: radial-gradient(ellipse at 50% 24%, #e0e5d0, #f7efdf 60%); color: #4c624c; }
+.dialogue header { margin-bottom: 12px; flex-shrink: 0; }
+.dialogue header button { background: transparent; padding: 9px; }
+.storyArt { min-height: 74px; flex: 1; max-height: 180px; display: grid; place-items: center; font-size: 64px; color: #8d9d77; }
+.dialogue h2 { margin: 9px 0 20px; }
+.line { border-top: 1px solid #d9dcc5; padding-top: 16px; min-height: 143px; }
+.line strong { font-size: 12px; color: #977e58; }
+.line p { font-size: 14px; line-height: 2; margin: 12px 0 20px; }
+.choices { display: grid; gap: 8px; }
+.choices button { min-height: 46px; background: #eef0dd; }
+@media (max-height: 650px) { .journal { padding: 16px; } .dialogue { padding: 16px 22px; } .storyArt { min-height: 50px; max-height: 90px; font-size: 48px; } .line { min-height: 120px; } }

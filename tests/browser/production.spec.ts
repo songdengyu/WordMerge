@@ -103,12 +103,12 @@ test('the world continues behind merge; page suspension stops it while real stam
   await expect(page.getByTestId('stamina-value')).toHaveText('99')
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-paused', 'true')
-  const time = await page.getByTestId('merge-clock').textContent()
+  const time = await page.getByTestId('merge-clock').getAttribute('data-minute')
   // Wall time can advance without advancing RAF world simulation (simulates time spent away).
   await page.clock.setFixedTime(new Date(Date.now() + 30_000))
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
   await expect(page.getByTestId('stamina-value')).toHaveText('100')
-  expect(await page.getByTestId('merge-clock').textContent()).toBe(time)
+  expect(await page.getByTestId('merge-clock').getAttribute('data-minute')).toBe(time)
 })
 
 test('export/import restores a reviewed backup, invalid imports never replace current progress', async ({ page }) => {
@@ -116,7 +116,7 @@ test('export/import restores a reviewed backup, invalid imports never replace cu
   await page.getByTestId('board-cell-5').dblclick()
   await expect(page.getByTestId('stamina-value')).toHaveText('150')
   await page.getByRole('button', { name: '返回营地', exact: true }).click()
-  await page.getByRole('button', { name: '探索指引', exact: true }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: '导出备份', exact: true }).click()
   const file = await download
@@ -126,7 +126,7 @@ test('export/import restores a reviewed backup, invalid imports never replace cu
   await page.getByTestId('board-cell-0').click()
   await expect(page.getByTestId('stamina-value')).toHaveText('149')
   await page.getByRole('button', { name: '返回营地', exact: true }).click()
-  await page.getByRole('button', { name: '探索指引', exact: true }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   await page.getByLabel('选择存档备份').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{') })
   await expect(page.getByRole('dialog')).toContainText('无法读取 JSON')
   await expect(page.getByTestId('map-stamina')).toHaveText('149')

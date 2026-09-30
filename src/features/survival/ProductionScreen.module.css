@@ -1,15 +1,12 @@
 .screen { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; padding: calc(14px + env(safe-area-inset-top, 0px)) 14px calc(10px + env(safe-area-inset-bottom, 0px)); background: #f2efdf; color: #435b45; overflow: hidden; }
 .screen button { font: inherit; color: inherit; cursor: pointer; -webkit-user-select: none; user-select: none; }
-.header { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-.header small { font-size: 9px; color: #8a947d; letter-spacing: 2px; }
-.header h2 { font-family: "Songti SC", "SimSun", serif; font-weight: 500; font-size: 23px; letter-spacing: 3px; margin: 5px 0 7px; }
-.close { background: #e6e9d8; border: 1px solid #d5ddc5; border-radius: 50%; width: 40px; height: 40px; font-size: 24px !important; }
+.close { background: #e6e9d8; border: 1px solid #d5ddc5; border-radius: 50%; width: 40px; height: 40px; flex-shrink: 0; font-size: 24px !important; }
 .worldStatus { display: flex; justify-content: space-between; font-size: 10px; color: #7e8c76; border-bottom: 1px solid #d9dfca; padding: 5px 0 10px; flex-shrink: 0; }
-.resources { display: flex; align-items: center; gap: 16px; padding: 10px 3px; font-size: 12px; flex-shrink: 0; }
+.resources { display: flex; align-items: center; gap: 16px; padding: 7px 3px; font-size: 12px; flex-shrink: 0; }
 .resources > span:first-child { color: #967344; }
 .resources small { font-size: 9px; color: #8f967e; }
 .resources > small { margin-left: auto; }
-.vitals { font-size: 10px; color: #8b957b; margin: -2px 3px 9px; flex-shrink: 0; }
+.vitals { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px 3px 5px; flex-shrink: 0; }
 .orders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; margin-bottom: 9px; }
 .order { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 3px; border: 1px solid #d8ddc5; border-radius: 11px; background: #faf7e9; }
 .order strong { font-size: 11px; font-weight: 500; }
@@ -24,6 +21,9 @@
 .withBuildingOrders { display: flex; overflow-x: auto; padding-bottom: 4px; }
 .withBuildingOrders .order { flex: 0 0 132px; min-height: 90px; }
 .withBuildingOrders .order small { font-size: 8px; }
+.supplyOrder { position: relative; flex: 0 0 132px; }
+.supplyOrder > .order { width: 100%; height: 100%; }
+.cancelSupply { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: #eee9d8; font-size: 15px !important; }
 .reserved { position: absolute; top: 1px; left: 1px; border-radius: 4px; padding: 2px; background: #a48550ef; color: #fff2cb; font-size: 8px; pointer-events: none; }
 .boardArea { flex: 1; min-height: 0; overflow-y: auto; display: flex; justify-content: center; align-items: flex-start; scrollbar-width: thin; }
 .board { max-width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: repeat(9, minmax(0, 1fr)); gap: 3px; padding: 6px; border: 1px solid #c2cfb4; background: #c9d4bb; border-radius: 12px; flex-shrink: 0; }
@@ -35,19 +35,22 @@
 .empty, .lock1, .lock2 { touch-action: pan-y; }
 .cell .fog { display: grid; place-items: center; color: #819976; font-size: 22px; }
 .cell .lockMark { position: absolute; width: auto; height: auto; bottom: -3px; left: 0; color: #6d855e; font-size: 23px; }
-.selected { outline: 2px solid #b2945e; outline-offset: -2px; background: #f4efd2 !important; }
 .target { outline: 2px solid #769964; outline-offset: -1px; }
 .cost { position: absolute; bottom: -1px; left: -1px; padding: 1px 3px; background: #f3dca4; border-radius: 4px; color: #8e6d3c; font-size: 8px; }
 .level { position: absolute; bottom: 1px; right: 3px; font-size: 8px; color: #81946f; }
 .hidden { opacity: 0 !important; }
-.info { display: flex; gap: 8px; align-items: center; padding: 10px 2px 4px; min-height: 66px; flex-shrink: 0; }
-.info > div:first-child { flex: 1; }
+/* Selection controls must not change the space used to size the board. */
+.info { display: flex; gap: 8px; align-items: center; padding: 10px 2px 4px; height: 66px; min-height: 0; flex: 0 0 66px; }
+.info > div:first-child { flex: 1; min-width: 0; max-height: 100%; overflow-y: auto; }
+.info > .itemActions { max-width: none; flex-wrap: nowrap; }
+.info > .itemActions button { white-space: nowrap; }
 .info strong, .warehouseInfo strong { font-size: 12px; font-weight: 600; }
 .info p, .warehouseInfo p { font-size: 10px; color: #879479; line-height: 1.65; margin-top: 4px; }
 .itemActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 132px; flex-shrink: 0; }
 .itemActions button { background: #6f8762; color: #f9f2da; border: 0; padding: 8px 9px; border-radius: 7px; font-size: 10px; }
 .itemActions .discard { background: #e6e7d5; color: #939079; }
 .notice { padding: 5px 2px; min-height: 25px; font-size: 10px; line-height: 1.5; color: #9a885e; text-align: center; flex-shrink: 0; }
+.screen > .notice { height: 25px; min-height: 0; overflow-y: auto; }
 .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 4px; flex-shrink: 0; }
 .footer button { border: 1px solid #ccd7bd; border-radius: 9px; background: #e2e8d0; min-height: 43px; font-size: 12px; }
 .footer button:last-child { background: #5f7856; color: #f6f1de; border-color: #5f7856; }
@@ -73,4 +76,4 @@
 .saveControls small { font-size: 10px; display: block; color: #88937b; margin-top: 12px; line-height: 1.8; }
 .screen button:disabled, .saveControls button:disabled { opacity: .5; cursor: default; }
 .screen button:focus-visible { outline: 2px solid #b49769; outline-offset: 2px; }
-@media (max-height: 680px) { .header small { display: none; } .header h2 { font-size: 20px; } .order { padding: 5px 2px; gap: 2px; } .worldStatus { padding: 3px 0 6px; } .resources { padding: 7px 3px; } .info { min-height: 56px; padding-top: 7px; } .info p { max-height: 33px; overflow-y: auto; } .notice { padding: 3px 2px; min-height: 20px; } }
+@media (max-height: 680px) { .order { padding: 5px 2px; gap: 2px; } .worldStatus { padding: 3px 0 6px; } .resources { padding: 5px 3px; } .vitals { margin-bottom: 0; } .orders { margin-bottom: 5px; } .info { height: 56px; flex-basis: 56px; padding-top: 7px; } .notice { padding: 3px 2px; min-height: 20px; } .screen > .notice { height: 21px; } }

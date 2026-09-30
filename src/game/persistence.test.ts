@@ -26,6 +26,44 @@ beforeEach(async () => { await deleteDB(DATABASE_NAME) })
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(repositories.splice(0).map(repo => repo.close())) })
 
 describe('versioned atomic IndexedDB saves', () => {
+  it('retries a failed taming start save and resumes its timer without consuming another food', async () => {
+    const repo = await repository(), saved = await repo.save(dataFixture())
+    const runtime = new GameRuntime(world, { catalog, saved, repository: repo, now: () => testNow })
+    vi.spyOn(repo, 'save').mockRejectedValueOnce(new Error('QuotaExceededError'))
+    runtime.advanceFrame(0)
+    const command = runtime.dispatch({ type: 'taming-interact' }); runtime.advanceFrame(50)
+    expect(await command).toMatchObject({ accepted: true, persisted: false })
+    expect(runtime.getUiSnapshot().pauseReasons).toContain('save-error')
+    const consumed = runtime.getSaveData().production.inventory
+    expect(consumed.board[9].instanceId).toBeNull()
+    expect(await runtime.retrySave()).toBe(true)
+    const committed = validateSave(await readRecord('current'), world, catalog)
+    expect(committed.data.survival.taming.job).toMatchObject({ phase: 'taming', remaining: 2, reservedIds: [] })
+    const restored = new GameRuntime(world, { catalog, saved: committed, now: () => testNow })
+    for (let time = 0; time <= 2000; time += 50) restored.advanceFrame(time)
+    expect(restored.getSaveData().survival.companion.status).toBe('active')
+    expect(restored.getSaveData().production.inventory).toEqual(consumed)
+  })
+  it('persists story choices and one-time cosmetic rewards after a failed save and retry', async () => {
+    const data = dataFixture()
+    data.progression.completed = ['letter']; data.progression.choices = { letter: 'home' }
+    data.progression.dialogue = { chapterId: 'foundation', line: 1 }
+    data.construction.buildings = [{ id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
+      parts: Object.fromEntries(['foundation', 'walls', 'door', 'roof', 'bed'].map(id => [id, { built: id === 'foundation', hp: id === 'foundation' ? 100 : 0, xpGranted: id === 'foundation' }])) }]
+    data.construction.nextId = 2; data.construction.xp = 10
+    const repo = await repository(), saved = await repo.save(data)
+    const runtime = new GameRuntime(world, { catalog, saved, repository: repo, now: () => testNow })
+    vi.spyOn(repo, 'save').mockRejectedValueOnce(new DOMException('quota', 'QuotaExceededError'))
+    expect(await runtime.dispatch({ type: 'story-choice', chapterId: 'foundation', choiceId: 'keep' })).toMatchObject({ accepted: true, persisted: false })
+    expect(runtime.getUiSnapshot().pauseReasons).toContain('save-error')
+    expect(await runtime.retrySave()).toBe(true)
+    const committed = validateSave(await readRecord('current'), world, catalog)
+    expect(committed.data.progression.ownedDecor).toEqual(['rug'])
+    expect(committed.data.progression.completed).toEqual(['letter', 'foundation'])
+    const reloaded = new GameRuntime(world, { catalog, saved: committed, now: () => testNow })
+    expect(await reloaded.dispatch({ type: 'story-choice', chapterId: 'foundation', choiceId: 'keep' })).toMatchObject({ accepted: false })
+    expect(reloaded.getSaveData().progression.ownedDecor).toEqual(['rug'])
+  })
   it('explicitly clears all progress and backups, including corrupt records', async () => {
     const repo = await repository()
     await repo.save(dataFixture()); await repo.save(dataFixture())
@@ -108,10 +146,10 @@ describe('versioned atomic IndexedDB saves', () => {
   it('does not treat a future format or changed configuration as a reason to roll back', async () => {
     const repo = await repository()
     await repo.save(dataFixture()); const current = await repo.save(dataFixture())
-    await writeRecord('current', { ...current, schemaVersion: 3 })
+    await writeRecord('current', { ...current, schemaVersion: 5 })
     const fresh = await SaveRepository.open(world, catalog); repositories.push(fresh)
     await expect(fresh.load(world, catalog)).rejects.toMatchObject({ kind: 'incompatible' })
-    expect((await readRecord('current')).schemaVersion).toBe(3)
+    expect((await readRecord('current')).schemaVersion).toBe(5)
   })
   it('does not start a new game when both current and backup are damaged', async () => {
     const repo = await repository()
@@ -140,6 +178,24 @@ describe('versioned atomic IndexedDB saves', () => {
 })
 
 describe('runtime and durable production', () => {
+  it('persists defeat before rescue and retries a failed rescue save without applying loss twice', async () => {
+    const repo = await repository(), runtime = new GameRuntime(world, { catalog, repository: repo, now: () => testNow })
+    await runtime.checkpoint(); runtime.applyDamage('player', 100)
+    await vi.waitFor(async () => expect((await readRecord('current')).data.production.vitals.hp).toBe(0))
+    const failed = validateSave(await readRecord('current'), world, catalog)
+    expect(failed.data.survival.failure?.id).toBe(1)
+    const fresh = await repository(), restored = new GameRuntime(world, { catalog, saved: failed, repository: fresh, now: () => testNow })
+    vi.spyOn(fresh, 'save').mockRejectedValueOnce(new Error('QuotaExceededError'))
+    expect(await restored.dispatch({ type: 'rescue' })).toMatchObject({ accepted: true, persisted: false })
+    expect(restored.getUiSnapshot().pauseReasons).toContain('save-error')
+    const inventory = restored.getSaveData().production.inventory
+    expect(await restored.dispatch({ type: 'rescue' })).toMatchObject({ accepted: false })
+    expect(await restored.retrySave()).toBe(true)
+    expect(restored.getSaveData().production.inventory).toEqual(inventory)
+    const rescued = validateSave(await readRecord('current'), world, catalog)
+    expect(rescued.data.survival).toMatchObject({ failure: null, rescuedCount: 1, failureCount: 1 })
+    expect(Object.keys(rescued.data.production.inventory.items)).toHaveLength(Object.keys(failed.data.production.inventory.items).length - 2)
+  })
   it('checkpoints arrival deduction and completion XP immediately, without waiting for the autosave interval', async () => {
     const repo = await repository(), runtime = new GameRuntime(world, { catalog, repository: repo, now: () => testNow })
     let frame = 0; runtime.advanceFrame(frame)

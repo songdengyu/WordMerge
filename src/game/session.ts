@@ -5,10 +5,12 @@ import { parseSaveFile } from './saveData'
 import { syncStamina } from './stamina'
 import { loadWorld } from './world'
 import { validateBuildingCatalog } from './buildingConfig'
+import { validateProgressionCatalog } from './progression'
 
 export async function loadGameSession(signal: AbortSignal) {
   const [world, catalog] = await Promise.all([loadWorld(signal), loadProductionConfig(signal)])
   validateBuildingCatalog(catalog)
+  validateProgressionCatalog(world, catalog)
   signal.throwIfAborted()
   const repository = await SaveRepository.open(world, catalog)
   try {
@@ -23,6 +25,7 @@ export async function recoverFromFile(text: string) {
   const signal = new AbortController().signal
   const [world, catalog] = await Promise.all([loadWorld(signal), loadProductionConfig(signal)])
   validateBuildingCatalog(catalog)
+  validateProgressionCatalog(world, catalog)
   const saved = parseSaveFile(text, world, catalog)
   const repository = await SaveRepository.open(world, catalog)
   try {

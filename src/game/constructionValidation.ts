@@ -2,6 +2,7 @@ import { BLUEPRINTS, blueprintById } from './buildingConfig'
 import { constructionNavigation, createConstruction, footprint, getOrderTarget, localToWorld, orderError, orderMaterials, orderSeconds, placementError, type ConstructionState } from './construction'
 import type { RuntimeData } from './saveData'
 import { sameCell, type WorldMap } from './world'
+import { canWalkLine } from './smoothNavigation'
 
 type Check = (condition: unknown, message: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -61,6 +62,7 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
       check(record(entry.workCell) && config.work.some(cell => sameCell(localToWorld(building, cell), entry.workCell as { x: number; y: number })), '施工工作位')
       if (entry.phase === 'travel') check(entry.remaining === 0 && data.destination && sameCell(data.destination, entry.workCell as { x: number; y: number }), '前往工作位的目标')
       else check(sameCell(data.cell, entry.workCell as { x: number; y: number }) && !data.route.length && data.progress === 0
+        && (!data.motion || sameCell(data.motion.position, data.cell))
         && !data.searching && data.destination === null && entry.remaining > 0 && entry.remaining <= duration(config, order) && !entry.reservedIds.length, '开工位置、计时或扣料异常')
     }
     if (entry.phase !== 'building') {
@@ -75,10 +77,10 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
       })
     }
   }
-  for (const item of Object.values(data.production.inventory.items)) check(item.reservedBy === null || reserved.has(item.id), '孤立的物资预留')
   const grid = constructionNavigation(world, state)
-  let from = data.cell
-  for (const next of data.route) { check(grid.canStep(from, next), '路径穿过建筑木墙'); from = next }
+  let from = data.motion?.position ?? data.cell
+  if (data.motion) check(canWalkLine(grid, from, from), '角色位置与建筑木墙重叠')
+  for (const next of data.route) { check(data.motion ? canWalkLine(grid, from, next) : grid.canStep(from, next), '路径穿过建筑木墙'); from = next }
   // Geometry is kept in tile coordinates, never inferred from rendering positions.
   check(state.buildings.every(building => footprint(building, blueprintById(building.blueprintId)!).every(cell => world.isWalkable(cell))), '建筑占地')
 }

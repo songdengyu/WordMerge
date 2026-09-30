@@ -1,0 +1,36 @@
+.hud { position: absolute; z-index: 3; top: calc(88px + env(safe-area-inset-top, 0px)); left: 22px; display: flex; align-items: center; gap: 6px; height: 44px; }
+.hud > div { flex: 0 0 auto; }
+.companion { position: relative; display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 5px; border: 0; background: none; color: #637c58; cursor: pointer; }
+.companion svg { width: 27px; height: 27px; }
+.companion span { position: absolute; right: 3px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; background: #b69c69; }
+.companion[data-state="active"] span { background: #87af6e; }
+.companion[data-state="injured"] span, .companion[data-state="recovering"] span { background: #db7963; }
+.threat { font-size: 10px; color: #748061; background: #e9eddb; border-radius: 7px; padding: 5px 7px; margin-bottom: 7px; flex-shrink: 0; }
+.threat > div { display: flex; justify-content: space-between; gap: 4px; }
+.threat p { margin: 4px 0 0; font-size: 10px; line-height: 1.4; }
+.threat[data-danger="true"] { background: #f3dfce; color: #955f41; }
+.dialog { position: fixed; inset: auto 0 0; margin: auto auto 0; width: min(500px, 100%); max-width: 100%; max-height: 86dvh; overflow-y: auto; border: 1px solid #f2e7cb; border-radius: 22px 22px 0 0; padding: 25px 22px calc(22px + env(safe-area-inset-bottom, 0px)); background: #f8f2e5; color: #4a614b; font-family: inherit; }
+.dialog::backdrop { background: #243d3459; }
+.dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.dialog h2, .failure h2 { font: 24px 'Songti SC', 'SimSun', serif; margin: 7px 0; }
+.dialog small { font-size: 10px; color: #8b947a; }
+.close { width: 40px; height: 40px; border: 1px solid #dbe0c6; border-radius: 50%; background: #eff0dc; color: #788462; font-size: 24px; cursor: pointer; }
+.notice { margin: 12px 0; font-size: 12px; line-height: 1.7; color: #9b7854; }
+.weather { background: #eeeedc; border-radius: 10px; padding: 12px; font-size: 12px; }
+.weather small { display: block; margin-top: 7px; }
+.dialog section { padding: 18px 0 12px; border-bottom: 1px solid #dce1cb; }
+.dialog h3 { font-size: 16px; font-weight: 500; display: flex; justify-content: space-between; }
+.dialog h3 span { font-size: 11px; color: #8c967a; }
+.dialog section p { font-size: 12px; line-height: 1.7; margin: 10px 0; }
+.buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+.buttons button, .enemy { border: 1px solid #d5ddc2; border-radius: 9px; padding: 11px 10px; background: #edf0dc; color: #5a7451; font: inherit; font-size: 12px; cursor: pointer; }
+.buttons button { flex: 1 0 40%; }
+.enemy { display: flex; justify-content: space-between; width: 100%; margin: 8px 0; }
+.primary { display: block; width: 100%; margin: 18px 0 12px; padding: 14px; background: #668456; border: 0; border-radius: 10px; color: #fff6df; font: inherit; font-size: 14px; cursor: pointer; }
+.dialog button:disabled, .failure button:disabled { opacity: .5; cursor: default; }
+.subtle { font-size: 10px !important; color: #929881; line-height: 1.8; margin-top: 12px; }
+.failure { position: absolute; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; background: #f4efdfF7; }
+.failure p { font-size: 13px; line-height: 1.8; margin: 9px 0; }
+.failure small { font-size: 11px; color: #8b917c; }
+.rescueIcon { font-size: 42px; color: #b3965e; margin-bottom: 15px; }
+@media (max-height: 650px) { .hud { top: calc(80px + env(safe-area-inset-top, 0px)); } .dialog { padding-top: 18px; } }

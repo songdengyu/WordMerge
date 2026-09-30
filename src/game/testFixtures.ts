@@ -4,6 +4,8 @@ import { parseWorld } from './world'
 import { configVersion, type RuntimeData, type SaveEnvelope } from './saveData'
 import { createProduction } from './inventory'
 import { createConstruction } from './construction'
+import { createSurvival } from './survival'
+import { createProgression } from './progression'
 
 export const testNow = 1_800_000_000_000
 export function productionFixture() {
@@ -13,8 +15,8 @@ export function productionFixture() {
 export function worldFixture() { return parseWorld(JSON.parse(readFileSync('public/config/survival/world.json', 'utf8'))) }
 export function dataFixture(): RuntimeData {
   return { elapsedSeconds: 0, cell: { x: 7, y: 9 }, progress: 0, route: [], destination: null, searching: false,
-    production: createProduction(productionFixture(), testNow), construction: createConstruction() }
+    production: createProduction(productionFixture(), testNow), construction: createConstruction(), survival: createSurvival(worldFixture()), progression: createProgression() }
 }
 export function envelopeFixture(data = dataFixture()): SaveEnvelope {
-  return { schemaVersion: 2, configVersion: configVersion(worldFixture(), productionFixture()), revision: 0, savedAt: testNow, data }
+  return { schemaVersion: 4, configVersion: configVersion(worldFixture(), productionFixture()), revision: 0, savedAt: testNow, data }
 }

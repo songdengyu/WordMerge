@@ -1,10 +1,17 @@
 import { Application, Container, Graphics, Text } from 'pixi.js'
 import { CHUNK_SIZE, type Cell, type WorldObject } from '../game/world'
 import type { GameRuntime, SceneSnapshot } from '../game/GameRuntime'
-import { Camera, gridToWorld } from './camera'
+import { Camera, gridToWorld, worldToPosition } from './camera'
 import { attachMapInput } from './mapInput'
 import { buildingAt, footprint, localToWorld, type Rotation } from '../game/construction'
 import { blueprintById } from '../game/buildingConfig'
+import { actorPosition, distance } from '../game/survival'
+import { SurvivalActors } from './SurvivalActors'
+import { decorError } from '../game/progression'
+import { OUTFITS, REGIONS, type DecorId } from '../game/progressionConfig'
+import { drawDecoration, ProgressionViews } from './ProgressionViews'
+import { Atmosphere } from './Atmosphere'
+import { BuildingBubbles } from './BuildingBubbles'
 
 const diamond = (graphics: Graphics, x: number, y: number, color: number, alpha = 1) =>
   graphics.poly([x, y - 16, x + 32, y, x, y + 16, x - 32, y]).fill({ color, alpha })
@@ -52,13 +59,13 @@ function makeObject(object: WorldObject): Container {
   return root
 }
 
-function makePlayer() {
+function makePlayer(color = 0xc77b64) {
   const root = new Container()
   const g = new Graphics()
   g.ellipse(0, 1, 11, 5).fill({ color: 0x254035, alpha: 0.25 })
   g.roundRect(-6, -9, 5, 10, 2).fill(0x5a4b40)
   g.roundRect(2, -9, 5, 10, 2).fill(0x5a4b40)
-  g.poly([-7, -28, 7, -28, 10, -10, -10, -10]).fill(0xc77b64)
+  g.poly([-7, -28, 7, -28, 10, -10, -10, -10]).fill(color)
   g.roundRect(-10, -27, 5, 15, 2).fill(0xe7be94)
   g.roundRect(6, -27, 5, 15, 2).fill(0xe7be94)
   g.ellipse(0, -35, 10, 12).fill(0x634f42)
@@ -80,12 +87,20 @@ export class CampScene {
   private readonly buildings = new Graphics()
   private readonly preview = new Graphics()
   private readonly protection = new Graphics()
+  private readonly progressionViews = new ProgressionViews()
+  private readonly decorPreview = new Graphics()
+  private decorationPlacement: { kind: DecorId; cell: Cell } | null = null
+  private regionSignature = ''
+  private outfit = 'clay'
+  private resident: Container | null = null
   private placement: { blueprintId: string; origin: Cell; rotation: Rotation } | null = null
   private buildingSignature = ''
   private previewSignature = ''
-  private readonly player = makePlayer()
-  private readonly shade = new Graphics()
+  private player = makePlayer()
+  private readonly atmosphere = new Atmosphere()
+  private readonly survivalActors = new SurvivalActors(this.actors)
   private readonly chunks: { view: Container; left: number; right: number; top: number; bottom: number }[] = []
+  private readonly objectViews = new Map<string, Container>()
   private readonly camera: Camera
   private detachInput?: () => void
   private resizeObserver?: ResizeObserver
@@ -95,11 +110,15 @@ export class CampScene {
   private lastWidth = 0
   private lastHeight = 0
   private contextLost = false
+  private readonly buildingBubbles: BuildingBubbles
+  private bubblesHidden = false
+  private readonly assetAbort = new AbortController()
 
   constructor(private readonly host: HTMLDivElement, private readonly runtime: GameRuntime,
     private readonly onMessage: (message: string) => void, private readonly onError: (message: string) => void,
     private readonly onBuilding: (id: string) => void, private readonly onOrigin: (cell: Cell) => void,
-    private readonly bubbleLayer: HTMLDivElement) {
+    private readonly openMerge: () => void, private readonly onCompanion: () => void, private readonly onJournal: () => void) {
+    this.buildingBubbles = new BuildingBubbles(runtime, host, onMessage, openMerge)
     const corners = runtime.world.config.chunks.flatMap(chunk => [
       gridToWorld({ x: chunk.x * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
       gridToWorld({ x: (chunk.x + 1) * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
@@ -116,6 +135,8 @@ export class CampScene {
         resolution: Math.min(window.devicePixelRatio || 1, 2), autoDensity: true, autoStart: false })
       this.initialized = true
       if (this.disposed) { this.destroyApplication(); return }
+      await this.buildingBubbles.load(this.assetAbort.signal)
+      if (this.disposed) return
       const canvas = this.app.canvas
       canvas.setAttribute('aria-label', '林间营地地图，轻点空地移动，拖动查看，双指缩放')
       canvas.setAttribute('role', 'img')
@@ -123,16 +144,18 @@ export class CampScene {
       this.host.appendChild(canvas)
       canvas.addEventListener('webglcontextlost', this.onContextLost)
       canvas.addEventListener('webglcontextrestored', this.onContextRestored)
-      this.root.addChild(this.ground, this.buildings, this.preview, this.route, this.protection, this.actors)
+      this.root.addChild(this.ground, this.buildings, this.progressionViews.view, this.survivalActors.guard, this.preview, this.decorPreview, this.route, this.protection, this.actors, this.buildingBubbles.view)
       this.actors.sortableChildren = true
       this.actors.addChild(this.player)
-      this.app.stage.addChild(this.root, this.shade)
+      this.app.stage.addChild(this.root, this.atmosphere.view)
       this.buildMap()
       this.resize()
       this.camera.center(this.runtime.getSceneSnapshot().position)
       this.resizeObserver = new ResizeObserver(() => this.resize())
       this.resizeObserver.observe(this.host)
-      this.detachInput = attachMapInput(canvas, this.camera, cell => this.tap(cell))
+      this.detachInput = attachMapInput(canvas, this.camera, (cell, world) => {
+        if (!this.buildingBubbles.tap(world)) this.tap(cell, worldToPosition(world))
+      })
       this.app.ticker.add(this.render)
       this.app.start()
       this.runtime.setPauseReason('renderer-lost', false)
@@ -147,6 +170,8 @@ export class CampScene {
   }
 
   centerPlayer() { this.camera.center(this.runtime.getSceneSnapshot().position) }
+  centerCell(cell: Cell) { this.camera.center(cell) }
+  setDecorationPlacement(placement: typeof this.decorationPlacement) { this.decorationPlacement = placement }
   centerBuilding(id: string) {
     const building = this.runtime.getUiSnapshot().construction.buildings.find(building => building.id === id)
     if (building) {
@@ -155,10 +180,33 @@ export class CampScene {
     }
   }
   setPlacement(placement: typeof this.placement) { this.placement = placement }
+  setBubblesHidden(hidden: boolean) { this.bubblesHidden = hidden }
   zoomBy(factor: number) { this.camera.zoomAt(this.camera.zoom * factor, { x: this.camera.width / 2, y: this.camera.height / 2 }) }
 
-  private tap(cell: Cell) {
-    if (this.placement) { this.onOrigin(cell); return }
+  private tap(cell: Cell, point: Cell) {
+    if (this.placement || this.decorationPlacement) { this.onOrigin(cell); return }
+    const progress = this.runtime.getUiSnapshot().progression
+    if (progress.completed.includes('visitor') && distance(cell, { x: 9, y: 8 }) < .8) { this.onJournal(); return }
+    const landmark = REGIONS.find(r => progress.unlockedRegions.includes(r.id) && distance(cell, r.point) < .8)
+    if (landmark && progress.discoveries.includes(landmark.id)) { this.onJournal(); return }
+    const survival = this.runtime.getUiSnapshot().survival
+    const animalPoint = gridToWorld(actorPosition(survival.companion)), tapPoint = gridToWorld(point)
+    if (Math.abs(tapPoint.x - animalPoint.x) <= 26 && tapPoint.y >= animalPoint.y - 38 && tapPoint.y <= animalPoint.y + 10) {
+      if (survival.companion.status !== 'wild') this.onCompanion()
+      else void this.runtime.dispatch({ type: 'taming-interact' }).then(result => {
+        if (this.disposed) return
+        if (!result.accepted) this.onMessage(result.reason)
+        else if (result.openProduction) this.openMerge()
+        else if (result.message) this.onMessage(result.message)
+      })
+      return
+    }
+    const enemy = survival.enemies.find(enemy => distance(actorPosition(enemy), cell) < .8)
+    if (enemy) {
+      void this.runtime.dispatch({ type: 'companion-attack', enemyId: enemy.id }).then(result => {
+        if (!this.disposed) this.onMessage(result.accepted ? result.message ?? '已指派伙伴' : result.reason)
+      }); return
+    }
     const building = buildingAt(this.runtime.getUiSnapshot().construction, cell)
     if (building) { this.onBuilding(building.id); return }
     const object = this.runtime.world.objectAt(cell)
@@ -168,7 +216,7 @@ export class CampScene {
         : '这片地面被挡住了，试试旁边的小径。')
       return
     }
-    void this.runtime.dispatch({ type: 'move', target: cell }).then(result => {
+    void this.runtime.dispatch({ type: 'move', target: point }).then(result => {
       if (!this.disposed && !result.accepted) this.onMessage(result.reason)
     })
   }
@@ -229,7 +277,7 @@ export class CampScene {
       }
     }
     this.protection.clear()
-    if (snapshot.construction.jobs[0]?.phase === 'building') {
+    if (snapshot.construction.jobs[0]?.phase === 'building' || snapshot.survival.taming.job?.phase === 'taming') {
       const p = gridToWorld(snapshot.position)
       this.protection.ellipse(p.x, p.y, 23, 12).fill({ color: 0xfbe2a1, alpha: .3 }).stroke({ color: 0xffecc0, width: 2 })
     }
@@ -240,12 +288,15 @@ export class CampScene {
     const height = Math.max(1, this.host.clientHeight)
     this.app.renderer.resize(width, height)
     this.camera.resize(width, height)
-    this.shade.clear().rect(0, 0, width, height).fill(0x172945)
     this.lastWidth = width; this.lastHeight = height
   }
 
   private buildMap() {
-    for (const chunk of this.runtime.world.config.chunks) {
+    this.ground.removeChildren().forEach(child => child.destroy({ children: true }))
+    this.chunks.length = 0
+    this.regionSignature = this.runtime.getUiSnapshot().progression.unlockedRegions.join(',')
+    for (const config of this.runtime.world.config.chunks) {
+      const chunk = this.runtime.world.chunkAt({ x: config.x * CHUNK_SIZE, y: config.y * CHUNK_SIZE })!
       const view = new Container()
       const g = new Graphics()
       let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
@@ -282,13 +333,43 @@ export class CampScene {
       this.ground.addChild(view)
       this.chunks.push({ view, left, right, top, bottom })
     }
-    for (const object of this.runtime.world.config.objects) this.actors.addChild(makeObject(object))
+    const objects = this.runtime.world.allObjects().filter(object => this.runtime.world.chunkAt(object)?.unlocked)
+    const visible = new Set(objects.map(object => object.id))
+    for (const [id, view] of this.objectViews) if (!visible.has(id)) { view.destroy({ children: true }); this.objectViews.delete(id) }
+    for (const object of objects) if (!this.objectViews.has(object.id)) {
+      const view = makeObject(object); this.objectViews.set(object.id, view); this.actors.addChild(view)
+    }
   }
 
   private render = () => {
     if (this.disposed || this.contextLost) return
     const snapshot = this.runtime.getSceneSnapshot()
+    if (this.regionSignature !== snapshot.progression.unlockedRegions.join(',')) this.buildMap()
+    this.progressionViews.draw(snapshot.progression)
+    if (snapshot.progression.outfit !== this.outfit) {
+      this.outfit = snapshot.progression.outfit; this.player.destroy({ children: true })
+      this.player = makePlayer(OUTFITS.find(o => o.id === this.outfit)!.color); this.actors.addChild(this.player)
+    }
+    if (snapshot.progression.completed.includes('visitor') && !this.resident) {
+      this.resident = makePlayer(0x7c92a2)
+      const p = gridToWorld({ x: 9, y: 8 }); this.resident.position.set(p.x, p.y); this.resident.zIndex = p.y + .1
+      const label = new Text({ text: '林岚', style: { fontSize: 11, fill: 0xfff4d8, stroke: { color: 0x49624d, width: 3 } } })
+      label.anchor.set(.5, 1); label.y = -50; this.resident.addChild(label); this.actors.addChild(this.resident)
+    } else if (!snapshot.progression.completed.includes('visitor') && this.resident) { this.resident.destroy({ children: true }); this.resident = null }
+    this.decorPreview.clear()
+    if (this.decorationPlacement) {
+      const { cell, kind } = this.decorationPlacement, p = gridToWorld(cell)
+      const valid = !decorError(kind, cell, snapshot.progression, snapshot.construction)
+      diamond(this.decorPreview, p.x, p.y, valid ? 0xf6edb4 : 0xce8878, .65)
+      drawDecoration(this.decorPreview, kind, p.x, p.y, .8)
+    }
     this.drawBuildings(snapshot)
+    this.survivalActors.draw(snapshot)
+    const lights = [
+      ...this.runtime.world.config.objects.filter(o => o.kind === 'campfire'),
+      ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
+    ].map(cell => this.camera.toScreen(gridToWorld(cell)))
+    const light = this.atmosphere.draw(snapshot, this.lastWidth, this.lastHeight, lights)
     const alpha = this.runtime.getInterpolation()
     const position = { x: snapshot.previousPosition.x + (snapshot.position.x - snapshot.previousPosition.x) * alpha,
       y: snapshot.previousPosition.y + (snapshot.position.y - snapshot.previousPosition.y) * alpha }
@@ -297,13 +378,7 @@ export class CampScene {
     this.player.zIndex = foot.y + 0.1
     this.root.position.set(this.camera.x, this.camera.y)
     this.root.scale.set(this.camera.zoom)
-    // Project React's map bubbles with the same render clock and camera, without another simulation/RAF.
-    for (const node of this.bubbleLayer.querySelectorAll<HTMLElement>('[data-map-x]')) {
-      const p = this.camera.toScreen(gridToWorld({ x: Number(node.dataset.mapX), y: Number(node.dataset.mapY) }))
-      const y = p.y - Number(node.dataset.mapRise) * this.camera.zoom
-      node.style.transform = `translate3d(${p.x}px, ${y}px, 0)`
-      node.style.visibility = p.x >= 0 && p.x <= this.lastWidth && y >= 0 && y <= this.lastHeight + 100 ? 'visible' : 'hidden'
-    }
+    this.buildingBubbles.update(this.runtime.getUiSnapshot(), this.camera, this.bubblesHidden)
     if (snapshot !== this.lastSnapshot) {
       this.route.clear()
       if (snapshot.route.length) {
@@ -319,9 +394,6 @@ export class CampScene {
         const p = gridToWorld(snapshot.destination)
         this.route.ellipse(p.x, p.y, 15, 7).stroke({ width: 2, color: 0xfff5cf })
       }
-      const hour = snapshot.gameMinutes % 1440 / 60
-      this.shade.alpha = hour >= 7 && hour < 18 ? 0 : hour >= 6 && hour < 7 ? (7 - hour) * 0.12
-        : hour >= 18 && hour < 19 ? (hour - 18) * 0.22 : 0.3
       this.lastSnapshot = snapshot
     }
     for (const chunk of this.chunks) {
@@ -335,6 +407,15 @@ export class CampScene {
     }
     // Small, read-only DOM diagnostics also make real pointer workflows reproducible in browser tests.
     this.host.dataset.camera = `${this.camera.x},${this.camera.y},${this.camera.zoom}`
+    this.host.dataset.position = `${position.x.toFixed(4)},${position.y.toFixed(4)}`
+    const companionPosition = actorPosition(snapshot.survival.companion)
+    this.host.dataset.companionPosition = `${companionPosition.x.toFixed(4)},${companionPosition.y.toFixed(4)}`
+    this.host.dataset.weather = snapshot.survival.weather
+    this.host.dataset.phase = light.phase
+    this.host.dataset.darkness = light.darkness.toFixed(3)
+    this.host.dataset.regions = snapshot.progression.unlockedRegions.join(',')
+    this.host.dataset.outfit = snapshot.progression.outfit
+    this.host.dataset.decorations = String(snapshot.progression.decorations.length)
   }
 
   private onContextLost = (event: Event) => {
@@ -358,6 +439,8 @@ export class CampScene {
   }
   dispose() {
     this.disposed = true
+    this.assetAbort.abort()
+    this.buildingBubbles.dispose()
     this.detachInput?.()
     this.resizeObserver?.disconnect()
     this.destroyApplication()

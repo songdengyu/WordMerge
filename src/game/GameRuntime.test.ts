@@ -134,16 +134,18 @@ describe('independent runtime', () => {
     pump(2000)
     expect(runtime.getUiSnapshot().player).toEqual({ x: 4, y: 1 })
   })
-  it('finishes the current edge before turning when a move is replaced mid-step', async () => {
+  it('turns from its exact position immediately when a move is replaced mid-step', async () => {
     const runtime = new GameRuntime(parseWorld(config()))
     const pump = clock(runtime)
     const first = runtime.dispatch({ type: 'move', target: { x: 5, y: 1 } })
     pump(100); await first
+    const before = runtime.getSceneSnapshot().position
     const next = runtime.dispatch({ type: 'move', target: { x: 1, y: 3 } })
     pump(100); await next
-    expect(runtime.getSceneSnapshot().position).toEqual({ x: 1.5, y: 1 })
-    pump(200)
-    expect(runtime.getSceneSnapshot().position).toEqual({ x: 2, y: 1 })
+    const after = runtime.getSceneSnapshot().position
+    expect(after.x).toBeLessThan(before.x)
+    expect(after.y).toBeGreaterThan(before.y)
+    expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeCloseTo(.25)
     pump(2000)
     expect(runtime.getUiSnapshot().player).toEqual({ x: 1, y: 3 })
     expect(runtime.getUiSnapshot().activity).toBe('idle')

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { tapSceneControl } from './sceneControls'
 
 const resetLabel = '删'
 async function ready(page: Page) {
@@ -34,16 +35,16 @@ test('cancel keeps progress; confirm resets every system and backup, including a
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.goto('/?game=survival'); await ready(page)
   const initial = (await records(page)).current.data
-  await page.getByRole('button', { name: '⌂ 营地建设', exact: true }).click()
+  await page.getByRole('button', { name: '建', exact: true }).click()
   await page.getByRole('button', { name: '放置图纸', exact: true }).click()
   await page.getByRole('button', { name: '确认放置', exact: true }).click()
-  await page.getByTestId('build-bubble-b1:foundation').click()
+  await tapSceneControl(page, page.getByTestId('build-bubble-b1:foundation'))
   const a = (await page.getByTestId('board-cell-7').boundingBox())!
   const b = (await page.getByTestId('board-cell-8').boundingBox())!
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down()
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 }); await page.mouse.up()
   await page.getByRole('button', { name: '返回营地', exact: true }).click()
-  await page.getByTestId('build-bubble-b1:foundation').click()
+  await tapSceneControl(page, page.getByTestId('build-bubble-b1:foundation'))
   await expect(page.getByTestId('building-xp')).toHaveText('10')
   await page.getByRole('button', { name: '合成物资' }).click()
   await page.getByTestId('board-cell-5').dblclick()
@@ -55,7 +56,7 @@ test('cancel keeps progress; confirm resets every system and backup, including a
   seeded.data.elapsedSeconds = 3600
   seeded.data.production.inventory.gold = 987
   seeded.data.production.inventory.gems = 654
-  await page.getByRole('button', { name: '探索指引', exact: true }).click()
+  await page.getByRole('button', { name: '设置', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
   await page.getByLabel('选择存档备份').setInputFiles({ name: 'progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(seeded)) })
   await expect(page.getByRole('dialog')).toContainText('备份已导入')

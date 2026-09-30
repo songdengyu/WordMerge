@@ -16,7 +16,7 @@
 | `src/game/inventory.ts`、`stamina.ts` | 唯一物品实例、原子合成 / 交付、真实体力时钟 |
 | `src/game/buildingConfig.ts`、`construction.ts` | 随构建发布的蓝图目录、部件、订单、预留 / 释放与派生格边导航 |
 | `src/game/constructionValidation.ts`、`src/game/migrations/constructionTiming.ts` | 工程与库存存档交叉校验、旧 M3 工期迁移 |
-| `src/features/survival/BuildingPanel.tsx`、`BuildingBubbles.tsx` | 图纸 / 定位入口、随地图投影的部件材料气泡 |
+| `src/features/survival/BuildingPanel.tsx`、`src/scene/BuildingBubbles.ts` | 图纸 / 定位入口、Pixi 场景内随地图移动及缩放的部件材料气泡 |
 | `src/game/productionConfig.ts`、`src/data/mergeRules.ts` | 新生产表归一化；与旧 Demo 共享邻接、随机权重和仓库扩容常量 |
 | `src/game/saveData.ts`、`persistence.ts`、`session.ts` | 存档校验、IndexedDB 事务 / revision、启动恢复与备份 |
 | `src/features/survival/ProductionScreen.tsx`、`SaveControls.tsx` | 合成 / 仓库操作、存档恢复界面 |
@@ -24,7 +24,7 @@
 | `public/assets/survival/items.svg` | 新生产物品的 SVG symbol；不覆盖原素材 |
 | `src/**/*.test.ts`、`tests/browser/` | 规则与浏览器验证 |
 
-运行 `npm test`、`npm run test:e2e`、`npm run build`。浏览器首次需 `npx playwright install chromium`；推荐 Node.js 24 LTS。当前新模式使用独立数据库 `wordmerge-survival`；导入 / 导出位于探索指引。地图与图标为可替换原型，具体字段与版本边界见 [M2 开发记录](implementation/M2-PRODUCTION-SAVE.md)。
+按改动范围运行 `npm test`、`npm run test:e2e`、`npm run build`；用户已要求简单 UI 调整无需验证，遵循 `AGENTS.md` 中的最新约定。浏览器首次需 `npx playwright install chromium`；推荐 Node.js 24 LTS。当前新模式使用独立数据库 `wordmerge-survival`；点击左上角叶子按钮打开“设置”，可在本机存档中导入 / 导出备份。“探索指引”页面已移除。地图与图标为可替换原型，具体字段与版本边界见 [M2 开发记录](implementation/M2-PRODUCTION-SAVE.md)。
 
 当前 schema 2、M2 迁移与建筑配置见 [M3 开发记录](implementation/M3-CONSTRUCTION.md)。M3 蓝图暂用 TypeScript 结构目录，指纹计入存档；更改材料、尺寸或施工参数需显式兼容迁移，不能只更新配置后清档。
 

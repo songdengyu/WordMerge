@@ -1,0 +1,18 @@
+.tests { position: absolute; top: calc(190px + env(safe-area-inset-top, 0px)); left: 22px; z-index: 6; }
+.toggle { min-height: 44px; padding: 8px 12px; border: 1px solid #ddd9bb; border-radius: 10px; background: #f7efdded; color: #657652; font: inherit; font-size: 11px; cursor: pointer; box-shadow: 0 3px 12px #37513314; }
+.panel { position: absolute; top: 49px; left: 0; width: min(330px, calc(100vw - 44px)); padding: 12px; border: 1px solid #eee4c8; border-radius: 14px; background: #faf4e7f7; color: #53674d; box-shadow: 0 5px 24px #203b3b33; max-height: calc(100dvh - 260px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+.panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.panel header strong { flex: 1; font-size: 12px; font-weight: 500; }
+.panel header button { border: 0; border-radius: 50%; background: #e7e9d8; color: inherit; width: 28px; height: 28px; font-size: 20px; cursor: pointer; }
+.panel small { display: block; margin: 7px 0 5px; font-size: 10px; color: #92967d; }
+.menu, .vitals { display: grid; gap: 7px; }
+.menu button, .presets button, .vitalRow button { min-height: 36px; padding: 5px 9px; border: 1px solid #d7dec6; border-radius: 7px; background: #eff0df; color: inherit; font: inherit; font-size: 11px; cursor: pointer; touch-action: manipulation; }
+.menu button { display: flex; justify-content: space-between; align-items: center; min-height: 40px; }
+.menu .danger { color: #934d37; border-color: #d9b6a3; background: #fbecde; }
+.presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.presets button[aria-pressed="true"] { background: #718663; color: #fff6df; border-color: #718663; }
+.panel button:disabled { opacity: .45; cursor: default; }
+.vitalRow { display: grid; grid-template-columns: 1fr 55px 55px; align-items: center; gap: 7px; font-size: 12px; }
+.vitalRow span { display: flex; align-items: center; gap: 9px; }
+.vitalRow b { font-weight: 500; color: #8b947a; font-variant-numeric: tabular-nums; }
+.panel p { font-size: 9px; line-height: 1.6; margin-top: 8px; color: #92927b; }

@@ -8,7 +8,14 @@ import { CampScene } from '../../scene/CampScene'
 import { ProductionScreen } from './ProductionScreen'
 import { SaveControls } from './SaveControls'
 import { BuildingPanel } from './BuildingPanel'
-import { BuildingBubbles } from './BuildingBubbles'
+import { CampCare, FailurePanel, SurvivalHud } from './CampCare'
+import { CampJournal, RegionList, StoryDialogue } from './CampJournal'
+import { DayCycle } from './DayCycle'
+import { TestControls } from './TestControls'
+import { CompanionWheel } from './CompanionWheel'
+import { currentChapter, decorError } from '../../game/progression'
+import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
+import { localToWorld } from '../../game/construction'
 import { BLUEPRINTS } from '../../game/buildingConfig'
 import type { Rotation } from '../../game/construction'
 import type { Cell } from '../../game/world'
@@ -27,33 +34,21 @@ function Icon({ kind }: { kind: 'leaf' | 'sun' | 'moon' | 'map' | 'compass' | 'b
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind]} /></svg>
 }
 
-function Sheet({ kind, close, goHome, runtime }: { kind: 'map' | 'help'; close: () => void; goHome: () => void; runtime: GameRuntime }) {
+function Sheet({ kind, close, goHome, runtime, travel }: { kind: 'map' | 'settings'; close: () => void; goHome: () => void; runtime: GameRuntime; travel: (id: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => { ref.current?.showModal() }, [])
   return <dialog className={styles.sheet} ref={ref} onCancel={close} aria-labelledby="sheet-title"
     onClick={event => { if (event.target === event.currentTarget) close() }}>
     <div className={styles.sheetBody}>
       <div className={styles.sheetHeader}>
-        <div><span className={styles.eyebrow}>{kind === 'map' ? '一步一步，走向未知' : '给初来者的小纸条'}</span>
-          <h2 id="sheet-title">{kind === 'map' ? '营地地图' : '探索指引'}</h2></div>
+        <div>{kind === 'map' && <span className={styles.eyebrow}>一步一步，走向未知</span>}
+          <h2 id="sheet-title">{kind === 'map' ? '营地地图' : '设置'}</h2></div>
         <button className={styles.iconButton} onClick={close} aria-label="关闭"><Icon kind="close" /></button>
       </div>
       {kind === 'map' ? <>
-        <div className={styles.region}><span className={styles.regionIcon}><Icon kind="leaf" /></span>
-          <div><h3>林间营地</h3><p>旧营火、小径与一片安静的水塘。</p></div><span className={styles.badge}>已发现</span></div>
-        <div className={`${styles.region} ${styles.locked}`}><span className={styles.regionIcon}>01</span><div><h3>溪谷深处</h3><p>水声从远处传来。</p></div><span>未开放</span></div>
-        <div className={`${styles.region} ${styles.locked}`}><span className={styles.regionIcon}>02</span><div><h3>静谧林地</h3><p>树影后，还有未走过的路。</p></div><span>未开放</span></div>
+        <RegionList runtime={runtime} travel={travel} />
         <button className={styles.primaryButton} onClick={goHome}><Icon kind="compass" />走回营火旁</button>
-      </> : <>
-        <ol className={styles.instructions}>
-          <li><strong>轻点空地</strong><p>主角会沿可行的小径走过去，绕开树木、岩石和水面。</p></li>
-          <li><strong>拖动与缩放</strong><p>单指拖动查看周围，双指捏合调整远近；电脑也可使用滚轮。</p></li>
-          <li><strong>找到自己</strong><p>点击右侧罗盘，将视线移回主角。点选营火和路标，看看留下的痕迹。</p></li>
-        </ol>
-        <div className={styles.note}>阅读这张纸条时，营地时间仍在流逝。切到后台后，营地会暂停。</div>
-        <p className={styles.prototypeNote}>体力每现实 10 秒恢复 1 点，离线也恢复；道具补给可超过 100。</p>
-        <SaveControls runtime={runtime} />
-      </>}
+      </> : <SaveControls runtime={runtime} />}
     </div>
   </dialog>
 }
@@ -63,14 +58,24 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot)
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<CampScene | null>(null)
-  const bubbleLayer = useRef<HTMLDivElement>(null)
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
-  const [sheet, setSheet] = useState<'map' | 'help' | null>(null)
+  const [sheet, setSheet] = useState<'map' | 'settings' | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
+  const openMerge = useCallback(() => setMergeOpen(true), [])
   const [buildingOpen, setBuildingOpen] = useState(false)
+  const [careOpen, setCareOpen] = useState(false)
+  const [wheelOpen, setWheelOpen] = useState(false)
+  const openWheel = useCallback(() => setWheelOpen(true), [])
+  const [journalOpen, setJournalOpen] = useState(false)
+  const openJournal = useCallback(() => setJournalOpen(true), [])
+  const [decorationPlacement, setDecorationPlacement] = useState<{ kind: DecorId; cell: Cell } | null>(null)
+  const openCare = useCallback(() => setCareOpen(true), [])
   const [placement, setPlacement] = useState<{ blueprintId: string; origin: Cell; rotation: Rotation } | null>(null)
   const selectBuilding = useCallback((id: string) => { setBuildingOpen(false); scene.current?.centerBuilding(id) }, [])
-  const chooseOrigin = useCallback((origin: Cell) => setPlacement(previous => previous ? { ...previous, origin } : null), [])
+  const chooseOrigin = useCallback((origin: Cell) => {
+    setPlacement(previous => previous ? { ...previous, origin } : null)
+    setDecorationPlacement(previous => previous ? { ...previous, cell: origin } : null)
+  }, [])
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const message = useCallback((text: string) => setToast({ text, id: performance.now() }), [])
@@ -80,12 +85,19 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => {
     runtime.setPauseReason('renderer-loading', true)
     setError(null)
-    const renderer = new CampScene(host.current!, runtime, message, setError, selectBuilding, chooseOrigin, bubbleLayer.current!)
+    const renderer = new CampScene(host.current!, runtime, message, setError, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal)
     scene.current = renderer
     void renderer.init()
     return () => { renderer.dispose(); scene.current = null }
-  }, [runtime, message, attempt, selectBuilding, chooseOrigin])
+  }, [runtime, message, attempt, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal])
+  useEffect(() => {
+    if (state.survival.failure || state.progression.dialogue) {
+      setWheelOpen(false)
+      setSheet(null); setCareOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
+    }
+  }, [state.survival.failure, state.progression.dialogue])
   useEffect(() => { scene.current?.setPlacement(placement) }, [placement, attempt])
+  useEffect(() => { scene.current?.setDecorationPlacement(decorationPlacement) }, [decorationPlacement, attempt])
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 4000)
@@ -96,7 +108,6 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     document.title = '林间营地 · WordMerge'
     return () => { document.title = previous }
   }, [])
-  const time = `${String(state.hour).padStart(2, '0')}:${String(state.minute).padStart(2, '0')}`
   const paused = state.pauseReasons.length > 0
   const loading = state.pauseReasons.includes('renderer-loading')
   const saveFailed = state.saveStatus.state === 'error' || state.saveStatus.state === 'conflict'
@@ -106,6 +117,35 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     setPlacement({ blueprintId, origin: { x: 7, y: 10 }, rotation: 0 })
   }
   const placementError = placement && runtime.placementError(placement.blueprintId, placement.origin, placement.rotation)
+  const decorationError = decorationPlacement && decorError(decorationPlacement.kind, decorationPlacement.cell, state.progression, state.construction)
+  const placing = !!placement || !!decorationPlacement
+  const bubblesHidden = placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || !!sheet || paused
+  useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
+  const chapter = currentChapter(state.progression)
+  const travel = (id: string) => {
+    const region = REGIONS.find(r => r.id === id)!
+    setSheet(null)
+    void runtime.dispatch({ type: 'move', target: region.point }).then(result => {
+      if (!result.accepted) message(result.reason)
+      else scene.current?.centerCell(region.point)
+    })
+  }
+  const navigate = (action: StoryChapter['action']) => {
+    setJournalOpen(false)
+    if (action === 'build') setBuildingOpen(true)
+    else if (action === 'care') setCareOpen(true)
+    else if (action === 'brook' || action === 'grove') {
+      if (state.progression.discoveries.includes(action)) setMergeOpen(true)
+      else setSheet('map')
+    }
+  }
+  const decorate = (kind: DecorId) => {
+    const building = state.construction.buildings.find(b => b.parts.foundation.built)
+    if (!building) { message('先建好一块木地基，再布置喜欢的摆件'); return }
+    const existing = state.progression.decorations.find(d => d.kind === kind)
+    setJournalOpen(false); setDecorationPlacement({ kind, cell: existing?.cell ?? localToWorld(building, { x: 1, y: 0 }) })
+    scene.current?.centerBuilding(existing?.buildingId ?? building.id)
+  }
   const goHome = () => {
     setSheet(null)
     void runtime.dispatch({ type: 'move', target: world.config.spawn }).then(result => {
@@ -117,23 +157,19 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   return <main className={styles.shell} data-testid="survival-game" data-player={`${state.player.x},${state.player.y}`}
     data-activity={state.activity} data-destination={state.destination ? `${state.destination.x},${state.destination.y}` : ''}
     data-paused={String(paused)} data-save-state={state.saveStatus.state} data-save-revision={state.saveStatus.revision}
-    data-protected={String(state.protected)} data-building-count={state.construction.buildings.length}>
+    data-protected={String(state.protected)} data-building-count={state.construction.buildings.length}
+    data-hp={state.production?.vitals.hp} data-enemies={state.survival.enemies.length} data-companion={state.survival.companion.status} data-chapter={chapter?.id ?? 'complete'} data-daylight={String(state.isDay)}>
     <div ref={host} className={styles.map} data-testid="camp-scene" />
-    <BuildingBubbles runtime={runtime} layer={bubbleLayer} hidden={!!placement || mergeOpen || buildingOpen || !!sheet || paused}
-      openMerge={() => setMergeOpen(true)} message={message} />
     <div className={styles.topVeil} />
     <header className={styles.header}>
-      <div className={styles.brand}><span className={styles.brandIcon}><Icon kind="leaf" /></span>
+      <div className={styles.brand}><button type="button" className={styles.brandIcon} aria-label="设置" title="设置" onClick={() => setSheet('settings')}><Icon kind="leaf" /></button>
         <div><span className={styles.eyebrow}>一段新的生活</span><h1>林间营地</h1></div></div>
-      <div className={styles.clock} aria-label={`第 ${state.day} 天 ${time} ${state.isDay ? '白天' : '夜晚'}`}>
-        <span>第 {state.day} 天</span><strong data-testid="game-clock">{time}</strong>
-        <span><Icon kind={state.isDay ? 'sun' : 'moon'} />{state.isDay ? '白天' : '夜晚'}</span>
-      </div>
+      <DayCycle state={state} />
     </header>
-    <div className={styles.chapter}><span className={styles.chapterDot} /><span>安放一个家</span><span className={styles.chapterLine} />从第一块木地基开始</div>
+    {placement && <div className={styles.chapter}><span className={styles.chapterDot} /><span>安放一个家</span><span className={styles.chapterLine} />从第一块木地基开始</div>}
     <div className={styles.supplyBadge}>⚡ <strong data-testid="map-stamina">{state.production?.stamina.value ?? 100}</strong><span>体力</span></div>
-    {!placement && <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>⌂ 营地建设</button>}
-    {!saveFailed && !placement && <button className={`${styles.dangerButton} ${styles.resetButton}`} title="清除所有数据" onClick={reset}>删</button>}
+    {!saveFailed && !placing && !state.survival.failure && !state.progression.dialogue && <TestControls runtime={runtime} state={state} message={message} reset={reset} />}
+    {!placing && <SurvivalHud state={state} runtime={runtime} open={openCare} openMerge={openMerge} message={message} />}
     <div className={styles.cameraControls}>
       <button aria-label="定位主角" className={styles.iconButton} onClick={() => scene.current?.centerPlayer()}><Icon kind="compass" /></button>
       <div className={styles.zoomButtons}>
@@ -142,7 +178,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
         <button aria-label="缩小地图" onClick={() => scene.current?.zoomBy(1 / 1.2)}>−</button>
       </div>
     </div>
-    {toast && <div className={styles.toast} role="status">{toast.text}</div>}
+    {toast && !wheelOpen && <div className={styles.toast} role="status">{toast.text}</div>}
     {placement ? <section className={styles.placement} data-testid="placement-panel">
       <strong>{BLUEPRINTS.find(blueprint => blueprint.id === placement.blueprintId)?.name} · 选择位置</strong>
       <p>轻点地图选址，拖动查看周围 · 朝向 {placement.rotation * 90}°</p>
@@ -154,17 +190,26 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
           setPlacement(null); const buildings = runtime.getUiSnapshot().construction.buildings
           selectBuilding(buildings[buildings.length - 1].id)
         }}>确认放置</button></div>
+    </section> : decorationPlacement ? <section className={styles.placement} data-testid="decoration-placement">
+      <strong>{DECORATIONS.find(d => d.id === decorationPlacement.kind)!.name} · 布置营地</strong>
+      <p>轻点已建成的木屋地板选择位置，可随时移动或收回。</p>
+      <p>{decorationError ?? '这里可以摆放，不阻挡行走'}</p>
+      <div><button onClick={() => setDecorationPlacement(null)}>取消</button><button disabled={!!decorationError || paused} onClick={async () => {
+        const result = await runtime.dispatch({ type: 'decor-place', ...decorationPlacement })
+        if (!result.accepted) message(result.reason)
+        else { setDecorationPlacement(null); message(result.message ?? '已经摆好了') }
+      }}>确认摆放</button></div>
     </section> : <footer className={styles.footer}>
+      <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建</button>
       <div className={styles.activity} data-testid="activity"><span className={styles.activityDot} data-moving={state.activity !== 'idle'} />
-        <span>{paused ? '营地已暂停' : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
+        <span>{paused ? '营地已暂停' : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
         <span className={styles.coordinates}>建设经验 <span data-testid="building-xp">{state.construction.xp}</span> · {state.saveStatus.state === 'saved' ? '已保存' : state.saveStatus.state === 'saving' ? '保存中…' : '待保存'}</span></div>
       <div className={styles.footerCard}>
-        <div className={styles.hint}><span className={styles.hintIcon}><Icon kind="leaf" /></span>
-          <div><strong>这里，可以成为你的家</strong><p>{state.feedback}</p></div></div>
+        <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
+          <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{chapter?.goal ?? '首章完成 · 继续建设与装扮'}</p></div></button>
         <div className={styles.footerActions}>
           <button onClick={() => setSheet('map')}><Icon kind="map" />营地地图</button>
           <button className={styles.craftButton} onClick={() => setMergeOpen(true)}>✧ 合成物资</button>
-          <button onClick={() => setSheet('help')}><Icon kind="book" />探索指引</button>
         </div>
       </div>
     </footer>}
@@ -174,9 +219,14 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </div>}
     {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} />}
     {buildingOpen && !mergeOpen && <BuildingPanel runtime={runtime} select={selectBuilding} close={() => setBuildingOpen(false)} place={place} />}
+    {careOpen && <CampCare runtime={runtime} close={() => setCareOpen(false)} openMerge={() => setMergeOpen(true)} message={message} />}
+    {wheelOpen && <CompanionWheel runtime={runtime} close={() => setWheelOpen(false)} message={message} />}
+    {journalOpen && <CampJournal runtime={runtime} close={() => setJournalOpen(false)} navigate={navigate} decorate={decorate} />}
+    {state.progression.dialogue && <StoryDialogue runtime={runtime} />}
+    {state.survival.failure && <FailurePanel runtime={runtime} message={message} />}
     {saveFailed && <section className={styles.saveError} role="alert"><h2>先保管好营地进度</h2><SaveControls runtime={runtime} />
       <button className={styles.dangerButton} title="清除所有数据" onClick={reset}>删</button></section>}
-    {sheet && <Sheet kind={sheet} close={() => setSheet(null)} goHome={goHome} runtime={runtime} />}
+    {sheet && <Sheet kind={sheet} close={() => setSheet(null)} goHome={goHome} runtime={runtime} travel={travel} />}
   </main>
 }
 

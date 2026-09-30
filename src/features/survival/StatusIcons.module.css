@@ -1,0 +1,16 @@
+.line { display: flex; align-items: center; justify-content: flex-start; gap: 6px; height: 38px; }
+.slot { position: relative; display: inline-flex; flex-shrink: 0; }
+.vital { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 38px; flex-shrink: 0; padding: 0; border: 0; background: none; cursor: pointer; touch-action: manipulation; }
+.vital svg { display: block; width: 32px; height: 34px; overflow: visible; filter: drop-shadow(0 1px 2px #253c3445); }
+.fill { transition: y 180ms linear, height 180ms linear; }
+.supply { position: absolute; top: -9px; right: -8px; z-index: 1; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: #f9f0dbe8; display: grid; place-items: center; cursor: pointer; touch-action: manipulation; }
+.supply > span { width: 24px; height: 24px; }
+.supply[data-ready="false"] { background: #e76666; }
+.vital:disabled, .supply:disabled { cursor: default; }
+.vital:focus-visible, .supply:focus-visible { outline: 2px solid #ac8450; outline-offset: 2px; }
+.compact { height: 18px; }
+.compact .vital { width: 24px; height: 18px; }
+.compact .vital svg { width: 18px; height: 19px; filter: none; }
+.compact .supply { top: -6px; right: -7px; width: 18px; height: 18px; }
+.compact .supply > span { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }

@@ -1,0 +1,38 @@
+.overlay {
+  position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none;
+  margin: 0; padding: 0; border: 0; background: transparent; color: #f6f3e1; overflow: hidden;
+}
+.overlay::backdrop { background: #12291e22; }
+.wheel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(300px, 85vw, 75dvh); aspect-ratio: 1; border-radius: 50%;
+  box-shadow: 0 12px 50px #10291d33;
+}
+.wedge {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 1px solid #c0d9be70; border-radius: 50%;
+  padding: 0; background: #243f3dc7; color: #f1f1df; cursor: pointer; font: inherit;
+  -webkit-tap-highlight-color: transparent; transition: background .15s;
+}
+.wedge[aria-pressed="true"] { background: #60765dcf; color: #ffedb5; }
+.wedge:active, .wedge:focus-visible { background: #748a69e8; outline: none; }
+.wedge:disabled { background: #253c3b9c; color: #bec9be70; cursor: default; }
+.wedge span { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 5px; transform: translate(-50%, -50%); font-size: 16px; letter-spacing: 2px; }
+.wedge svg { width: 26px; height: 26px; }
+.rest { clip-path: polygon(0 0, 100% 0, 50% 50%); }
+.guard { clip-path: polygon(0 0, 50% 50%, 0 100%); }
+.follow { clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
+.treat { clip-path: polygon(50% 50%, 100% 100%, 0 100%); }
+.rest span { left: 50%; top: 19%; }
+.guard span { left: 19%; top: 50%; }
+.follow span { left: 81%; top: 50%; }
+.treat span { left: 50%; top: 81%; }
+.lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: none; stroke: #d2e0c544; stroke-width: 1; }
+.center {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 36%; height: 36%; border-radius: 50%;
+  border: 1px solid #c0d9be88; background: #1e3536d9; color: #fff5cf; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; gap: 7px; font: inherit; cursor: pointer;
+}
+.center strong { font-size: 21px; font-weight: 500; letter-spacing: 3px; }
+.center span { font-size: 11px; color: #d4ded0; }
+.center:focus-visible { outline: 1px solid #e7dfb3; outline-offset: 3px; }
+.feedback { position: absolute; top: calc(50% + min(150px, 42.5vw, 37.5dvh) + 20px); left: 10%; width: 80%; margin: 0; text-align: center; font-size: 12px; text-shadow: 0 1px 4px #123325; pointer-events: none; }

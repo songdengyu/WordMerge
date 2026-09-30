@@ -5,7 +5,7 @@ type Pointer = { start: Point; last: Point }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
 const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
 
-export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap: (cell: Cell) => void) {
+export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap: (cell: Cell, world: Point) => void) {
   const pointers = new Map<number, Pointer>()
   let suppressTap = false
   const local = (event: PointerEvent | WheelEvent): Point => {
@@ -48,7 +48,8 @@ export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap:
     const point = local(event)
     if (cancelled) suppressTap = true
     if (!cancelled && !suppressTap && pointers.size === 0 && distance(pointer.start, point) <= 8) {
-      onTap(worldToGrid(camera.toWorld(point)))
+      const world = camera.toWorld(point)
+      onTap(worldToGrid(world), world)
     }
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     if (!pointers.size) suppressTap = false
