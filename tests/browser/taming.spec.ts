@@ -41,9 +41,13 @@ async function command(page: Page, name: string) {
 
 test('native material bubble scales, tames over two seconds, then companion taps open the radial commands', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/?game=survival'); await ready(page)
+  await seed(page, save => {
+    const inv = save.data.production.inventory; inv.items[inv.board[9].instanceId].itemId = 213
+    save.configVersion = save.configVersion.replace(/-[^-]+-[^-]+$/, '-d4b57b5b-d3dd46d6')
+  })
   const bubble = page.getByTestId('taming-bubble'), game = page.getByTestId('survival-game')
   await expect(bubble).toHaveAttribute('data-ready', 'true')
+  await expect(bubble).toHaveAccessibleName(/野餐餐盒 1\/1/)
   await expect(bubble).toHaveAttribute('data-renderer', 'pixi')
   const before = (await bubble.boundingBox())!
   await page.getByRole('button', { name: '放大地图' }).click()
@@ -75,20 +79,30 @@ test('native material bubble scales, tames over two seconds, then companion taps
 
 test('missing food opens one persistent order and the ready warehouse order returns to the map to tame', async ({ page }) => {
   await page.goto('/?game=survival'); await ready(page)
-  await page.getByTestId('vital-hunger').click()
   const bubble = page.getByTestId('taming-bubble'), order = page.getByTestId('taming-order')
   await expect(bubble).toHaveAttribute('data-ready', 'false')
   await tapSceneControl(page, bubble)
   await expect(order).toContainText('0/1')
+  await expect(order).toContainText('野餐餐盒')
   await page.getByRole('button', { name: '关闭合成' }).click()
   await tapSceneControl(page, bubble)
   await expect(order).toHaveCount(1)
   await ready(page); await page.reload(); await ready(page)
   await page.getByRole('button', { name: '合成物资' }).click()
   await expect(order).toHaveCount(1)
-  await page.getByTestId('board-cell-2').click()
+  for (let i = 0; i < 3; i++) {
+    await page.getByTestId('board-cell-2').click()
+    await expect(page.locator('[data-board-cell][data-item-id="211"][data-lock="0"]')).toHaveCount(i + 2)
+  }
+  for (const itemId of [211, 211, 212]) {
+    const cells = page.locator(`[data-board-cell][data-item-id="${itemId}"][data-lock="0"]`)
+    const a = (await cells.nth(0).boundingBox())!, b = (await cells.nth(1).boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down()
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 }); await page.mouse.up()
+    if (itemId === 211) await expect(order).toHaveAttribute('data-ready', 'false')
+  }
   await expect(order).toHaveAttribute('data-ready', 'true')
-  await page.locator('[data-item-id="211"][data-lock="0"]').click()
+  await page.locator('[data-item-id="213"][data-lock="0"]').click()
   await page.getByRole('button', { name: '存入仓库' }).click()
   await expect(order).toContainText('1/1')
   await order.click()
@@ -101,8 +115,8 @@ test('missing food opens one persistent order and the ready warehouse order retu
 })
 
 test('partially finished taming pauses in background and survives refresh without another food deduction', async ({ page }) => {
-  await page.goto('/?game=survival'); await ready(page)
-  await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  await seed(page, save => { const inv = save.data.production.inventory; inv.items[inv.board[9].instanceId].itemId = 213 })
+  await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
   await tapSceneControl(page, page.getByTestId('taming-bubble')); await page.clock.runFor(500)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'taming')
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)

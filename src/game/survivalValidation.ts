@@ -6,13 +6,15 @@ import { worldMinutes } from './survival'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { constructionNavigation } from './construction'
 import { TAMING_ORDER, TAMING_SECONDS } from './taming'
+import { REGION_BOARS } from './regionContentConfig'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
 const integer = (v: unknown): v is number => finite(v) && Number.isSafeInteger(v)
 const has = (object: object, key: string) => Object.prototype.hasOwnProperty.call(object, key)
-export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMap, catalog: ProductionCatalog, check: Check): asserts raw is SurvivalState {
+export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMap, catalog: ProductionCatalog, check: Check,
+  rescueItems: readonly number[] = RULES.companion.rescueItems): asserts raw is SurvivalState {
   check(record(raw), '昼夜生存状态缺失')
   check(typeof raw.weather === 'string' && has(WEATHER, raw.weather) && typeof raw.forecast === 'string' && has(WEATHER, raw.forecast), '天气')
   check(Number.isSafeInteger(raw.weatherDay) && Number(raw.weatherDay) >= -1 && Number(raw.weatherDay) <= Math.floor((worldMinutes(world, data.elapsedSeconds) - 360) / 1440), '天气日历')
@@ -35,14 +37,22 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
     check(target.kind === 'part' && typeof target.buildingId === 'string' && typeof target.partId === 'string' && cell(target.stand), '建筑目标')
     check(data.construction.buildings.some(building => building.id === target.buildingId && has(building.parts, target.partId as string)), '建筑目标缺失')
   }
-  check(Array.isArray(raw.enemies) && raw.enemies.length <= RULES.enemyLimit, '夜袭数量上限')
+  check(Array.isArray(raw.enemies) && raw.enemies.length <= RULES.enemyLimit + REGION_BOARS.length
+    && raw.enemies.filter(enemy => !record(enemy) || !enemy.residentId).length <= RULES.enemyLimit, '夜袭数量上限')
   const seen = new Set<string>()
+  const residents = new Set<string>()
   for (const enemy of raw.enemies) {
     check(record(enemy) && typeof enemy.id === 'string' && /^e[1-9]\d*$/.test(enemy.id) && !seen.has(enemy.id) && Number(enemy.id.slice(1)) < raw.nextEnemyId, '敌人实例序号')
     seen.add(enemy.id)
     check(typeof enemy.kind === 'string' && has(ENEMIES, enemy.kind), '敌人种类')
     check(finite(enemy.hp) && enemy.hp > 0 && enemy.hp <= ENEMIES[enemy.kind as keyof typeof ENEMIES].hp, '敌人生命')
     actor(enemy)
+    if (enemy.residentId !== undefined) {
+      const spawn = REGION_BOARS.find(s => s.id === enemy.residentId)
+      check(spawn && !residents.has(spawn.id) && enemy.kind === 'boar' && world.chunkAt(enemy.cell as Cell)?.id === spawn.regionId
+        && (enemy.route as Cell[]).every(cell => world.chunkAt(cell)?.id === spawn.regionId), '区域野猪来源或活动范围')
+      residents.add(spawn.id)
+    }
   }
   const buddy = raw.companion
   check(record(buddy), '伙伴状态')
@@ -63,13 +73,13 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
     check(sameCell(job.workCell, buddy.cell) || grid.canStep(job.workCell, buddy.cell), '驯服工作位')
     if (job.phase === 'travel') {
       check(job.remaining === 0 && data.destination && sameCell(data.destination, job.workCell)
-        && job.reservedIds.length === RULES.companion.rescueItems.length, '驯服前往目标或预留数量')
+        && job.reservedIds.length === rescueItems.length, '驯服前往目标或预留数量')
       const ids = new Set<string>()
       job.reservedIds.forEach((id, i) => {
         check(typeof id === 'string' && !ids.has(id), '重复驯服预留')
         ids.add(id)
         const item = data.production.inventory.items[id]
-        check(item && item.reservedBy === TAMING_ORDER && item.itemId === RULES.companion.rescueItems[i]
+        check(item && item.reservedBy === TAMING_ORDER && item.itemId === rescueItems[i]
           && (item.location.kind === 'warehouse' || data.production.inventory.board[item.location.index].lock === 0), '驯服预留实例')
       })
     } else {

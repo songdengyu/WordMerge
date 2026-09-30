@@ -20,3 +20,8 @@ export function dataFixture(): RuntimeData {
 export function envelopeFixture(data = dataFixture()): SaveEnvelope {
   return { schemaVersion: 4, configVersion: configVersion(worldFixture(), productionFixture()), revision: 0, savedAt: testNow, data }
 }
+export function tamingDataFixture(): RuntimeData {
+  const data = dataFixture(), inv = data.production.inventory
+  inv.items[inv.board[9].instanceId!].itemId = 213
+  return data
+}

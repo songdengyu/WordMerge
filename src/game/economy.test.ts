@@ -44,6 +44,7 @@ it('supports three online days from the actual starter inventory with two-minute
       }
     }
   }
+  await ensure(213)
   await send({ type: 'companion-rescue' })
   pump(2)
   await send({ type: 'building-place', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0 })
@@ -55,9 +56,13 @@ it('supports three online days from the actual starter inventory with two-minute
   }
   for (const id of ['letter', 'foundation', 'friend']) await readChapter(id)
   await send({ type: 'region-unlock', regionId: 'brook' })
+  pump(15)
+  expect(runtime.getSaveData().progression.regionUnlock).toBeNull()
   await send({ type: 'move', target: { x: 7, y: -5 } }); pump(15)
   await ensure(212); await ensure(222); await readChapter('visitor'); await readChapter('shelter')
   await send({ type: 'region-unlock', regionId: 'grove' })
+  pump(20)
+  expect(runtime.getSaveData().progression.regionUnlock).toBeNull()
   await send({ type: 'move', target: { x: 21, y: 8 } }); pump(20)
   await readChapter('grove')
   await send({ type: 'decor-place', kind: 'rug', cell: { x: 8, y: 10 } })
@@ -88,7 +93,8 @@ it('supports three online days from the actual starter inventory with two-minute
   expect(saved.survival.failure).toBeNull()
   expect(runtime.getUiSnapshot()).toMatchObject({ day: 4, hour: 6 })
   expect(saved.survival.nextEnemyId).toBeGreaterThan(15)
-  expect(saved.survival.enemies).toHaveLength(0)
+  expect(saved.survival.enemies.filter(enemy => !enemy.residentId)).toHaveLength(0)
+  expect(saved.survival.enemies.filter(enemy => enemy.residentId)).toHaveLength(3)
   expect(saved.progression.witnessedDawn).toBe(true)
   expect(saved.production.stamina.value).toBeGreaterThan(0)
   expect(Object.values(saved.production.inventory.items).some(item => item.itemId === 241)).toBe(true)

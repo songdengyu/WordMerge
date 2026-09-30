@@ -6,13 +6,14 @@ import { PathSearch, type NavigationGrid } from './navigation'
 import type { ProductionCatalog } from './productionConfig'
 import { ENEMIES, SURVIVAL_RULES as RULES, WEATHER, type EnemyKind, type WeatherId } from './survivalConfig'
 import { sameCell, type Cell, type WorldMap } from './world'
+import { BOAR_AGGRO_RANGE, REGION_BOARS } from './regionContentConfig'
 
 export type ActorTarget = { kind: 'player' } | { kind: 'companion' } | { kind: 'enemy'; id: string }
   | { kind: 'part'; buildingId: string; partId: string; stand: Cell } | { kind: 'point'; cell: Cell }
 export interface Actor {
   cell: Cell; route: Cell[]; progress: number; target: ActorTarget | null; cooldown: number
 }
-export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number }
+export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string }
 export interface Companion extends Actor {
   status: 'wild' | 'active' | 'injured' | 'recovering'
   hp: number; mode: 'guard' | 'follow' | 'rest'; guard: Cell; orderedEnemy: string | null; recoveryRemaining: number
@@ -31,6 +32,7 @@ export type SurvivalCommand = { type: 'companion-treat' } | { type: 'player-rest
   | { type: 'companion-attack'; enemyId: string }
   | { type: 'rescue' }
 export const distance = (a: Cell, b: Cell) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
+export const nearbyThreats = (state: SurvivalState, player: Cell) => state.enemies.filter(enemy => !enemy.residentId || distance(enemy.cell, player) <= BOAR_AGGRO_RANGE + 1)
 export const dayTime = (minutes: number) => minutes % 1440 >= 360 && minutes % 1440 < 1140
 export const worldMinutes = (world: WorldMap, elapsed: number) => Math.round((world.config.initialHour * 60 + elapsed * 1440 / world.config.dayDurationSeconds) * 1e6) / 1e6
 const weatherDay = (minutes: number) => Math.floor((minutes - 360) / 1440)
@@ -85,9 +87,9 @@ function protectedPart(construction: ConstructionState, buildingId: string, part
   const order = job && construction.orders.find(order => order.id === job.orderId)
   return order?.buildingId === buildingId && order.partId === partId
 }
-function targetCell(target: ActorTarget | null, state: SurvivalState, player: Cell, construction: ConstructionState): Cell | null {
+function targetCell(target: ActorTarget | null, state: SurvivalState, player: Cell, construction: ConstructionState, extraProtection = false): Cell | null {
   if (!target) return null
-  if (target.kind === 'player') return construction.jobs[0]?.phase === 'building' || state.taming.job?.phase === 'taming' ? null : player
+  if (target.kind === 'player') return extraProtection || construction.jobs[0]?.phase === 'building' || state.taming.job?.phase === 'taming' ? null : player
   if (target.kind === 'companion') return state.companion.status === 'active' ? state.companion.cell : null
   if (target.kind === 'enemy') return state.enemies.find(enemy => enemy.id === target.id && enemy.hp > 0)?.cell ?? null
   if (target.kind === 'point') return target.cell
@@ -95,14 +97,28 @@ function targetCell(target: ActorTarget | null, state: SurvivalState, player: Ce
   const part = building?.parts[target.partId]
   return part?.built && part.hp > 0 && !protectedPart(construction, target.buildingId, target.partId) ? target.stand : null
 }
-function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, construction: ConstructionState, world: WorldMap, grid: NavigationGrid) {
+function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, construction: ConstructionState, world: WorldMap, grid: NavigationGrid, extraProtection: boolean) {
+  if (enemy.residentId) {
+    const spawn = REGION_BOARS.find(s => s.id === enemy.residentId)!
+    const local: NavigationGrid = {
+      isWalkable: cell => world.chunkAt(cell)?.id === spawn.regionId && grid.isWalkable(cell),
+      canStep: (a, b) => world.chunkAt(a)?.id === spawn.regionId && world.chunkAt(b)?.id === spawn.regionId && grid.canStep(a, b),
+    }
+    const targets: { target: ActorTarget; cell: Cell }[] = []
+    if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming') targets.push({ target: { kind: 'player' }, cell: player })
+    if (state.companion.status === 'active') targets.push({ target: { kind: 'companion' }, cell: state.companion.cell })
+    for (const candidate of targets) if (local.isWalkable(candidate.cell) && distance(enemy.cell, candidate.cell) <= BOAR_AGGRO_RANGE
+      && setRoute(enemy, candidate.target, candidate.cell, local, world)) return
+    if (!setRoute(enemy, { kind: 'point', cell: spawn.cell }, spawn.cell, local, world)) stop(enemy)
+    return
+  }
   // Keep actor engagements, but reconsider structures when a defender comes within reach.
-  const current = targetCell(enemy.target, state, player, construction)
+  const current = targetCell(enemy.target, state, player, construction, extraProtection)
   if (current && (enemy.target?.kind === 'player' || enemy.target?.kind === 'companion') && touching(grid, enemy.cell, current)) return
   const buddy = state.companion
   const targets: { target: ActorTarget; cell: Cell }[] = []
   if (buddy.status === 'active' && distance(enemy.cell, buddy.cell) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'companion' }, cell: buddy.cell })
-  if (construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming' && distance(enemy.cell, player) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'player' }, cell: player })
+  if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming' && distance(enemy.cell, player) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'player' }, cell: player })
   for (const candidate of targets) if (setRoute(enemy, candidate.target, candidate.cell, grid, world)) return
   const home = construction.buildings.find(building => building.parts.foundation.built)
   const goal = home ? localToWorld(home, { x: 1, y: 1 }) : world.config.spawn
@@ -137,7 +153,7 @@ function planCompanion(state: SurvivalState, player: Cell, world: WorldMap, grid
 
 /** Pure fixed-step simulation. Movement, needs, AI and simultaneous damage share one clock. */
 export function advanceSurvival(original: SurvivalState, source: ProductionState, originalConstruction: ConstructionState,
-  world: WorldMap, player: Cell, minutes: number, dt: number) {
+  world: WorldMap, player: Cell, minutes: number, dt: number, extraProtection = false) {
   const state = structuredClone(original)
   let production = { ...source, vitals: { ...source.vitals } }, construction = originalConstruction
   let critical = false, message: string | undefined, cause: Failure['cause'] = 'environment'
@@ -148,7 +164,11 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     message = `天亮了，今日${WEATHER[state.weather].name}，明日预计${WEATHER[state.forecast].name}`; critical = true
   }
   // Dawn has priority over the attack clock. Retreats give no defeat reward.
-  if (day && state.enemies.length) { state.enemies = []; state.companion.orderedEnemy = null; stop(state.companion); critical = true }
+  if (day && state.enemies.some(enemy => !enemy.residentId)) {
+    state.enemies = state.enemies.filter(enemy => enemy.residentId)
+    if (!state.enemies.some(enemy => enemy.id === state.companion.orderedEnemy)) state.companion.orderedEnemy = null
+    stop(state.companion); critical = true
+  }
   if (!day && state.raidNight !== nightKey(minutes)) {
     state.raidNight = nightKey(minutes); state.spawnRemaining = RULES.firstSpawnDelay; critical = true; message = '天黑了，林外传来动静。让伙伴驻守，准备补给。'
   }
@@ -156,7 +176,7 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     state.spawnRemaining -= dt
     if (state.spawnRemaining <= 0) {
       state.spawnRemaining = RULES.spawnInterval // No backlog when the cap is full.
-      if (state.enemies.length < RULES.enemyLimit) {
+      if (state.enemies.filter(enemy => !enemy.residentId).length < RULES.enemyLimit) {
         const occupied = construction.buildings.flatMap(building => footprint(building, blueprintById(building.blueprintId)!))
         const entries = RULES.entries.filter(cell => world.isWalkable(cell) && !occupied.some(other => sameCell(cell, other)))
         if (entries.length) {
@@ -172,14 +192,14 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
   vitals.water = Math.max(0, vitals.water - RULES.waterPerDay * dt / world.config.dayDurationSeconds)
   const targetTemperature = shelter.enclosed && shelter.rainproof ? 50 : shelter.rainproof ? 35 : WEATHER[state.weather][day ? 'dayTemperature' : 'nightTemperature']
   vitals.temperature += Math.sign(targetTemperature - vitals.temperature) * Math.min(Math.abs(targetTemperature - vitals.temperature), RULES.temperatureRate * dt)
-  const protectedPlayer = construction.jobs[0]?.phase === 'building' || state.taming.job?.phase === 'taming'
+  const protectedPlayer = extraProtection || construction.jobs[0]?.phase === 'building' || state.taming.job?.phase === 'taming'
   const dangerous = vitals.hunger < 20 || vitals.water < 20 || vitals.temperature < 20 || vitals.temperature > 80
   state.environmentRemaining = dangerous ? state.environmentRemaining - dt : RULES.environmentInterval
   if (state.environmentRemaining <= 0) {
     state.environmentRemaining = RULES.environmentInterval
     if (!protectedPlayer) vitals.hp = Math.max(0, vitals.hp - RULES.environmentDamage)
   }
-  if (state.resting && (!shelter.rest || !shelter.rainproof || !shelter.enclosed || state.enemies.length || protectedPlayer || dangerous)) state.resting = false
+  if (state.resting && (!shelter.rest || !shelter.rainproof || !shelter.enclosed || nearbyThreats(state, player).length || protectedPlayer || dangerous)) state.resting = false
   if (state.resting) vitals.hp = Math.min(100, vitals.hp + dt * .5)
   const buddy = state.companion
   if (buddy.status === 'recovering') {
@@ -192,22 +212,20 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
   if (state.decisionRemaining <= 0) {
     state.decisionRemaining = RULES.decisionInterval
     planCompanion(state, player, world, friendly)
-    for (const enemy of state.enemies) planEnemy(enemy, state, player, construction, world, hostile)
+    for (const enemy of state.enemies) planEnemy(enemy, state, player, construction, world, hostile, extraProtection)
   }
   moveActor(buddy, friendly, RULES.companion.speed, dt)
   for (const enemy of state.enemies) moveActor(enemy, hostile, ENEMIES[enemy.kind].speed, dt)
   const hits: { target: ActorTarget; amount: number }[] = []
   const attack = (actor: Actor, amount: number, interval: number) => {
     actor.cooldown = Math.max(0, actor.cooldown - dt)
-    const cell = targetCell(actor.target, state, player, construction)
+    const cell = targetCell(actor.target, state, player, construction, extraProtection)
     if (!actor.target || actor.target.kind === 'point' || !cell || actor.cooldown > .000001) return
     const inRange = actor.target.kind === 'part' ? sameCell(actor.cell, cell) : touching(hostile, actor.cell, cell)
     if (inRange) { actor.cooldown = interval; hits.push({ target: actor.target, amount }) }
   }
-  if (!day) {
-    if (buddy.status === 'active') attack(buddy, RULES.companion.attack, RULES.companion.interval)
-    for (const enemy of state.enemies) attack(enemy, ENEMIES[enemy.kind].attack, ENEMIES[enemy.kind].interval)
-  }
+  if (buddy.status === 'active') attack(buddy, RULES.companion.attack, RULES.companion.interval)
+  for (const enemy of state.enemies) if (!day || enemy.residentId) attack(enemy, ENEMIES[enemy.kind].attack, ENEMIES[enemy.kind].interval)
   // Collect every hit first, then apply: neither side gains an iteration-order advantage.
   for (const hit of hits) {
     if (hit.target.kind === 'enemy') {
@@ -258,7 +276,7 @@ export function applySurvivalCommand(original: SurvivalState, source: Production
     if (state.resting) { state.resting = false; return accept('结束休养') }
     const shelter = shelterAt(construction, player)
     if (!shelter.rest || !shelter.enclosed || !shelter.rainproof) return reject('需要进入有床、门墙和屋顶完好的木屋')
-    if (state.enemies.length || construction.jobs.length || state.taming.job) return reject('当前不能安心休养，请先处理袭击或工程')
+    if (nearbyThreats(state, player).length || construction.jobs.length || state.taming.job) return reject('当前不能安心休养，请先处理袭击或工程')
     state.resting = true; return accept('正在床边休养，饥渴仍会消耗')
   }
   if (buddy.status !== 'active') return reject('栗栗还不能参战，请先救助或治疗')
@@ -297,7 +315,8 @@ export function acceptRescue(original: SurvivalState, source: ProductionState, w
     delete production.inventory.items[item.id]
   }
   production.vitals = { hp: RULES.rescueHp, hunger: 60, water: 60, temperature: 50 }
-  state.rescuedCount = failure.id; state.failure = null; state.enemies = []; state.resting = false
+  state.rescuedCount = failure.id; state.failure = null
+  state.enemies = state.enemies.filter(enemy => enemy.residentId).map(enemy => ({ ...enemy, ...blankActor(enemy.cell) })); state.resting = false
   state.environmentRemaining = RULES.environmentInterval; state.decisionRemaining = 0
   state.companion.orderedEnemy = null; Object.assign(state.companion, blankActor(world.config.spawn), { guard: { ...world.config.spawn } })
   const dawnMinutes = (weatherDay(worldMinutes(world, elapsedSeconds)) + 1) * 1440 + 360
@@ -314,8 +333,8 @@ export function survivalWarning(state: SurvivalState, production: ProductionStat
   if (production.vitals.temperature < 30) return '天气寒冷，进入有门墙和屋顶的住所保温'
   if (production.vitals.temperature > 70) return '体感过热，寻找遮蔽处降温'
   if (state.companion.status === 'injured') return '伙伴受伤，准备草药绷带救治'
-  if (state.enemies.length) return shelterAt(construction, player).enclosed ? '敌人正在营地附近，留意门墙耐久' : '营地有敌人，尽快进入住所或安排伙伴守卫'
+  if (nearbyThreats(state, player).length) return shelterAt(construction, player).enclosed ? '附近有敌人，留意门墙耐久' : '附近有敌人，尽快进入住所或安排伙伴守卫'
   if (!dayTime(minutes)) return '夜间仍会有敌人到来，留好补给'
   if (minutes % 1440 >= 1080) return '即将入夜，检查门墙并安排伙伴驻守'
-  return state.companion.status === 'wild' ? '营火旁有一只小犬，带一份野莓去看看' : `今日${WEATHER[state.weather].name}，明日预计${WEATHER[state.forecast].name}`
+  return state.companion.status === 'wild' ? '营火旁有一只小犬，带一份 3 级野餐餐盒去看看' : `今日${WEATHER[state.weather].name}，明日预计${WEATHER[state.forecast].name}`
 }

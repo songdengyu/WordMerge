@@ -40,10 +40,8 @@
 .hintIcon { width: 34px; height: 37px; display: grid; place-items: center; border-radius: 50% 50% 10px 10px; background: #e3e8d3; color: #778962; flex-shrink: 0; }
 .hint strong { font-size: 13px; font-weight: 600; letter-spacing: 1px; }
 .hint p { font-size: 11px; color: #87917d; margin-top: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.footerActions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #dfdfcb; }
+.footerActions { display: grid; grid-template-columns: 1fr; border-top: 1px solid #dfdfcb; }
 .footerActions button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 51px; border: 0; background: none; font: inherit; font-size: 12px; color: #4a6349; cursor: pointer; }
-.footerActions button + button { border-left: 1px solid #dfdfcb; }
-.footerActions svg { width: 18px; height: 18px; }
 .footerActions .craftButton { background: #e4ead4; color: #4f6b46; }
 .supplyBadge { position: absolute; top: calc(145px + env(safe-area-inset-top, 0px)); left: 22px; border: 1px solid #f3ecd87a; border-radius: 18px; padding: 7px 11px; display: flex; gap: 7px; font-size: 12px; background: #f5f0d6cc; color: #8e7747; pointer-events: none; }
 .supplyBadge span { font-size: 10px; color: #859172; }
@@ -75,13 +73,6 @@
 .sheetBody { padding: 28px 24px calc(28px + env(safe-area-inset-bottom, 0px)); }
 .sheetHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
 .sheetHeader h2 { font-family: "Songti SC", "SimSun", serif; font-size: 25px; letter-spacing: 2px; font-weight: 500; }
-.region { display: flex; align-items: center; gap: 12px; border-top: 1px solid #dbdfcd; padding: 21px 0; }
-.region h3 { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-.region p { font-size: 11px; color: #7d8875; }
-.region > span:last-child { margin-left: auto; font-size: 10px; white-space: nowrap; }
-.regionIcon { display: grid; place-items: center; width: 37px; height: 42px; flex-shrink: 0; background: #e7eadb; border-radius: 19px 19px 5px 5px; font-size: 12px; }
-.badge { padding: 4px 6px; border-radius: 4px; color: #738253; background: #e5e9d5; }
-.locked { color: #8b9383; }
 .primaryButton { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border: 0; border-radius: 10px; background: #536e50; color: #f7f1dd; padding: 15px; font: inherit; font-size: 13px; cursor: pointer; margin-top: 20px; }
 .shell button:focus-visible, .sheet button:focus-visible { outline: 2px solid #ac8450; outline-offset: 3px; }
 .shell button:active, .sheet button:active { filter: brightness(0.94); }

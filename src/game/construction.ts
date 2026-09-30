@@ -68,9 +68,10 @@ export function reachable(grid: NavigationGrid, from: Cell, to: Cell, world: Wor
 }
 export function placementError(world: WorldMap, state: ConstructionState, blueprintId: string, origin: Cell, rotation: Rotation, player: Cell): string | null {
   const blueprint = blueprintById(blueprintId)
-  if (!blueprint || !state.unlockedBlueprints.includes(blueprintId)) return '尚未获得这张蓝图'
+  if (!blueprint || (!state.unlockedBlueprints.includes(blueprintId) && !(blueprint.fixedRegion && world.chunkAt(origin)?.id === blueprint.fixedRegion && world.chunkAt(origin)?.unlocked))) return '尚未获得这张蓝图'
   if (!Number.isSafeInteger(origin.x) || !Number.isSafeInteger(origin.y) || ![0, 1, 2, 3].includes(rotation)) return '请选择有效的地块与朝向'
-  if (state.buildings.length >= 16) return '这片营地的建筑已达上限'
+  if (!blueprint.fixedRegion && state.buildings.filter(b => !blueprintById(b.blueprintId)?.fixedRegion).length >= 16) return '这片营地的建筑已达上限'
+  if (blueprint.fixedRegion && state.buildings.some(b => b.blueprintId === blueprintId)) return '这座区域建筑已经存在'
   const candidate: Building = { id: 'preview', blueprintId, origin, rotation,
     parts: Object.fromEntries(blueprint.parts.map(part => [part.id, { hp: part.hp, built: true, xpGranted: false }])) }
   const cells = footprint(candidate, blueprint)
@@ -114,6 +115,7 @@ export function applyConstructionCommand(original: ConstructionState, production
     return accept(state.jobs.length > 1 ? '材料已预留，工程加入队列' : '材料已预留，正在前往工作位')
   }
   if (command.type === 'building-place') {
+    if (blueprintById(command.blueprintId)?.fixedRegion) return reject('这座大屋随区域发现，不能另行放置')
     const error = placementError(world, state, command.blueprintId, command.origin, command.rotation, player)
     if (error) return reject(error)
     const blueprint = blueprintById(command.blueprintId)!
@@ -123,6 +125,7 @@ export function applyConstructionCommand(original: ConstructionState, production
   }
   if (command.type === 'building-remove') {
     const building = state.buildings.find(building => building.id === command.buildingId)
+    if (building && blueprintById(building.blueprintId)?.fixedRegion) return reject('这是区域中的固定地基，不能收回')
     if (!building || Object.values(building.parts).some(part => part.built)
       || state.jobs.some(job => state.orders.find(order => order.id === job.orderId)?.buildingId === building.id)) return reject('只能收回未开工、没有预留的图纸')
     state.orders = state.orders.filter(order => order.buildingId !== building.id)

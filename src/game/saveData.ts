@@ -7,12 +7,15 @@ import { BUILDING_VERSION } from './buildingConfig'
 import { validateConstruction } from './constructionValidation'
 import { initialConstructionSeconds, M3_INITIAL_BUILDING_VERSION } from './migrations/constructionTiming'
 import { beginFailure, createSurvival, worldMinutes, type SurvivalState } from './survival'
-import { SURVIVAL_VERSION } from './survivalConfig'
+import { PRE_MEAL_SURVIVAL_VERSION, SURVIVAL_VERSION } from './survivalConfig'
 import { validateSurvival } from './survivalValidation'
 import { createProgression, progressedWorld, type ProgressionState } from './progression'
-import { PROGRESSION_VERSION, REGIONS } from './progressionConfig'
+import { MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION, PROGRESSION_VERSION, REGIONS } from './progressionConfig'
 import { validateProgression } from './progressionValidation'
 import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
+import { releaseTaming } from './taming'
+import { createRegionContent } from './regionContentConfig'
+import { populateRegionContent } from './regionContent'
 
 export interface RuntimeData {
   elapsedSeconds: number
@@ -57,7 +60,11 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (![1, 2, 3, 4].includes(raw.schemaVersion)) throw new SaveError('存档版本不兼容，原文件已保留；请使用相应版本的游戏。', 'incompatible')
   const legacy = raw.schemaVersion === 1
   const oldTiming = raw.schemaVersion === 2 && raw.configVersion === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
-  if (!oldTiming && raw.configVersion !== (legacy ? legacyConfigVersion(world, catalog) : raw.schemaVersion === 2 ? m3ConfigVersion(world, catalog) : raw.schemaVersion === 3 ? m4ConfigVersion(world, catalog) : configVersion(world, catalog))) throw new SaveError('存档与当前地图 / 物品 / 建筑 / 生存 / 剧情配置不匹配，未覆盖原存档。', 'incompatible')
+  const oldMapTab = raw.schemaVersion === 4 && raw.configVersion === `${m4ConfigVersion(world, catalog).replace(/^m4-/, 'm5-')}-${MAP_TAB_PROGRESSION_VERSION}`
+  const preMealM4 = `${m3ConfigVersion(world, catalog).replace(/^m3-/, 'm4-')}-${PRE_MEAL_SURVIVAL_VERSION}`
+  const oldTamingFood = raw.schemaVersion === 3 ? raw.configVersion === preMealM4 : raw.schemaVersion === 4
+    && [MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION].some(version => raw.configVersion === `${preMealM4.replace(/^m4-/, 'm5-')}-${version}`)
+  if (!oldTiming && !oldMapTab && !oldTamingFood && raw.configVersion !== (legacy ? legacyConfigVersion(world, catalog) : raw.schemaVersion === 2 ? m3ConfigVersion(world, catalog) : raw.schemaVersion === 3 ? m4ConfigVersion(world, catalog) : configVersion(world, catalog))) throw new SaveError('存档与当前地图 / 物品 / 建筑 / 生存 / 剧情配置不匹配，未覆盖原存档。', 'incompatible')
   check(integer(raw.revision) && integer(raw.savedAt), '版本序号或保存时间')
   const data = raw.data
   check(record(data), '游戏数据')
@@ -165,13 +172,27 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (record(migrated.data.survival) && migrated.data.survival.taming === undefined) {
     migrated.data.survival.taming = { ordered: false, job: null }
   }
-  validateSurvival(migrated.data.survival, migrated.data, world, catalog, check)
+  validateSurvival(migrated.data.survival, migrated.data, world, catalog, check, oldTamingFood ? [211] : undefined)
+  // Old, unpaid travel releases berries in place; its order now requests the new food.
+  // Work already paid for continues without charging again.
+  if (oldTamingFood && migrated.data.survival.taming.job?.phase === 'travel') {
+    releaseTaming(migrated.data.survival, migrated.data.production)
+    migrated.data.route = []; migrated.data.destination = null; migrated.data.searching = false; migrated.data.progress = 0
+    validateSurvival(migrated.data.survival, migrated.data, world, catalog, check)
+  }
   // Both job systems validate exact ownership before the shared orphan check.
   const reserved = new Set([...migrated.data.construction.jobs.flatMap(job => job.reservedIds),
     ...(migrated.data.survival.taming.job?.reservedIds ?? [])])
   for (const item of Object.values(migrated.data.production.inventory.items)) check(item.reservedBy === null || reserved.has(item.id), '孤立的物资预留')
   if (raw.schemaVersion < 4) migrated.data.progression = createProgression()
+  if (record(migrated.data.progression) && migrated.data.progression.regionUnlock === undefined) migrated.data.progression.regionUnlock = null
+  if (record(migrated.data.progression) && migrated.data.progression.regionContent === undefined) migrated.data.progression.regionContent = createRegionContent()
   validateProgression(migrated.data.progression, migrated.data, world, check)
+  if (populateRegionContent(world, migrated.data.construction, migrated.data.survival, migrated.data.progression)) {
+    validateConstruction(migrated.data.construction, migrated.data, world, check)
+    validateSurvival(migrated.data.survival, migrated.data, world, catalog, check)
+    validateProgression(migrated.data.progression, migrated.data, world, check)
+  }
   migrated.schemaVersion = 4; migrated.configVersion = configVersion(world, catalog)
   return migrated
 }

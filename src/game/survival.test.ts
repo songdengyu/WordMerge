@@ -3,7 +3,7 @@ import { BLUEPRINTS } from './buildingConfig'
 import { GameRuntime, type GameCommand } from './GameRuntime'
 import { advanceSurvival, createSurvival, type Enemy } from './survival'
 import { m3ConfigVersion, validateSave, type RuntimeData } from './saveData'
-import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
+import { dataFixture, tamingDataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 
 const world = worldFixture(), catalog = productionFixture()
 function harness(data = dataFixture()) {
@@ -93,7 +93,7 @@ describe('night pressure and companion commands', () => {
     validateSave(JSON.parse(runtime.exportSave()), world, catalog)
   })
   it('rescues with an actual food instance once, follows, guards and treats injury with a timed recovery', async () => {
-    const { runtime, send, pump } = harness()
+    const { runtime, send, pump } = harness(tamingDataFixture())
     expect(await send({ type: 'companion-rescue' })).toMatchObject({ accepted: true })
     expect(runtime.getSaveData().production.inventory.board[9].instanceId).toBeNull()
     pump(2)

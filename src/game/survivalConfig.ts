@@ -7,7 +7,7 @@ export const SURVIVAL_RULES = {
   spawnInterval: 80, firstSpawnDelay: 15, enemyLimit: 3, decisionInterval: .5,
   lossLimit: 2, lossMaxLevel: 1, rescueHp: 70,
   companion: { name: '栗栗', hp: 180, attack: 14, interval: 2, speed: 2, radius: 5,
-    rescueItems: [211], medicineItems: [232], recoverySeconds: 60, restHpPerSecond: 1 },
+    rescueItems: [213], medicineItems: [232], recoverySeconds: 60, restHpPerSecond: 1 },
   entries: [{ x: 7, y: 0 }, { x: 15, y: 7 }, { x: 7, y: 15 }, { x: 0, y: 7 }],
 } as const
 export const WEATHER = {
@@ -22,3 +22,4 @@ export const ENEMIES = {
 } as const
 export type EnemyKind = keyof typeof ENEMIES
 export const SURVIVAL_VERSION = fingerprint(JSON.stringify([SURVIVAL_RULES, WEATHER, ENEMIES]))
+export const PRE_MEAL_SURVIVAL_VERSION = 'd4b57b5b'

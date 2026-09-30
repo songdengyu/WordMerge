@@ -14,7 +14,7 @@ export function BuildingPanel({ runtime, select, close, place }: {
       <button aria-label="关闭建设" onClick={close}>×</button></header>
     <div className={styles.scroll}>
       {BLUEPRINTS.filter(blueprint => construction.unlockedBlueprints.includes(blueprint.id)).map(blueprint => <div className={styles.blueprint} key={blueprint.id}>
-        <div className={styles.house}>⌂</div><div><h3>{blueprint.name}</h3><p>3 × 2 地块 · 地基 / 墙 / 门 / 顶 / 床</p><p>在地图气泡中查看材料并建造。</p></div>
+        <div className={styles.house}>⌂</div><div><h3>{blueprint.name}</h3><p>{blueprint.width} × {blueprint.height} 地块 · 地基 / 墙 / 门 / 顶 / 床</p><p>在地图气泡中查看材料并建造。</p></div>
         <button onClick={() => place(blueprint.id)}>放置图纸</button></div>)}
       {construction.buildings.map(building => <button className={styles.buildingLink} key={building.id} onClick={() => select(building.id)}>
         {blueprintById(building.blueprintId)!.name} · {building.id.toUpperCase()}<span>{buildingSummary(building).builtCount}/5 · 定位 ›</span></button>)}

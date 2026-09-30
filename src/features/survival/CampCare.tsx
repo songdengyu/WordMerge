@@ -4,6 +4,7 @@ import { BLUEPRINTS } from '../../game/buildingConfig'
 import { localToWorld } from '../../game/construction'
 import { ENEMIES, SURVIVAL_RULES, WEATHER } from '../../game/survivalConfig'
 import { dayCycle } from '../../game/environment'
+import { nearbyThreats } from '../../game/survival'
 import { PawIcon, VitalIcons } from './StatusIcons'
 import styles from './CampCare.module.css'
 
@@ -20,14 +21,15 @@ export function SurvivalHud({ state, runtime, open, openMerge, message }: {
   </aside>
 }
 export function CampThreat({ state }: { state: UiSnapshot }) {
+  const threats = nearbyThreats(state.survival, state.player)
   const damaged = state.construction.buildings.flatMap(building => BLUEPRINTS.find(b => b.id === building.blueprintId)!.parts
     .filter(part => (part.kind === 'wall' || part.kind === 'door') && building.parts[part.id].built && building.parts[part.id].hp < part.hp)
     .map(part => `${part.name} ${Math.ceil(building.parts[part.id].hp)}/${part.hp}`))
-  return <div className={styles.threat} data-testid="camp-threat" data-danger={state.survival.enemies.length > 0 || state.production!.vitals.hp <= 30}>
+  return <div className={styles.threat} data-testid="camp-threat" data-danger={threats.length > 0 || state.production!.vitals.hp <= 30}>
     <div><span>{dayCycle(state.hour * 60 + state.minute).label}
-      {' · '}敌人 <b data-testid="enemy-count">{state.survival.enemies.length}</b></span>
+      {' · '}附近敌人 <b data-testid="enemy-count">{threats.length}</b></span>
       <span>伙伴 {state.survival.companion.status === 'active' ? Math.ceil(state.survival.companion.hp) : buddyStatus[state.survival.companion.status]}</span>
-      <span>{state.protected ? state.activity === 'taming' ? '驯服保护' : '施工保护' : state.shelter.enclosed ? '门墙封闭' : '室外 / 缺口'}</span></div>
+      <span>{state.protected ? state.activity === 'unlocking' ? '开放区域保护' : state.activity === 'taming' ? '驯服保护' : '施工保护' : state.shelter.enclosed ? '门墙封闭' : '室外 / 缺口'}</span></div>
     <p>{damaged.length ? damaged.join(' · ') : state.warning}</p>
   </div>
 }
@@ -49,7 +51,7 @@ export function CampCare({ runtime, close, openMerge, message }: { runtime: Game
     <div className={styles.weather}>{WEATHER[state.survival.weather].icon} 今日{WEATHER[state.survival.weather].name} · 明日预计{WEATHER[state.survival.forecast].name}
       <small>{state.shelter.rainproof ? '屋顶避雨' : '露天'} · {state.shelter.enclosed ? '门墙保温' : '门墙未封闭'} · {state.shelter.rest ? '有床可休养' : '暂无床铺'}</small></div>
     <section><h3>栗栗 <span data-testid="companion-state">{buddyStatus[buddy.status]}</span></h3>
-      {buddy.status === 'wild' ? <><p>白天点击小犬头顶的野莓气泡，备好物资后自动前往，驯服需要 2 秒。</p><div className={styles.buttons}>
+      {buddy.status === 'wild' ? <><p>白天点击小犬头顶的材料气泡，准备 1 份 3 级野餐餐盒后自动前往，驯服需要 2 秒。</p><div className={styles.buttons}>
         <button disabled={!!state.survival.taming.job} onClick={() => void send({ type: 'taming-interact' })}>前往驯服</button></div></>
         : <><p>生命 <b data-testid="companion-hp">{Math.ceil(buddy.hp)}</b> / {SURVIVAL_RULES.companion.hp}
           {buddy.status === 'recovering' ? ` · 还需 ${Math.ceil(buddy.recoveryRemaining)} 秒` : buddy.status === 'active' ? ` · ${{ guard: '驻守', follow: '跟随', rest: '休养' }[buddy.mode]}` : ' · 草药绷带救治后需休养 60 秒'}</p>

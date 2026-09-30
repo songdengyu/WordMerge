@@ -129,7 +129,7 @@ describe('continuous movement persistence', () => {
   })
 
   it('replans if a previously clear segment becomes blocked before the next simulation step', async () => {
-    const source = config(), world = parseWorld(source), runtime = new GameRuntime(world)
+    const source = config(), runtime = new GameRuntime(parseWorld(source)), world = runtime.world
     let blocked = false
     const step = world.canStep.bind(world)
     world.canStep = (a, b) => !(blocked && a.y === 2 && b.y === 2 && Math.min(a.x, b.x) === 3 && Math.max(a.x, b.x) === 4) && step(a, b)

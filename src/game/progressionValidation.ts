@@ -3,6 +3,8 @@ import { CHAPTERS, DECORATIONS, OUTFITS, REGIONS } from './progressionConfig'
 import type { ProgressionState } from './progression'
 import type { RuntimeData } from './saveData'
 import { sameCell, type Cell, type WorldMap } from './world'
+import { REGION_UNLOCK_SECONDS, regionGates } from './regionUnlock'
+import { REGION_CONTENT_VERSION, REGION_BOARS, REGION_LODGE } from './regionContentConfig'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -12,9 +14,30 @@ export function validateProgression(raw: unknown, data: RuntimeData, world: Worl
   check(record(raw.choices) && Object.keys(raw.choices).length === raw.completed.length, '剧情选择记录')
   for (const id of raw.completed) check(CHAPTERS.find(c => c.id === id)!.choices.some(choice => choice.id === (raw.choices as Record<string, unknown>)[id]), '剧情选项')
   check(list(raw.unlockedRegions, REGIONS.map(r => r.id)) && list(raw.discoveries, raw.unlockedRegions) && typeof raw.witnessedDawn === 'boolean', '区域探索记录')
+  check(record(raw.regionContent) && raw.regionContent.version === REGION_CONTENT_VERSION
+    && list(raw.regionContent.initialized, raw.unlockedRegions), '区域内容版本或发现记录')
+  for (const enemy of data.survival.enemies) if (enemy.residentId) {
+    check(raw.regionContent.initialized.includes(REGION_BOARS.find(s => s.id === enemy.residentId)!.regionId), '区域野猪发现记录')
+  }
+  check(data.construction.buildings.filter(b => b.blueprintId === REGION_LODGE.blueprintId).length
+    === (raw.regionContent.initialized.includes(REGION_LODGE.regionId) ? 1 : 0), '区域大屋发现记录')
   for (const id of raw.unlockedRegions) {
     const region = REGIONS.find(r => r.id === id)!
-    check(raw.completed.includes(region.after) && data.construction.xp >= region.xp, '区域解锁条件')
+    check(data.construction.xp >= region.xp, '区域解锁条件')
+  }
+  if (raw.regionUnlock !== null) {
+    const job = raw.regionUnlock
+    check(record(job) && typeof job.regionId === 'string' && !raw.unlockedRegions.includes(job.regionId)
+      && (job.phase === 'travel' || job.phase === 'unlocking') && record(job.workCell)
+      && typeof job.remaining === 'number' && Number.isFinite(job.remaining), '区域开放作业')
+    const region = REGIONS.find(r => r.id === job.regionId)
+    const gate = regionGates(world, job.regionId).find(g => g.side === job.side)
+    check(region && gate && sameCell(job.workCell as unknown as Cell, gate.workCell) && world.isWalkable(gate.workCell)
+      && data.construction.xp >= region.xp && !data.construction.jobs.length && !data.survival.taming.job
+      && !data.survival.resting && !data.survival.failure, '区域开放工作位或条件')
+    if (job.phase === 'travel') check(job.remaining === 0 && data.destination && sameCell(data.destination, gate.workCell), '前往指示牌的目标')
+    else check(job.remaining > 0 && job.remaining <= REGION_UNLOCK_SECONDS && !data.route.length && !data.searching
+      && data.destination === null && data.progress === 0 && sameCell(data.motion?.position ?? data.cell, gate.workCell), '区域开放位置或计时')
   }
   const completed = raw.completed
   const expectedDecor = CHAPTERS.filter(c => completed.includes(c.id)).flatMap(c => c.decor ? [c.decor] : [])

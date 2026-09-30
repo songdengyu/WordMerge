@@ -17,10 +17,14 @@ import { applyProgressionCommand, applyStoryCommand, createProgression, discover
 import { testEnvironment, type EnvironmentCommand } from './environment'
 import { applyQuickSupply, type QuickSupplyCommand } from './quickSupply'
 import { TEST_VITAL_NAMES, type TestVitalCommand } from './testControls'
+import { REGION_UNLOCK_SECONDS, requestRegionUnlock, type RegionUnlockCommand } from './regionUnlock'
+import { REGIONS } from './progressionConfig'
+import { createRegionContent } from './regionContentConfig'
+import { populateRegionContent } from './regionContent'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -29,7 +33,7 @@ export interface UiSnapshot {
   readonly hour: number
   readonly minute: number
   readonly isDay: boolean
-  readonly activity: 'idle' | 'searching' | 'walking' | 'building' | 'taming'
+  readonly activity: 'idle' | 'searching' | 'walking' | 'building' | 'taming' | 'unlocking'
   readonly player: Cell
   readonly destination: Cell | null
   readonly feedback: string
@@ -96,7 +100,7 @@ export class GameRuntime {
     this.catalog = options.catalog
     this.production = options.catalog ? createProduction(options.catalog, this.now()) : null
     this.survival = createSurvival(world)
-    this.navigation = constructionNavigation(world, this.construction)
+    this.navigation = constructionNavigation(this.world, this.construction)
     this.point = { ...world.config.spawn }
     if (options.saved) {
       this.restore(options.saved.data)
@@ -160,6 +164,7 @@ export class GameRuntime {
     this.constructionChanged = false
     const results = pending.map(({ command }) => {
       if (command.type === 'move') {
+        if (this.progression.regionUnlock) return { accepted: false, reason: '已安排开放区域，请先完成或取消前往' } as CommandResult
         if (this.survival.taming.job) return { accepted: false, reason: '已安排驯服，请先完成或取消前往' } as CommandResult
         if (this.construction.jobs[0]?.phase === 'building') return { accepted: false, reason: '正在施工，完成后才能移动' } as CommandResult
         if (this.construction.jobs.length) return { accepted: false, reason: '已安排工程，请先取消前往或排队中的工程' } as CommandResult
@@ -194,18 +199,25 @@ export class GameRuntime {
         }
         return { accepted: true, message: result.message } as CommandResult
       }
-      if (command.type === 'region-unlock' || command.type === 'outfit-equip' || command.type === 'decor-place' || command.type === 'decor-remove') {
+      if (command.type === 'region-unlock' || command.type === 'region-unlock-cancel') {
+        const wasTravel = this.progression.regionUnlock?.phase === 'travel'
+        const result = requestRegionUnlock(this.progression, this.construction, this.world, this.point, !!this.survival.taming.job, command)
+        if (!result.accepted) return result
+        this.progression = result.state; this.feedback = result.message
+        if (this.progression.regionUnlock) {
+          this.survival = { ...this.survival, resting: false }
+          this.move(this.progression.regionUnlock.workCell)
+        } else if (wasTravel) this.stopMovement()
+        return { accepted: true, message: result.message } as CommandResult
+      }
+      if (command.type === 'outfit-equip' || command.type === 'decor-place' || command.type === 'decor-remove') {
         const result = applyProgressionCommand(this.progression, this.construction, command)
         if (!result.accepted) return result
         this.progression = result.state; this.feedback = result.message
-        if (command.type === 'region-unlock') {
-          this.world = progressedWorld(this.world, this.progression)
-          this.navigation = constructionNavigation(this.world, this.construction)
-          if (this.search && this.destination) this.search = new SmoothPathSearch(this.navigation, this.point, this.destination)
-        }
         return { accepted: true, message: result.message } as CommandResult
       }
       if (command.type === 'taming-interact' || command.type === 'taming-cancel' || command.type === 'companion-rescue') {
+        if (this.progression.regionUnlock) return { accepted: false, reason: '请先完成或取消开放区域' } as CommandResult
         const wasTravel = this.survival.taming.job?.phase === 'travel'
         const result = requestTaming(this.survival, this.production, this.construction, this.world, this.point, dayTime(this.gameMinutes()), command)
         if (!result.accepted) return result
@@ -215,6 +227,7 @@ export class GameRuntime {
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
       }
       if (command.type.startsWith('companion-') || command.type === 'player-rest') {
+        if (command.type === 'player-rest' && this.progression.regionUnlock) return { accepted: false, reason: '正在前往指示牌或开放区域' } as CommandResult
         const result = applySurvivalCommand(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), command as Exclude<SurvivalCommand, { type: 'rescue' }>)
         if (!result.accepted) return result
         this.survival = result.state; this.production = result.production; this.feedback = result.message
@@ -222,6 +235,7 @@ export class GameRuntime {
         return { accepted: true, message: result.message } as CommandResult
       }
       if (command.type.startsWith('building-')) {
+        if (this.progression.regionUnlock) return { accepted: false, reason: '请先完成或取消开放区域' } as CommandResult
         if (this.survival.taming.job) return { accepted: false, reason: '请先完成或取消驯服' } as CommandResult
         const buildingCommand = command as ConstructionCommand
         const wasTravel = this.construction.jobs[0]?.phase === 'travel' && buildingCommand.type === 'building-cancel'
@@ -252,6 +266,7 @@ export class GameRuntime {
           this.destination = null; this.feedback = '暂时没有通往那里的路'
           if (this.construction.jobs[0]?.phase === 'travel') this.abandonTravel('无法到达工作位，物资已释放')
           if (this.survival.taming.job?.phase === 'travel') this.abandonTaming('无法到达动物身边，物资已释放')
+          if (this.progression.regionUnlock?.phase === 'travel') this.abandonRegionUnlock('无法到达指示牌，已取消前往')
         }
       }
     }
@@ -267,9 +282,11 @@ export class GameRuntime {
     }
     this.advanceConstruction()
     this.advanceTaming()
+    this.advanceRegionUnlock()
     let survivalChanged = false
     if (this.production) {
-      const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000)
+      const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000,
+        this.progression.regionUnlock?.phase === 'unlocking')
       this.survival = result.state; this.production = result.production; this.construction = result.construction
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
@@ -435,10 +452,39 @@ export class GameRuntime {
     }
   }
 
+  private abandonRegionUnlock(message: string) {
+    this.progression = { ...this.progression, regionUnlock: null }
+    this.stopMovement(); this.feedback = message; this.constructionChanged = true
+  }
+
+  private advanceRegionUnlock() {
+    const job = this.progression.regionUnlock
+    if (!job) return
+    const region = REGIONS.find(r => r.id === job.regionId)!
+    if (job.phase === 'travel') {
+      if (this.route.length || this.search) return
+      if (!sameCell(this.point, job.workCell) || this.construction.xp < region.xp || this.progression.unlockedRegions.includes(region.id)) {
+        this.abandonRegionUnlock('暂时无法开放区域，请重新点击指示牌'); return
+      }
+      this.progression = { ...this.progression, regionUnlock: { ...job, phase: 'unlocking', remaining: REGION_UNLOCK_SECONDS } }
+      this.stopMovement(); this.feedback = `正在开放${region.name}，主角受到保护`; this.constructionChanged = true
+    } else {
+      const remaining = Math.max(0, job.remaining - FIXED_STEP_MS / 1000)
+      this.progression = { ...this.progression, regionUnlock: { ...job, remaining } }
+      if (remaining > .000001) return
+      this.progression = { ...this.progression, regionUnlock: null, unlockedRegions: [...this.progression.unlockedRegions, region.id], regionContent: structuredClone(this.progression.regionContent) }
+      this.world = progressedWorld(this.world, this.progression)
+      this.construction = structuredClone(this.construction); this.survival = structuredClone(this.survival)
+      populateRegionContent(this.world, this.construction, this.survival, this.progression)
+      this.navigation = constructionNavigation(this.world, this.construction)
+      this.feedback = `${region.name}已开放`; this.constructionChanged = true
+    }
+  }
+
   /** Simulation event entry; there is intentionally no player-facing damage command. */
   applyDamage(target: 'player' | { buildingId: string; partId: string }, amount: number) {
     if (!this.production || this.pauses.size || this.closed) return
-    if (target === 'player' && this.survival.taming.job?.phase === 'taming') return
+    if (target === 'player' && (this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking')) return
     const result = constructionDamage(this.construction, this.production, target, amount)
     this.construction = result.state; this.production = result.production
     this.navigation = constructionNavigation(this.world, this.construction)
@@ -449,6 +495,7 @@ export class GameRuntime {
 
   private enterFailure(cause: Failure['cause']) {
     if (!this.production || !this.catalog || this.survival.failure) return
+    this.progression = { ...this.progression, regionUnlock: null }
     const result = beginFailure(this.survival, this.production, this.construction, this.catalog, this.gameMinutes(), cause)
     this.survival = result.state; this.production = result.production; this.construction = result.construction
     this.route = []; this.search = null; this.destination = null
@@ -495,9 +542,9 @@ export class GameRuntime {
     return {
       day: Math.floor(minutes / 1440) + 1, hour, minute: minutes % 60, isDay: hour >= 6 && hour < 19,
       player: { ...this.cell }, destination: this.destination ? { ...this.destination } : null,
-      activity: this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
+      activity: this.progression.regionUnlock?.phase === 'unlocking' ? 'unlocking' : this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
       feedback: this.feedback, pauseReasons: [...this.pauses],
-      production: this.production, construction: this.construction, protected: this.construction.jobs[0]?.phase === 'building' || this.survival.taming.job?.phase === 'taming', saveStatus: this.saveStatus,
+      production: this.production, construction: this.construction, protected: this.construction.jobs[0]?.phase === 'building' || this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking', saveStatus: this.saveStatus,
       survival: this.survival, shelter: shelterAt(this.construction, this.cell),
       progression: this.progression,
       warning: this.production ? survivalWarning(this.survival, this.production, this.construction, this.cell, this.gameMinutes()) : '',
@@ -532,12 +579,15 @@ export class GameRuntime {
     this.survival = restored.survival
     this.survival.taming ??= { ordered: false, job: null }
     this.progression = restored.progression
+    this.progression.regionUnlock ??= null
+    this.progression.regionContent ??= createRegionContent()
     this.world = progressedWorld(this.world, this.progression)
     if (this.progression.dialogue) this.pauses.add('story')
     else this.pauses.delete('story')
     if (this.production.vitals.hp === 0) this.pauses.add('failure')
     else this.pauses.delete('failure')
     this.construction = restored.construction
+    populateRegionContent(this.world, this.construction, this.survival, this.progression)
     this.navigation = constructionNavigation(this.world, this.construction)
     this.production.stamina = syncStamina(this.production.stamina, this.now())
     this.lastAutomaticSave = this.elapsedSeconds

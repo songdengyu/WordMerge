@@ -6,12 +6,14 @@ import { availableItems, matchRequirements } from '../game/inventory'
 import { actorPosition } from '../game/survival'
 import { SURVIVAL_RULES } from '../game/survivalConfig'
 import { TAMING_SECONDS } from '../game/taming'
+import { REGIONS } from '../game/progressionConfig'
+import { REGION_UNLOCK_SECONDS, regionGates } from '../game/regionUnlock'
 import { gridToWorld, type Camera, type Point } from './camera'
 
 type Material = { id: number; owned: number; needed: number }
 type Bubble = Point & {
   id: string; label: string; command: GameCommand; width: number; height: number
-  kind: 'materials' | 'close' | 'complete'; materials: Material[]
+  kind: 'materials' | 'close' | 'complete' | 'sign'; materials: Material[]; signText?: string
   ready: boolean; phase: string; progress: number; disabled: boolean
 }
 type Entry = { model: Bubble; view: Container; ring: Graphics; focus: Graphics; button: HTMLButtonElement }
@@ -100,7 +102,7 @@ export class BuildingBubbles {
             bubble.x + bubble.width - 6, bubble.y - 14, { type: 'building-cancel', orderId }))
         }
       }
-      const canRemove = !summary.builtCount && !state.construction.jobs.some(job => state.construction.orders.find(order => order.id === job.orderId)?.buildingId === building.id)
+      const canRemove = !blueprint.fixedRegion && !summary.builtCount && !state.construction.jobs.some(job => state.construction.orders.find(order => order.id === job.orderId)?.buildingId === building.id)
       if (canRemove) result.push(this.closeBubble(`remove-${building.id}`, `收回图纸 ${building.id}`,
         anchor.x + width / 2 - 6, row[0].y - 14, { type: 'building-remove', buildingId: building.id }))
     }
@@ -118,6 +120,21 @@ export class BuildingBubbles {
         command: { type: 'taming-interact' } })
       if (job?.phase === 'travel') result.push(this.closeBubble('cancel-taming', '取消前往驯服', x + width - 6, y - 14, { type: 'taming-cancel' }))
     }
+    for (const region of REGIONS.filter(r => !state.progression.unlockedRegions.includes(r.id))) {
+      const unlock = state.progression.regionUnlock?.regionId === region.id ? state.progression.regionUnlock : null
+      for (const gate of regionGates(this.runtime.world, region.id)) {
+        if (!this.runtime.world.chunkAt(gate.workCell)?.unlocked) continue
+        const p = gridToWorld(gate.anchor), selected = unlock?.side === gate.side
+        const ready = !unlock && state.construction.xp >= region.xp && this.runtime.world.isWalkable(gate.workCell)
+        const x = p.x - 28, y = p.y - 49
+        result.push({ id: `region-sign-${region.id}-${gate.side}`, x, y, width: 56, height: 49, kind: 'sign', materials: [],
+          ready, phase: selected ? unlock.phase : 'sign', disabled: !!unlock, progress: selected && unlock.phase === 'unlocking' ? 1 - unlock.remaining / REGION_UNLOCK_SECONDS : 0,
+          signText: `${state.construction.xp}/${region.xp}`,
+          label: `${region.name}指示牌，建筑经验 ${state.construction.xp}/${region.xp}，${selected ? unlock.phase === 'unlocking' ? '正在开放' : '正在前往' : '点击开放区域'}`,
+          command: { type: 'region-unlock', regionId: region.id, side: gate.side } })
+        if (selected && unlock.phase === 'travel') result.push(this.closeBubble(`cancel-region-${region.id}`, '取消前往指示牌', x + 44, y - 14, { type: 'region-unlock-cancel' }))
+      }
+    }
     return result
   }
 
@@ -132,7 +149,15 @@ export class BuildingBubbles {
     view.position.set(model.x, model.y); view.addChild(g)
     const color = this.color(model), ink = model.ready ? 0x34592d : 0x806c4c
     const border = model.ready ? 0x93b77c : ['building', 'taming'].includes(model.phase) ? 0xd0b274 : model.kind === 'complete' ? 0xaabc90 : 0xeee1c5
-    if (model.kind === 'close') {
+    if (model.kind === 'sign') {
+      g.ellipse(28, 47, 15, 4).fill({ color: 0x31432d, alpha: .18 })
+      g.roundRect(25, 28, 6, 20, 2).fill(0x92724e)
+      g.roundRect(0, 0, 56, 35, 5).fill(model.ready ? 0xd3e5b1 : 0xe7d6ad).stroke({ color: model.ready ? 0x638344 : 0x9f8054, width: 2 })
+      const title = new Text({ text: '建筑经验', resolution: 3, style: { fontFamily: 'sans-serif', fontSize: 9, fill: ink } })
+      title.anchor.set(.5, 0); title.position.set(28, 4); view.addChild(title)
+      const xp = new Text({ text: model.signText, resolution: 3, style: { fontFamily: 'sans-serif', fontSize: 12, fontWeight: '600', fill: ink } })
+      xp.anchor.set(.5, 0); xp.position.set(28, 17); view.addChild(xp)
+    } else if (model.kind === 'close') {
       g.circle(12, 12, 12).fill(0xf8f0dc).stroke({ color: 0xe6debd, width: 1 })
       g.moveTo(8, 8).lineTo(16, 16).moveTo(16, 8).lineTo(8, 16).stroke({ color: 0x8a7654, width: 1.4 })
     } else {
@@ -188,6 +213,10 @@ export class BuildingBubbles {
       for (const model of models) {
         const entry = this.entries.get(model.id)!
         entry.model = model; entry.ring.clear()
+        if (model.kind === 'sign' && model.phase === 'unlocking') {
+          entry.ring.roundRect(4, 37, 48, 4, 2).fill({ color: 0x344d2e, alpha: .3 })
+          if (model.progress > 0) entry.ring.roundRect(4, 37, Math.max(1, model.progress * 48), 4, 2).fill(0xe2efb3)
+        }
         if (['building', 'taming'].includes(model.phase) && model.progress > 0) for (let i = 0; i < model.materials.length; i++) {
           entry.ring.arc(i * (SIZE + MATERIAL_GAP) + RADIUS, RADIUS, RADIUS - 2, -Math.PI / 2, -Math.PI / 2 + Math.min(1, model.progress) * Math.PI * 2)
             .stroke({ color: 0x9c7d3a, width: 2, cap: 'round' })
@@ -210,6 +239,7 @@ export class BuildingBubbles {
     for (const entry of [...this.entries.values()].reverse()) {
       const b = entry.model, x = world.x - b.x, y = world.y - b.y
       if (!entry.view.visible || x < 0 || x > b.width || y < 0 || y > b.height) continue
+      if (b.kind === 'sign') { this.activate(b.id); return true }
       const r = b.kind === 'close' ? 12 : RADIUS
       const localX = b.kind === 'close' ? x : x % (SIZE + MATERIAL_GAP)
       const onQuantity = b.kind === 'materials' && localX <= SIZE && y >= SIZE + 5

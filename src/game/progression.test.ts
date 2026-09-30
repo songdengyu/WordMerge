@@ -105,10 +105,11 @@ describe('M5 persistent first chapter', () => {
   it('unlocks navigation without mutating the catalog, discovers the landmark and reloads outside the starting camp', async () => {
     const data = dataFixture(); cabin(data); completePrefix(data, 3)
     const { runtime, pump, send } = harness(data)
-    expect(await send({ type: 'region-unlock', regionId: 'grove' })).toMatchObject({ accepted: false })
     expect(await send({ type: 'region-unlock', regionId: 'brook' })).toMatchObject({ accepted: true })
     expect(await send({ type: 'region-unlock', regionId: 'brook' })).toMatchObject({ accepted: false })
     expect(world.isWalkable({ x: 7, y: -5 })).toBe(false)
+    expect(runtime.world.isWalkable({ x: 7, y: -5 })).toBe(false)
+    pump(12)
     expect(runtime.world.isWalkable({ x: 7, y: -5 })).toBe(true)
     await send({ type: 'move', target: { x: 7, y: -5 } }); pump(10)
     expect(runtime.getUiSnapshot().player).toEqual({ x: 7, y: -5 })

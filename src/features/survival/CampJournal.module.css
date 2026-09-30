@@ -34,9 +34,6 @@
 .resident, .memory { padding: 15px 0; border-bottom: 1px solid #dce1cc; }
 .resident b { font-size: 13px; }
 .notice { font-size: 11px; line-height: 1.7; color: #a1754b; min-height: 18px; }
-.regions article { border-top: 1px solid #d6dcc5; padding: 15px 0; }
-.regions small, .regions .muted { color: #89937a; font-size: 11px; }
-.regions button { width: 100%; }
 .dialogue { position: absolute; inset: 0; z-index: 35; overflow-y: auto; display: flex; flex-direction: column; padding: calc(24px + env(safe-area-inset-top, 0px)) 26px calc(18px + env(safe-area-inset-bottom, 0px)); background: radial-gradient(ellipse at 50% 24%, #e0e5d0, #f7efdf 60%); color: #4c624c; }
 .dialogue header { margin-bottom: 12px; flex-shrink: 0; }
 .dialogue header button { background: transparent; padding: 9px; }

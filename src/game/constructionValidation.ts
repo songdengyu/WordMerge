@@ -12,7 +12,7 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 export function validateConstruction(raw: unknown, data: RuntimeData, world: WorldMap, check: Check,
   duration = orderSeconds): asserts raw is ConstructionState {
   check(record(raw) && Array.isArray(raw.unlockedBlueprints) && raw.unlockedBlueprints.length === 1 && raw.unlockedBlueprints[0] === BLUEPRINTS[0].id, '蓝图来源')
-  check(Array.isArray(raw.buildings) && raw.buildings.length <= 16 && Array.isArray(raw.orders) && Array.isArray(raw.jobs), '建筑或工程列表')
+  check(Array.isArray(raw.buildings) && raw.buildings.length <= 16 + BLUEPRINTS.filter(b => b.fixedRegion).length && Array.isArray(raw.orders) && Array.isArray(raw.jobs), '建筑或工程列表')
   check(integer(raw.nextId) && raw.nextId > 0 && integer(raw.xp), '建筑序号或经验')
   const ids = new Set<string>(), prior = createConstruction()
   let xp = 0
@@ -33,6 +33,7 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
       }
     }
     const building = entry as unknown as ConstructionState['buildings'][number]
+    if (blueprint.fixedRegion) check(footprint(building, blueprint).every(cell => world.chunkAt(cell)?.id === blueprint.fixedRegion), '区域建筑占地')
     check(!placementError(world, prior, building.blueprintId, building.origin, building.rotation, world.config.spawn), '建筑重叠、地形或工作位不可达')
     prior.buildings.push(building)
   }

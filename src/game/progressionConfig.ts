@@ -14,8 +14,8 @@ export const DECORATIONS = [
 ] as const
 export type DecorId = typeof DECORATIONS[number]['id']
 export const REGIONS = [
-  { id: 'brook', name: '溪谷深处', xp: 30, after: 'friend', point: { x: 7, y: -5 }, landmark: '溪边的行李', description: '水边有一只刚放下的行李箱。也许有人能解释那封信。' },
-  { id: 'grove', name: '静谧林地', xp: 70, after: 'shelter', point: { x: 21, y: 8 }, landmark: '树下的信匣', description: '林岚说，母亲曾把不愿寄出的信留在这里。' },
+  { id: 'brook', name: '溪谷深处', xp: 30, point: { x: 7, y: -5 }, landmark: '溪边的行李' },
+  { id: 'grove', name: '静谧林地', xp: 70, point: { x: 21, y: 8 }, landmark: '树下的信匣' },
 ] as const
 // Extension layers keep the original M1–M4 map fingerprint stable for explicit migrations.
 export const REGION_EXTENSIONS: readonly RegionExtension[] = [
@@ -55,13 +55,13 @@ export const CHAPTERS: readonly StoryChapter[] = [
     lines: [{ speaker: '你', text: '新的木地板接住了第一缕阳光。工具箱底下，压着一块母亲留下的拼布。' },
       { speaker: '手记', text: '“家不用一次造好。门墙挡住夜里的动静，屋顶挡雨，床让你缓一缓。先做最需要的那一件。”' }],
     choices: [{ id: 'keep', text: '把拼布留下来装饰', reply: '获得拼布地毯。可以在营地手记的“装扮”里摆到已建成的地板上。' }] },
-  { id: 'friend', title: '第一个愿意留下的朋友', goal: '白天喂野莓救助栗栗', action: 'care', condition: 'companion', requirements: [], rewardItems: [], outfit: 'sage',
-    hint: '点击顶部伙伴入口。靠近小犬，喂一份野莓；加入后可跟随或驻守。野莓来自食材篮，不必先打赢敌人。',
-    lines: [{ speaker: '你', text: '小犬小心地吃下野莓，尾巴终于摇了起来。它的项圈里侧，绣着“栗栗”。' },
+  { id: 'friend', title: '第一个愿意留下的朋友', goal: '白天用野餐餐盒救助栗栗', action: 'care', condition: 'companion', requirements: [], rewardItems: [], outfit: 'sage',
+    hint: '点击小犬头顶的材料气泡，准备一份 3 级野餐餐盒。食材篮产出的野莓合成果酱，再合成餐盒；加入后可跟随或驻守。',
+    lines: [{ speaker: '你', text: '小犬小心地吃起餐盒里的食物，尾巴终于摇了起来。它的项圈里侧，绣着“栗栗”。' },
       { speaker: '你', text: '它把我带到一件旧围裙旁。口袋里是一张溪谷草图——有人最近沿着那条路来过。' }],
-    choices: [{ id: 'together', text: '以后，我们一起守家', reply: '栗栗贴近了你的手。获得鼠尾草围裙；建设经验达到 30 后，可从营地地图开放溪谷。' }] },
+    choices: [{ id: 'together', text: '以后，我们一起守家', reply: '栗栗贴近了你的手。获得鼠尾草围裙；建筑经验达到 30 后，点击营地北侧指示牌可以开放溪谷。' }] },
   { id: 'visitor', title: '溪谷的来客', goal: '找到溪边行李，准备果酱与一壶饮水', action: 'brook', condition: 'brook', requirements: [212, 222], rewardItems: [102], decor: 'planter',
-    hint: '建设经验达到 30 并完成栗栗的故事后，开放溪谷、前往线索。两份野莓合成果酱，两杯饮水合成一壶；棋盘与仓库都能交付。',
+    hint: '建筑经验达到 30，点击营地北侧指示牌，角色到达后用 2 秒开放溪谷。进入溪谷寻找行李；两份野莓合成果酱，两杯饮水合成一壶。',
     lines: [{ speaker: '林岚', text: '“你和她年轻时很像。”来客看了看你手里的钥匙，又移开了目光。“我只是来取回以前落下的东西。”' },
       { speaker: '你', text: '她的鞋还滴着水，行李里却整齐收着一封写给母亲的旧信。我递过去果酱和饮水。' },
       { speaker: '林岚', text: '“谢谢。你母亲说过，这里不问人为什么来，只问愿不愿意好好留下。我会修工具，能帮你把旧工作台收拾好。”' }],
@@ -73,7 +73,7 @@ export const CHAPTERS: readonly StoryChapter[] = [
       { speaker: '你', text: '灯下，溪谷草图背面浮出一句铅笔字：“没寄出的信，在老树下。”' }],
     choices: [{ id: 'light', text: '明天去看看，今晚先守好家', reply: '获得暖光提灯。建设经验达到 70 后，可开放静谧林地，寻找那只信匣。' }] },
   { id: 'grove', title: '没有署名的约定', goal: '开放静谧林地，走到树下信匣旁', action: 'grove', condition: 'grove', requirements: [], rewardItems: [], outfit: 'rose',
-    hint: '在营地地图开放静谧林地并前往线索。开放后的地块也可以行走和建设，返程可点“走回营火旁”。',
+    hint: '建筑经验达到 70，点击营地东侧指示牌，角色到达后用 2 秒开放静谧林地。拖动地图，点击空地前往树下信匣，开放后的地块也可以建设。',
     lines: [{ speaker: '旧信', text: '“她会回来的。到时候，不要替我决定她该不该知道。让她自己选。”落款被雨水洇开了。' },
       { speaker: '林岚', text: '“她说的‘她’，也许就是你。”林岚把包着信匣的蔷薇色旧衫递给你，却没有解释另一个人的身份。' },
       { speaker: '你', text: '我把信收好。这里藏着一个约定，也开始有了我的生活。我决定留下，慢慢找出答案。' }],
@@ -86,3 +86,6 @@ export const CHAPTERS: readonly StoryChapter[] = [
     choices: [{ id: 'stay', text: '先好好过今天', reply: '首章试玩完成。继续建设、照护与装扮；寄信人的故事将在后续章节继续。' }] },
 ]
 export const PROGRESSION_VERSION = fingerprint(JSON.stringify([CHAPTERS, REGIONS, REGION_EXTENSIONS, OUTFITS, DECORATIONS]))
+// Exact prior M5 catalog: map-tab unlocks, two regions, same story/reward IDs.
+export const MAP_TAB_PROGRESSION_VERSION = '7a73e35c'
+export const PRE_MEAL_PROGRESSION_VERSION = 'd3dd46d6'

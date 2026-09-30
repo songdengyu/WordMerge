@@ -175,7 +175,8 @@ export class CampScene {
   centerBuilding(id: string) {
     const building = this.runtime.getUiSnapshot().construction.buildings.find(building => building.id === id)
     if (building) {
-      this.camera.center(localToWorld(building, { x: 1, y: .5 }))
+        const blueprint = blueprintById(building.blueprintId)!
+        this.camera.center(localToWorld(building, { x: (blueprint.width - 1) / 2, y: (blueprint.height - 1) / 2 }))
       this.camera.pan(0, Math.min(40, this.camera.height * .06))
     }
   }
@@ -247,7 +248,7 @@ export class CampScene {
             if (config.kind === 'door') g.circle((a.x + b.x) / 2 + 4, (a.y + b.y) / 2 - 8, 2).fill(0xf1d59a)
           }
           if (config.kind === 'roof') {
-            const points = [{ x: -.5, y: -.5 }, { x: 2.5, y: -.5 }, { x: 2.5, y: 1.5 }, { x: -.5, y: 1.5 }]
+            const points = [{ x: -.5, y: -.5 }, { x: blueprint.width - .5, y: -.5 }, { x: blueprint.width - .5, y: blueprint.height - .5 }, { x: -.5, y: blueprint.height - .5 }]
               .map(cell => gridToWorld(localToWorld(building, cell)))
             g.poly(points.flatMap(p => [p.x, p.y - 38])).fill({ color: 0xb66f59, alpha: .55 }).stroke({ width: 2, color: 0xe4af86, alpha: .8 })
             g.moveTo(points[0].x, points[0].y - 38).lineTo(points[2].x, points[2].y - 38).stroke({ width: 2, color: 0xf5c79e, alpha: .8 })
@@ -277,7 +278,7 @@ export class CampScene {
       }
     }
     this.protection.clear()
-    if (snapshot.construction.jobs[0]?.phase === 'building' || snapshot.survival.taming.job?.phase === 'taming') {
+    if (snapshot.construction.jobs[0]?.phase === 'building' || snapshot.survival.taming.job?.phase === 'taming' || snapshot.progression.regionUnlock?.phase === 'unlocking') {
       const p = gridToWorld(snapshot.position)
       this.protection.ellipse(p.x, p.y, 23, 12).fill({ color: 0xfbe2a1, alpha: .3 }).stroke({ color: 0xffecc0, width: 2 })
     }
@@ -414,6 +415,7 @@ export class CampScene {
     this.host.dataset.phase = light.phase
     this.host.dataset.darkness = light.darkness.toFixed(3)
     this.host.dataset.regions = snapshot.progression.unlockedRegions.join(',')
+    this.host.dataset.residentBoars = String(snapshot.survival.enemies.filter(enemy => enemy.residentId).length)
     this.host.dataset.outfit = snapshot.progression.outfit
     this.host.dataset.decorations = String(snapshot.progression.decorations.length)
   }

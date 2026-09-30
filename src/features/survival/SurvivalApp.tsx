@@ -9,11 +9,12 @@ import { ProductionScreen } from './ProductionScreen'
 import { SaveControls } from './SaveControls'
 import { BuildingPanel } from './BuildingPanel'
 import { CampCare, FailurePanel, SurvivalHud } from './CampCare'
-import { CampJournal, RegionList, StoryDialogue } from './CampJournal'
+import { CampJournal, StoryDialogue } from './CampJournal'
 import { DayCycle } from './DayCycle'
 import { TestControls } from './TestControls'
 import { CompanionWheel } from './CompanionWheel'
 import { currentChapter, decorError } from '../../game/progression'
+import { reachableRegionGate } from '../../game/regionUnlock'
 import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
 import { localToWorld } from '../../game/construction'
 import { BLUEPRINTS } from '../../game/buildingConfig'
@@ -21,12 +22,11 @@ import type { Rotation } from '../../game/construction'
 import type { Cell } from '../../game/world'
 import styles from './SurvivalApp.module.css'
 
-function Icon({ kind }: { kind: 'leaf' | 'sun' | 'moon' | 'map' | 'compass' | 'book' | 'close' }) {
+function Icon({ kind }: { kind: 'leaf' | 'sun' | 'moon' | 'compass' | 'book' | 'close' }) {
   const paths = {
     leaf: 'M5 20C2 10 8 3 20 4c1 12-5 17-12 13M5 20 15 9M10 14v-4m0 4h4',
     sun: 'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
     moon: 'M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z',
-    map: 'm3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2Zm6-2v16m6-14v16',
     compass: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-6-3-2 4-4 2 2-4Z',
     book: 'M4 4h12a3 3 0 0 1 3 3v14H6a3 3 0 0 1-3-3V5a1 1 0 0 1 1-1Zm-1 14a3 3 0 0 1 3-3h13M8 8h7m-7 3h5',
     close: 'm6 6 12 12M6 18 18 6',
@@ -34,32 +34,27 @@ function Icon({ kind }: { kind: 'leaf' | 'sun' | 'moon' | 'map' | 'compass' | 'b
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind]} /></svg>
 }
 
-function Sheet({ kind, close, goHome, runtime, travel }: { kind: 'map' | 'settings'; close: () => void; goHome: () => void; runtime: GameRuntime; travel: (id: string) => void }) {
+function SettingsSheet({ close, runtime }: { close: () => void; runtime: GameRuntime }) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => { ref.current?.showModal() }, [])
   return <dialog className={styles.sheet} ref={ref} onCancel={close} aria-labelledby="sheet-title"
     onClick={event => { if (event.target === event.currentTarget) close() }}>
     <div className={styles.sheetBody}>
       <div className={styles.sheetHeader}>
-        <div>{kind === 'map' && <span className={styles.eyebrow}>一步一步，走向未知</span>}
-          <h2 id="sheet-title">{kind === 'map' ? '营地地图' : '设置'}</h2></div>
+        <h2 id="sheet-title">设置</h2>
         <button className={styles.iconButton} onClick={close} aria-label="关闭"><Icon kind="close" /></button>
       </div>
-      {kind === 'map' ? <>
-        <RegionList runtime={runtime} travel={travel} />
-        <button className={styles.primaryButton} onClick={goHome}><Icon kind="compass" />走回营火旁</button>
-      </> : <SaveControls runtime={runtime} />}
+      <SaveControls runtime={runtime} />
     </div>
   </dialog>
 }
 
 function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: string | null; reset: () => void }) {
-  const world = runtime.world
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot)
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<CampScene | null>(null)
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
-  const [sheet, setSheet] = useState<'map' | 'settings' | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const openMerge = useCallback(() => setMergeOpen(true), [])
   const [buildingOpen, setBuildingOpen] = useState(false)
@@ -93,7 +88,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => {
     if (state.survival.failure || state.progression.dialogue) {
       setWheelOpen(false)
-      setSheet(null); setCareOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
+      setSettingsOpen(false); setCareOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
     }
   }, [state.survival.failure, state.progression.dialogue])
   useEffect(() => { scene.current?.setPlacement(placement) }, [placement, attempt])
@@ -119,24 +114,24 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const placementError = placement && runtime.placementError(placement.blueprintId, placement.origin, placement.rotation)
   const decorationError = decorationPlacement && decorError(decorationPlacement.kind, decorationPlacement.cell, state.progression, state.construction)
   const placing = !!placement || !!decorationPlacement
-  const bubblesHidden = placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || !!sheet || paused
+  const bubblesHidden = placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || paused
   useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
   const chapter = currentChapter(state.progression)
-  const travel = (id: string) => {
-    const region = REGIONS.find(r => r.id === id)!
-    setSheet(null)
-    void runtime.dispatch({ type: 'move', target: region.point }).then(result => {
-      if (!result.accepted) message(result.reason)
-      else scene.current?.centerCell(region.point)
-    })
-  }
   const navigate = (action: StoryChapter['action']) => {
     setJournalOpen(false)
     if (action === 'build') setBuildingOpen(true)
     else if (action === 'care') setCareOpen(true)
     else if (action === 'brook' || action === 'grove') {
       if (state.progression.discoveries.includes(action)) setMergeOpen(true)
-      else setSheet('map')
+      else if (!state.progression.unlockedRegions.includes(action)) {
+        const gate = reachableRegionGate(runtime.world, state.construction, state.player, action)
+        if (gate) { scene.current?.centerCell(gate.anchor); message('点击边界指示牌开放区域') }
+        else message('请先找到通往这片区域的路线')
+      } else {
+        const region = REGIONS.find(r => r.id === action)!
+        scene.current?.centerCell(region.point)
+        void runtime.dispatch({ type: 'move', target: region.point }).then(result => { if (!result.accepted) message(result.reason) })
+      }
     }
   }
   const decorate = (kind: DecorId) => {
@@ -146,14 +141,6 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     setJournalOpen(false); setDecorationPlacement({ kind, cell: existing?.cell ?? localToWorld(building, { x: 1, y: 0 }) })
     scene.current?.centerBuilding(existing?.buildingId ?? building.id)
   }
-  const goHome = () => {
-    setSheet(null)
-    void runtime.dispatch({ type: 'move', target: world.config.spawn }).then(result => {
-      if (!result.accepted) message(result.reason)
-      else scene.current?.centerPlayer()
-    })
-  }
-
   return <main className={styles.shell} data-testid="survival-game" data-player={`${state.player.x},${state.player.y}`}
     data-activity={state.activity} data-destination={state.destination ? `${state.destination.x},${state.destination.y}` : ''}
     data-paused={String(paused)} data-save-state={state.saveStatus.state} data-save-revision={state.saveStatus.revision}
@@ -162,7 +149,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     <div ref={host} className={styles.map} data-testid="camp-scene" />
     <div className={styles.topVeil} />
     <header className={styles.header}>
-      <div className={styles.brand}><button type="button" className={styles.brandIcon} aria-label="设置" title="设置" onClick={() => setSheet('settings')}><Icon kind="leaf" /></button>
+      <div className={styles.brand}><button type="button" className={styles.brandIcon} aria-label="设置" title="设置" onClick={() => setSettingsOpen(true)}><Icon kind="leaf" /></button>
         <div><span className={styles.eyebrow}>一段新的生活</span><h1>林间营地</h1></div></div>
       <DayCycle state={state} />
     </header>
@@ -202,13 +189,12 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </section> : <footer className={styles.footer}>
       <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建</button>
       <div className={styles.activity} data-testid="activity"><span className={styles.activityDot} data-moving={state.activity !== 'idle'} />
-        <span>{paused ? '营地已暂停' : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
+        <span>{paused ? '营地已暂停' : state.activity === 'unlocking' ? `开放区域 · ${Math.ceil(state.progression.regionUnlock!.remaining)} 秒` : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
         <span className={styles.coordinates}>建设经验 <span data-testid="building-xp">{state.construction.xp}</span> · {state.saveStatus.state === 'saved' ? '已保存' : state.saveStatus.state === 'saving' ? '保存中…' : '待保存'}</span></div>
       <div className={styles.footerCard}>
         <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
           <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{chapter?.goal ?? '首章完成 · 继续建设与装扮'}</p></div></button>
         <div className={styles.footerActions}>
-          <button onClick={() => setSheet('map')}><Icon kind="map" />营地地图</button>
           <button className={styles.craftButton} onClick={() => setMergeOpen(true)}>✧ 合成物资</button>
         </div>
       </div>
@@ -226,7 +212,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     {state.survival.failure && <FailurePanel runtime={runtime} message={message} />}
     {saveFailed && <section className={styles.saveError} role="alert"><h2>先保管好营地进度</h2><SaveControls runtime={runtime} />
       <button className={styles.dangerButton} title="清除所有数据" onClick={reset}>删</button></section>}
-    {sheet && <Sheet kind={sheet} close={() => setSheet(null)} goHome={goHome} runtime={runtime} travel={travel} />}
+    {settingsOpen && <SettingsSheet close={() => setSettingsOpen(false)} runtime={runtime} />}
   </main>
 }
 

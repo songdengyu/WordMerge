@@ -213,10 +213,6 @@ test('a complete cabin can be built with generated materials and keeps its doorw
   await expect(page.getByTestId('building-complete-b1')).toHaveAccessibleName(/围护封闭/)
   await expect(page.getByTestId('building-xp')).toHaveText('70')
   await page.screenshot({ path: 'test-results/m3-cabin-complete.png' })
-  await page.getByRole('button', { name: '营地地图', exact: true }).click()
-  await page.getByRole('button', { name: '走回营火旁' }).click()
-  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '7,9')
-  await page.screenshot({ path: 'test-results/m3-camp.png' })
 })
 
 test('scene bubbles scale at both zoom limits and drag, pinch and cancel do not activate them', async ({ page, context }) => {

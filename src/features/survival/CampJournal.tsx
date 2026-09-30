@@ -1,30 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
-import { currentChapter, chapterReady, regionError } from '../../game/progression'
-import { CHAPTERS, DECORATIONS, OUTFITS, REGIONS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
+import { currentChapter, chapterReady } from '../../game/progression'
+import { CHAPTERS, DECORATIONS, OUTFITS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
 import { availableItems } from '../../game/inventory'
 import { MergePiece } from '../../components/MergePiece'
 import styles from './CampJournal.module.css'
-
-export function RegionList({ runtime, travel }: { runtime: GameRuntime; travel: (id: string) => void }) {
-  const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot)
-  const [notice, setNotice] = useState('')
-  return <div className={styles.regions}>
-    <article><small>已发现</small><h3>林间营地</h3><p>旧营火旁，生活正在重新开始。</p></article>
-    {REGIONS.map(region => {
-      const unlocked = state.progression.unlockedRegions.includes(region.id), error = regionError(region.id, state.progression, state.construction)
-      return <article key={region.id} data-testid={`region-${region.id}`} data-unlocked={String(unlocked)}>
-        <small>{unlocked ? state.progression.discoveries.includes(region.id) ? '线索已发现' : '可以探索' : `建设经验 ${state.construction.xp}/${region.xp}`}</small>
-        <h3>{region.name}</h3><p>{region.description}</p>
-        {unlocked ? <button onClick={() => travel(region.id)}>前往{region.landmark}</button> : <>
-          <p className={styles.muted}>{error || '条件已满足，不消耗经验'}</p>
-          <button disabled={!!error || !!state.pauseReasons.length} onClick={async () => {
-            const result = await runtime.dispatch({ type: 'region-unlock', regionId: region.id }); setNotice(result.accepted ? result.message ?? '' : result.reason)
-          }}>开放{region.name}</button></>}
-      </article>
-    })}<p role="status">{notice}</p>
-  </div>
-}
 
 export function CampJournal({ runtime, close, navigate, decorate }: { runtime: GameRuntime; close: () => void;
   navigate: (action: StoryChapter['action']) => void; decorate: (kind: DecorId) => void }) {

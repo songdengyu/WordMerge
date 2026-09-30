@@ -63,9 +63,9 @@ export function testEnvironment(original: SurvivalState, world: WorldMap, minute
   state.spawnRemaining = SURVIVAL_RULES.firstSpawnDelay
   state.decisionRemaining = 0
   if (dayTime(target)) {
-    state.enemies = []
-    state.companion.orderedEnemy = null
-    if (state.companion.target?.kind === 'enemy') {
+    state.enemies = state.enemies.filter(enemy => enemy.residentId)
+    if (!state.enemies.some(enemy => enemy.id === state.companion.orderedEnemy)) state.companion.orderedEnemy = null
+    if (state.companion.target?.kind === 'enemy' && !state.enemies.some(enemy => enemy.id === (state.companion.target as { id: string }).id)) {
       state.companion.target = null
       state.companion.route = state.companion.progress > 0 ? state.companion.route.slice(0, 1) : []
     }

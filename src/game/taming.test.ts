@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { GameRuntime, type GameCommand } from './GameRuntime'
-import { validateSave } from './saveData'
-import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
+import { m3ConfigVersion, validateSave } from './saveData'
+import { dataFixture as starterDataFixture, tamingDataFixture as dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 import { TAMING_ORDER } from './taming'
 
 const world = worldFixture(), catalog = productionFixture()
@@ -14,13 +14,41 @@ function harness(data = dataFixture()) {
   return { runtime, pump, send, valid }
 }
 function distant() { const data = dataFixture(); data.cell = { x: 9, y: 9 }; return data }
-function berryId(data: ReturnType<typeof dataFixture>) {
-  return Object.values(data.production.inventory.items).find(item => item.itemId === 211 && item.location.kind === 'board' && data.production.inventory.board[item.location.index].lock === 0)!.id
+function mealId(data: ReturnType<typeof dataFixture>) {
+  return Object.values(data.production.inventory.items).find(item => item.itemId === 213 && item.location.kind === 'board' && data.production.inventory.board[item.location.index].lock === 0)!.id
 }
 
 describe('timed taming and orders', () => {
+  it('requires a level-three meal; starter berries cannot pay for taming', async () => {
+    const h = harness(starterDataFixture()), inventory = h.runtime.getSaveData().production.inventory
+    expect(await h.send({ type: 'taming-interact' })).toMatchObject({ accepted: true, openProduction: true })
+    expect(h.valid().survival.taming).toEqual({ ordered: true, job: null })
+    expect(h.valid().production.inventory).toEqual(inventory)
+  })
+  it('migrates old berries orders, releases unpaid travel, and preserves already paid work and recruited companions', async () => {
+    const legacyVersion = `${m3ConfigVersion(world, catalog).replace(/^m3-/, 'm5-')}-d4b57b5b-d3dd46d6`
+    const h = harness(distant()); await h.send({ type: 'taming-interact' })
+    const save = JSON.parse(h.runtime.exportSave()), id = save.data.survival.taming.job.reservedIds[0]
+    save.configVersion = legacyVersion; save.data.production.inventory.items[id].itemId = 211
+    const migrated = validateSave(save, world, catalog)
+    expect(migrated.data.survival.taming).toEqual({ ordered: true, job: null })
+    expect(migrated.data.production.inventory.items[id]).toMatchObject({ itemId: 211, reservedBy: null })
+    expect(migrated.data.destination).toBeNull()
+    expect(migrated.data.route).toEqual([])
+    expect(validateSave(migrated, world, catalog)).toEqual(migrated)
+    for (const phase of ['taming', 'active'] as const) {
+      const work = harness(); await work.send({ type: 'taming-interact' })
+      if (phase === 'active') work.pump(2)
+      const old = JSON.parse(work.runtime.exportSave()); old.configVersion = legacyVersion
+      const restored = validateSave(old, world, catalog)
+      expect(restored.data).toEqual(old.data)
+      const resumed = harness(restored.data); resumed.pump(2)
+      expect(resumed.valid().survival.companion.status).toBe('active')
+      expect(resumed.valid().production.inventory).toEqual(old.data.production.inventory)
+    }
+  })
   it('missing food creates one persistent order, which can be cancelled without consuming other pieces', async () => {
-    const data = dataFixture(), id = berryId(data), item = data.production.inventory.items[id]
+    const data = dataFixture(), id = mealId(data), item = data.production.inventory.items[id]
     data.production.inventory.board[item.location.index].instanceId = null; delete data.production.inventory.items[id]
     const { runtime, send, valid } = harness(data)
     for (let i = 0; i < 2; i++) expect(await send({ type: 'taming-interact' })).toMatchObject({ accepted: true, openProduction: true })
@@ -30,7 +58,7 @@ describe('timed taming and orders', () => {
     expect(valid().survival.taming.ordered).toBe(false)
   })
   it('reserves actual warehouse food during travel, blocks reuse and releases it in the original slot on cancel', async () => {
-    const data = distant(), id = berryId(data), item = data.production.inventory.items[id]
+    const data = distant(), id = mealId(data), item = data.production.inventory.items[id]
     data.production.inventory.board[item.location.index].instanceId = null
     item.location = { kind: 'warehouse', index: 0 }; data.production.inventory.warehouse[0] = id
     const { runtime, send, valid } = harness(data)
@@ -45,7 +73,7 @@ describe('timed taming and orders', () => {
     expect(runtime.getUiSnapshot().activity).toBe('idle')
   })
   it('consumes only at the exact work position, waits two seconds and keeps started work protected and uninterruptible', async () => {
-    const data = distant(), id = berryId(data), h = harness(data)
+    const data = distant(), id = mealId(data), h = harness(data)
     await h.send({ type: 'taming-interact' })
     for (let i = 0; i < 100 && h.runtime.getUiSnapshot().activity !== 'taming'; i++) {
       expect(h.runtime.getSaveData().production.inventory.items[id]).toBeTruthy(); h.pump(.05)
@@ -83,7 +111,7 @@ describe('timed taming and orders', () => {
     expect(work.valid().production.inventory).toEqual(saved.production.inventory)
   })
   it('night cancels travel and releases food, but does not interrupt work already started', async () => {
-    const h = harness(distant()), id = berryId(h.runtime.getSaveData())
+    const h = harness(distant()), id = mealId(h.runtime.getSaveData())
     await h.send({ type: 'taming-interact' }); await h.send({ type: 'test-time', preset: 'night' })
     expect(h.valid().survival.taming).toEqual({ ordered: true, job: null })
     expect(h.runtime.getSaveData().production.inventory.items[id].reservedBy).toBeNull()

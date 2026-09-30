@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { tapSceneControl } from './sceneControls'
 
 async function ready(page: Page) {
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
@@ -78,12 +79,20 @@ test('experience unlocks a real region, exploration persists outside camp and a 
   test.setTimeout(60_000)
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await seed(page, save => { prepared(save, 3); supply(save, 212); supply(save, 222) })
-  await page.getByRole('button', { name: '营地地图', exact: true }).click()
-  await expect(page.getByRole('button', { name: '开放静谧林地' })).toBeDisabled()
-  await page.getByRole('button', { name: '开放溪谷深处' }).click()
-  await expect(page.getByTestId('region-brook')).toHaveAttribute('data-unlocked', 'true')
+  await expect(page.getByRole('button', { name: '营地地图', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: '营地手记', exact: true }).click()
+  await page.getByRole('button', { name: '前往完成目标' }).click()
+  await expect(page.locator('[data-testid^="region-sign-brook-"]')).toHaveCount(1)
+  await tapSceneControl(page, page.getByTestId('region-sign-brook-south'))
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'unlocking', { timeout: 15000 })
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-protected', 'true')
+  await page.screenshot({ path: 'test-results/region-unlocking.png' })
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-regions', 'brook')
+  await expect(page.locator('[data-testid^="region-sign-brook-"]')).toHaveCount(0)
+  await expect(page.locator('[data-testid^="region-sign-grove-"]')).toHaveCount(1)
   await page.screenshot({ path: 'test-results/m5-regions.png' })
-  await page.getByRole('button', { name: '前往溪边的行李' }).click()
+  await page.getByRole('button', { name: '营地手记', exact: true }).click()
+  await page.getByRole('button', { name: '前往完成目标' }).click()
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '7,-5', { timeout: 15000 })
   await ready(page); await page.screenshot({ path: 'test-results/m5-brook.png' })
   await page.reload(); await ready(page)
@@ -101,6 +110,66 @@ test('experience unlocks a real region, exploration persists outside camp and a 
   await page.reload(); await ready(page)
   expect((await readSave(page)).data.progression.ownedDecor).toContain('planter')
   expect(errors).toEqual([])
+})
+
+test('adjacent native signposts scale with the map, show missing XP and keep saves in settings', async ({ page }) => {
+  await seed(page, save => { save.data.cell = { x: 7, y: 1 } })
+  const signs = page.locator('[data-testid^="region-sign-"]'), sign = page.getByTestId('region-sign-brook-south')
+  await expect(signs).toHaveCount(2)
+  await expect(sign).toHaveAttribute('data-renderer', 'pixi')
+  await expect(sign).toHaveAttribute('data-ready', 'false')
+  await expect(sign).toHaveAccessibleName(/建筑经验 0\/30/)
+  const before = (await sign.boundingBox())!
+  await page.getByRole('button', { name: '放大地图' }).click()
+  await expect.poll(async () => (await sign.boundingBox())!.width).toBeGreaterThan(before.width * 1.1)
+  await page.screenshot({ path: 'test-results/region-sign-missing-xp.png' })
+  await tapSceneControl(page, sign)
+  await expect(page.getByRole('status')).toContainText('建筑经验 0/30')
+  expect((await readSave(page)).data.progression.unlockedRegions).toEqual([])
+  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await expect(page.getByRole('dialog')).toContainText('本机存档')
+  await expect(page.getByRole('button', { name: '营地地图', exact: true })).toHaveCount(0)
+})
+
+test('sign work pauses in background, resumes after reload and removes the region signs', async ({ page }) => {
+  await seed(page, save => { prepared(save, 3); save.data.cell = { x: 7, y: 0 } })
+  await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
+  const sign = page.getByTestId('region-sign-brook-south')
+  await expect(sign).toHaveAttribute('data-ready', 'true')
+  await tapSceneControl(page, sign); await page.clock.runFor(500)
+  await expect(sign).toHaveAttribute('data-phase', 'unlocking')
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
+  const saved = await readSave(page)
+  expect(saved.data.progression.regionUnlock.remaining).toBeGreaterThan(0)
+  await page.clock.runFor(5000)
+  expect((await readSave(page)).data.progression.regionUnlock).toEqual(saved.data.progression.regionUnlock)
+  await page.reload(); await ready(page)
+  await page.clock.runFor(50)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'unlocking')
+  await page.clock.runFor(2100)
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-regions', 'brook')
+  await expect(page.locator('[data-testid^="region-sign-brook-"]')).toHaveCount(0)
+  await expect(page.locator('[data-testid^="region-sign-grove-"]')).toHaveCount(1)
+  await ready(page)
+  expect((await readSave(page)).data.construction.xp).toBe(70)
+})
+
+test('old map-tab saves preserve unlocked land and the west sign opens the other region without story prerequisites', async ({ page }) => {
+  await seed(page, save => {
+    prepared(save, 4); save.data.cell = { x: 15, y: 7 }
+    save.configVersion = save.configVersion.replace(/[^-]+$/, '7a73e35c')
+    delete save.data.progression.regionUnlock
+  })
+  await expect(page.locator('[data-testid^="region-sign-brook-"]')).toHaveCount(0)
+  const sign = page.getByTestId('region-sign-grove-west')
+  await expect(sign).toHaveAttribute('data-ready', 'true')
+  await tapSceneControl(page, sign)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'unlocking')
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-regions', 'brook,grove')
+  await expect(page.locator('[data-testid^="region-sign-"]')).toHaveCount(0)
+  await ready(page); await page.reload(); await ready(page)
+  expect((await readSave(page)).data.progression.completed).toEqual(['letter', 'foundation', 'friend', 'visitor'])
+  expect((await readSave(page)).data.progression.unlockedRegions).toEqual(['brook', 'grove'])
 })
 
 test('small-phone wardrobe and floor decorations visibly persist and the final chapter completes', async ({ page }) => {

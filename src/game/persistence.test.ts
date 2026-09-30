@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { deleteDB, openDB } from 'idb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearGameData, DATABASE_NAME, SaveRepository } from './persistence'
-import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
+import { dataFixture, tamingDataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 import { GameRuntime } from './GameRuntime'
 import { legacyConfigVersion, validateSave } from './saveData'
 
@@ -27,7 +27,7 @@ afterEach(async () => { vi.restoreAllMocks(); await Promise.all(repositories.spl
 
 describe('versioned atomic IndexedDB saves', () => {
   it('retries a failed taming start save and resumes its timer without consuming another food', async () => {
-    const repo = await repository(), saved = await repo.save(dataFixture())
+    const repo = await repository(), saved = await repo.save(tamingDataFixture())
     const runtime = new GameRuntime(world, { catalog, saved, repository: repo, now: () => testNow })
     vi.spyOn(repo, 'save').mockRejectedValueOnce(new Error('QuotaExceededError'))
     runtime.advanceFrame(0)
