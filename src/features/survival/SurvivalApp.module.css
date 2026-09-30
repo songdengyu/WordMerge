@@ -1,0 +1,103 @@
+.viewport {
+  width: 100%; height: 100%; height: 100dvh; display: flex; justify-content: center;
+  background: radial-gradient(ellipse at 50% 25%, #9aab8c, #465e50);
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: #354b3d;
+}
+.shell {
+  position: relative; isolation: isolate; width: 100%; max-width: 500px; height: 100%; overflow: hidden;
+  background: #8ca18a; box-shadow: 0 0 90px #1c362752;
+}
+.map { position: absolute; inset: 0; touch-action: none; }
+.map canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.topVeil { position: absolute; inset: 0 0 auto; height: 230px; pointer-events: none; background: linear-gradient(#eceddacf, #e4e9d87a 64%, transparent); }
+.header { position: absolute; top: calc(22px + env(safe-area-inset-top, 0px)); left: 22px; right: 22px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brandIcon { width: 39px; height: 44px; display: grid; place-items: center; border: 1px solid #75896a6b; border-radius: 18px 18px 6px 6px; background: #f1f0dc7a; color: #526e4e; }
+.brandIcon svg { width: 26px; height: 26px; }
+.eyebrow { display: block; font-size: 10px; letter-spacing: 2px; color: #6b7a60; margin-bottom: 5px; }
+.brand h1 { font-size: 23px; font-weight: 600; letter-spacing: 3px; font-family: "Songti SC", "SimSun", serif; }
+.clock { display: flex; flex-direction: column; align-items: center; min-width: 65px; gap: 2px; }
+.clock > span { display: flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 1px; color: #52694e; }
+.clock strong { font-size: 23px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.clock svg { width: 13px; height: 13px; }
+.chapter { position: absolute; top: calc(110px + env(safe-area-inset-top, 0px)); left: 22px; right: 22px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #566c50; pointer-events: none; }
+.chapter > span:nth-child(2) { font-weight: 600; }
+.chapterDot { width: 5px; height: 5px; background: #9b7e48; transform: rotate(45deg); }
+.chapterLine { width: 17px; height: 1px; background: #97a082; }
+.cameraControls { position: absolute; right: 16px; top: 40%; display: flex; flex-direction: column; gap: 10px; }
+.iconButton, .zoomButtons { border: 1px solid #f3eed08f; background: #f5f0dfe6; color: #536b4c; box-shadow: 0 3px 12px #37513314; }
+.iconButton { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+.zoomButtons { border-radius: 22px; width: 44px; display: flex; flex-direction: column; align-items: center; }
+.zoomButtons button { width: 42px; height: 42px; border: 0; background: none; color: inherit; font-size: 24px; cursor: pointer; }
+.zoomButtons > span { width: 16px; height: 1px; background: #d7d7bd; }
+.footer { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; pointer-events: none; }
+.activity { display: flex; align-items: center; gap: 7px; color: #f8f5db; font-size: 11px; margin: 0 7px 12px; text-shadow: 0 1px 3px #24442da6; }
+.activityDot { width: 5px; height: 5px; background: #ead9a8; border-radius: 50%; }
+.activityDot[data-moving="true"] { background: #e0f5b3; }
+.coordinates { margin-left: auto; font-size: 10px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.footerCard { border-radius: 17px; background: #f8f3e5f7; border: 1px solid #fffbe899; box-shadow: 0 8px 30px #29432a24; pointer-events: auto; overflow: hidden; }
+.hint { display: flex; align-items: center; gap: 12px; padding: 18px 17px 16px; }
+.hintIcon { width: 34px; height: 37px; display: grid; place-items: center; border-radius: 50% 50% 10px 10px; background: #e3e8d3; color: #778962; flex-shrink: 0; }
+.hint strong { font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+.hint p { font-size: 11px; color: #87917d; margin-top: 7px; }
+.footerActions { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid #dfdfcb; }
+.footerActions button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 51px; border: 0; background: none; font: inherit; font-size: 12px; color: #4a6349; cursor: pointer; }
+.footerActions button + button { border-left: 1px solid #dfdfcb; }
+.footerActions svg { width: 18px; height: 18px; }
+.footerActions .craftButton { background: #e4ead4; color: #4f6b46; }
+.supplyBadge { position: absolute; top: calc(145px + env(safe-area-inset-top, 0px)); left: 22px; border: 1px solid #f3ecd87a; border-radius: 18px; padding: 7px 11px; display: flex; gap: 7px; font-size: 12px; background: #f5f0d6cc; color: #8e7747; pointer-events: none; }
+.supplyBadge span { font-size: 10px; color: #859172; }
+.buildButton { position: absolute; top: calc(145px + env(safe-area-inset-top, 0px)); right: 22px; min-height: 42px; padding: 8px 13px; border: 1px solid #f8edce; border-radius: 12px; background: #f5efdbec; color: #61724e; cursor: pointer; font: inherit; font-size: 12px; box-shadow: 0 3px 15px #37513322; }
+.dangerButton { min-height: 44px; padding: 10px 12px; border: 1px solid #c99c86; border-radius: 10px; background: #fbecde; color: #934d37; font: inherit; font-size: 12px; cursor: pointer; }
+.dangerButton:disabled { opacity: .5; cursor: default; }
+.resetButton { position: absolute; top: calc(190px + env(safe-area-inset-top, 0px)); left: 22px; z-index: 3; box-shadow: 0 3px 12px #37513314; }
+.placement { position: absolute; inset: auto 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: #faf3e4f5; padding: 16px; border-radius: 16px; box-shadow: 0 5px 30px #294b3444; }
+.placement strong { font-size: 14px; }
+.placement p { font-size: 11px; line-height: 1.7; margin-top: 7px; color: #89916d; }
+.placement div { display: flex; gap: 8px; margin-top: 12px; }
+.placement button { flex: 1; font: inherit; font-size: 12px; padding: 12px 5px; border: 1px solid #ccd6b9; background: #e6ead3; color: #61754e; border-radius: 9px; cursor: pointer; }
+.placement button:last-child { background: #688057; color: #faf0d6; }
+.placement button:disabled { opacity: .5; }
+.header, .chapter, .supplyBadge, .buildButton, .cameraControls, .footer, .placement { z-index: 3; }
+.toast { z-index: 4; }
+.saveError { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: center; padding: 32px; background: #f0eedeeF; overflow-y: auto; }
+.saveError h2 { font-size: 20px; font-weight: 500; }
+.importLabel { font-size: 13px; padding: 15px; border: 1px dashed #adbca0; border-radius: 10px; }
+.importLabel input { display: block; margin-top: 12px; max-width: 240px; font-size: 11px; }
+.toast { position: absolute; left: 24px; right: 24px; bottom: calc(207px + env(safe-area-inset-bottom, 0px)); border: 1px solid #f4edce80; background: #f7f0dfeF; box-shadow: 0 3px 15px #37513322; border-radius: 12px; padding: 12px 16px; text-align: center; color: #4a6349; font-size: 12px; line-height: 1.7; pointer-events: none; }
+.boot, .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 30px; text-align: center; }
+.boot { width: min(500px, 100%); background: #e4e8d7; }
+.boot h1, .loading h2 { font-size: 20px; font-weight: 500; }
+.boot p, .loading p { font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.loading { position: absolute; inset: 0; z-index: 10; background: #e4e8d7; }
+.sheet { position: fixed; inset: auto 0 0; margin: 0 auto; width: min(500px, 100%); max-width: 100%; max-height: min(85dvh, 700px); border: 1px solid #f3ebd6; border-bottom: none; border-radius: 24px 24px 0 0; background: #f7f3e7; color: #3e5543; box-shadow: 0 -10px 70px #1e3a2b33; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.sheet::backdrop { background: #243d3459; }
+.sheetBody { padding: 28px 24px calc(28px + env(safe-area-inset-bottom, 0px)); }
+.sheetHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+.sheetHeader h2 { font-family: "Songti SC", "SimSun", serif; font-size: 25px; letter-spacing: 2px; font-weight: 500; }
+.region { display: flex; align-items: center; gap: 12px; border-top: 1px solid #dbdfcd; padding: 21px 0; }
+.region h3 { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+.region p { font-size: 11px; color: #7d8875; }
+.region > span:last-child { margin-left: auto; font-size: 10px; white-space: nowrap; }
+.regionIcon { display: grid; place-items: center; width: 37px; height: 42px; flex-shrink: 0; background: #e7eadb; border-radius: 19px 19px 5px 5px; font-size: 12px; }
+.badge { padding: 4px 6px; border-radius: 4px; color: #738253; background: #e5e9d5; }
+.locked { color: #8b9383; }
+.primaryButton { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border: 0; border-radius: 10px; background: #536e50; color: #f7f1dd; padding: 15px; font: inherit; font-size: 13px; cursor: pointer; margin-top: 20px; }
+.instructions { list-style: none; counter-reset: hint; }
+.instructions li { position: relative; padding: 0 0 24px 36px; counter-increment: hint; }
+.instructions li::before { content: counter(hint, decimal-leading-zero); position: absolute; left: 0; top: 2px; color: #a3a786; font-size: 12px; }
+.instructions strong { font-size: 14px; font-weight: 500; }
+.instructions p { font-size: 12px; line-height: 1.9; color: #7d8974; margin-top: 7px; }
+.note { padding: 16px; border-radius: 10px; background: #e9ecdc; font-size: 12px; line-height: 1.8; }
+.prototypeNote { font-size: 10px; text-align: center; margin-top: 20px; color: #929780; }
+.shell button:focus-visible, .sheet button:focus-visible { outline: 2px solid #ac8450; outline-offset: 3px; }
+.shell button:active, .sheet button:active { filter: brightness(0.94); }
+@media (max-height: 650px) {
+  .header { top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .chapter { top: calc(91px + env(safe-area-inset-top, 0px)); }
+  .footer { bottom: calc(9px + env(safe-area-inset-bottom, 0px)); }
+  .hint { padding: 12px; }
+  .footerActions button { min-height: 44px; }
+  .activity { margin-bottom: 8px; }
+  .toast { bottom: 176px; }
+}

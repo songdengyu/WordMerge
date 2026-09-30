@@ -1,0 +1,23 @@
+.layer { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.layer[hidden] { display: none; }
+.anchor { position: absolute; left: 0; top: 0; visibility: hidden; will-change: transform; }
+.group { position: relative; width: max-content; transform: translate(-50%, -100%); max-width: calc(100vw - 24px); padding-bottom: 5px; }
+.parts { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; align-items: start; }
+.part { position: relative; }
+.bubble { display: flex; gap: 8px; padding: 0; border: 0; border-radius: 30px; background: none; color: #806c4c; font: inherit; pointer-events: auto; touch-action: manipulation; cursor: pointer; }
+.material { position: relative; box-sizing: border-box; flex: 0 0 60px; width: 60px; height: 60px; border: 1px solid #eee1c5; border-radius: 50%; background: #faf3e4; box-shadow: 0 3px 9px #32492d30; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.material::after { content: ''; position: absolute; bottom: -4px; left: calc(50% - 4px); width: 7px; height: 7px; background: inherit; transform: rotate(45deg); border-right: 1px solid; border-bottom: 1px solid; border-color: inherit; }
+.bubble[data-ready="true"] { color: #34592d; }
+.bubble[data-ready="true"] .material { background: #d6ecc1; border-color: #93b77c; }
+.bubble[data-phase="travel"] .material, .bubble[data-phase="queued"] .material { border-style: dashed; border-color: #bda773; }
+.bubble[data-phase="building"] .material { background: #fae4b7; border-color: #d0b274; }
+.bubble:disabled { cursor: default; }
+.bubble:focus-visible, .cancel:focus-visible, .remove:focus-visible { outline: 2px solid #426c33; outline-offset: 3px; }
+.icon { display: grid; place-items: center; width: 35px; height: 35px; }
+.quantity { font-size: 11px; font-weight: 600; line-height: 13px; font-variant-numeric: tabular-nums; }
+.progress { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+.progress circle { fill: none; stroke: #9c7d3a; stroke-width: 2; stroke-linecap: round; }
+.cancel, .remove { position: absolute; top: -8px; right: -8px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; pointer-events: auto; touch-action: manipulation; border: 1px solid #e6debd; border-radius: 50%; background: #f8f0dc; color: #8a7654; font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.complete { color: #627b4e; }
+.complete .material { background: #e4ecd3; border-color: #aabc90; }
+.house { width: 32px; height: 32px; }

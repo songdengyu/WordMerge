@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "dayDurationSeconds": 1200,
+  "initialHour": 6,
+  "spawn": { "x": 7, "y": 9 },
+  "chunks": [
+    {
+      "id": "camp", "name": "林间营地", "x": 0, "y": 0, "unlocked": true,
+      "patches": [
+        { "x": 5, "y": 5, "width": 6, "height": 7, "terrain": "path" },
+        { "x": 7, "y": 1, "width": 2, "height": 14, "terrain": "path" },
+        { "x": 2, "y": 8, "width": 12, "height": 2, "terrain": "path" },
+        { "x": 1, "y": 2, "width": 4, "height": 3, "terrain": "water" },
+        { "x": 2, "y": 1, "width": 2, "height": 5, "terrain": "water" },
+        { "x": 11, "y": 11, "width": 3, "height": 2, "terrain": "rock" }
+      ]
+    },
+    { "id": "brook", "name": "溪谷深处", "x": 0, "y": -1, "unlocked": false, "patches": [] },
+    { "id": "grove", "name": "静谧林地", "x": 1, "y": 0, "unlocked": false, "patches": [] }
+  ],
+  "objects": [
+    { "id": "fire", "kind": "campfire", "name": "旧营火", "x": 8, "y": 7 },
+    { "id": "sign", "kind": "sign", "name": "林间路标", "x": 10, "y": 9 },
+    { "id": "t01", "kind": "tree", "x": 0, "y": 0 },
+    { "id": "t02", "kind": "tree", "x": 2, "y": 0 },
+    { "id": "t03", "kind": "tree", "x": 5, "y": 1 },
+    { "id": "t04", "kind": "tree", "x": 10, "y": 1 },
+    { "id": "t05", "kind": "tree", "x": 13, "y": 0 },
+    { "id": "t06", "kind": "tree", "x": 15, "y": 1 },
+    { "id": "t07", "kind": "tree", "x": 0, "y": 5 },
+    { "id": "t08", "kind": "tree", "x": 4, "y": 6 },
+    { "id": "t09", "kind": "tree", "x": 12, "y": 4 },
+    { "id": "t10", "kind": "tree", "x": 14, "y": 6 },
+    { "id": "t11", "kind": "tree", "x": 0, "y": 9 },
+    { "id": "t12", "kind": "tree", "x": 2, "y": 11 },
+    { "id": "t13", "kind": "tree", "x": 4, "y": 12 },
+    { "id": "t14", "kind": "tree", "x": 6, "y": 13 },
+    { "id": "t15", "kind": "tree", "x": 0, "y": 14 },
+    { "id": "t16", "kind": "tree", "x": 3, "y": 15 },
+    { "id": "t17", "kind": "tree", "x": 10, "y": 14 },
+    { "id": "t18", "kind": "tree", "x": 13, "y": 15 },
+    { "id": "t19", "kind": "tree", "x": 15, "y": 10 },
+    { "id": "t20", "kind": "tree", "x": 15, "y": 14 },
+    { "id": "r01", "kind": "boulder", "x": 6, "y": 5 },
+    { "id": "r02", "kind": "boulder", "x": 11, "y": 6 },
+    { "id": "r03", "kind": "boulder", "x": 5, "y": 10 }
+  ],
+  "blockedEdges": []
+}

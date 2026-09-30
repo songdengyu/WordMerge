@@ -1,0 +1,20 @@
+import { readFileSync } from 'node:fs'
+import { parseProductionConfig } from './productionConfig'
+import { parseWorld } from './world'
+import { configVersion, type RuntimeData, type SaveEnvelope } from './saveData'
+import { createProduction } from './inventory'
+import { createConstruction } from './construction'
+
+export const testNow = 1_800_000_000_000
+export function productionFixture() {
+  return parseProductionConfig(['items.csv', 'initial-board.csv', 'effects.csv', 'orders.csv']
+    .map(name => readFileSync(`public/config/survival/merge/${name}`, 'utf8')))
+}
+export function worldFixture() { return parseWorld(JSON.parse(readFileSync('public/config/survival/world.json', 'utf8'))) }
+export function dataFixture(): RuntimeData {
+  return { elapsedSeconds: 0, cell: { x: 7, y: 9 }, progress: 0, route: [], destination: null, searching: false,
+    production: createProduction(productionFixture(), testNow), construction: createConstruction() }
+}
+export function envelopeFixture(data = dataFixture()): SaveEnvelope {
+  return { schemaVersion: 2, configVersion: configVersion(worldFixture(), productionFixture()), revision: 0, savedAt: testNow, data }
+}

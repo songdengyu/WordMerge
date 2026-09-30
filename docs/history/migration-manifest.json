@@ -1,0 +1,720 @@
+{
+  "created_at": "2026-09-28T20:07:15+08:00",
+  "source_directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+  "destination_directory": "D:\\OtherProject\\TitanDemoGithub\\WordMerge",
+  "source_commit": "ff54eba1c406241f7b495b561ee8c551ca628102",
+  "destination_initial_commit": "31fa67a041c508ae3de2cf9cddca5cc2e65ecaca",
+  "source_commit_count": 18,
+  "baseline_note": "Before migration all 93 tracked source files were byte-identical. Hashes below were taken after adding /.local/ to destination .gitignore; README updates follow this snapshot.",
+  "source_files": [
+    {
+      "path": ".gitignore",
+      "source_sha256": "11aa361ca2829633f7274872b43692af64c6cc59014ef522656cef91f18fa593",
+      "copy_sha256": "9bd42321e60fd462b2ed71804a3ebeeecc9167f6d34e793825ddb0e4b3811cd8"
+    },
+    {
+      "path": "README.md",
+      "source_sha256": "ce0fb81e4a1edf7144fcb39e613595ad71df270aaecca7e700b8291fcb65751f",
+      "copy_sha256": "ce0fb81e4a1edf7144fcb39e613595ad71df270aaecca7e700b8291fcb65751f"
+    },
+    {
+      "path": "index.html",
+      "source_sha256": "d51c5018a6ff7c71c471e478e56432602c879fc99aa0672bbebbb1f1f26d7865",
+      "copy_sha256": "d51c5018a6ff7c71c471e478e56432602c879fc99aa0672bbebbb1f1f26d7865"
+    },
+    {
+      "path": "package-lock.json",
+      "source_sha256": "9a7cc3bc0a0de0528e11095a0298ca1920779bfe8e3341879323652c62608f66",
+      "copy_sha256": "9a7cc3bc0a0de0528e11095a0298ca1920779bfe8e3341879323652c62608f66"
+    },
+    {
+      "path": "package.json",
+      "source_sha256": "47aca1b7093904bcf9f9f9bb3149af610e4a2ce069caa36dad6b3a734f6412bd",
+      "copy_sha256": "47aca1b7093904bcf9f9f9bb3149af610e4a2ce069caa36dad6b3a734f6412bd"
+    },
+    {
+      "path": "public/assets/fantasy-pack/README.md",
+      "source_sha256": "cc8642f1d2279ff5abe336e46f1a186b8c5168f5661ced3b6feeaf1b8f7767c2",
+      "copy_sha256": "cc8642f1d2279ff5abe336e46f1a186b8c5168f5661ced3b6feeaf1b8f7767c2"
+    },
+    {
+      "path": "public/assets/fantasy-pack/battle-background.svg",
+      "source_sha256": "4c29d573e2008a5c3d0569c60286ce6f839393ba42a0547722ed68f5f14bb77c",
+      "copy_sha256": "4c29d573e2008a5c3d0569c60286ce6f839393ba42a0547722ed68f5f14bb77c"
+    },
+    {
+      "path": "public/assets/fantasy-pack/heroes.svg",
+      "source_sha256": "058b71191a67cdcd7e624cb50f6b945c7040f53f4349516e688ec8eb85c9999e",
+      "copy_sha256": "058b71191a67cdcd7e624cb50f6b945c7040f53f4349516e688ec8eb85c9999e"
+    },
+    {
+      "path": "public/assets/fantasy-pack/items.svg",
+      "source_sha256": "4f9f3c2e0be49d8b72c73dd935032e72832f454f4cc8686a351f617e7d4fef0a",
+      "copy_sha256": "4f9f3c2e0be49d8b72c73dd935032e72832f454f4cc8686a351f617e7d4fef0a"
+    },
+    {
+      "path": "public/assets/fantasy-pack/monsters.svg",
+      "source_sha256": "d412a69c5466bae55e8e3747f05c19bb8dcaa1fa882d4fe7f91965df54ff7dd9",
+      "copy_sha256": "d412a69c5466bae55e8e3747f05c19bb8dcaa1fa882d4fe7f91965df54ff7dd9"
+    },
+    {
+      "path": "public/assets/fantasy-pack/platform.svg",
+      "source_sha256": "8ad130e1d1eb001feae599295264d249c757a92dbf1e39095af3447ad8a34836",
+      "copy_sha256": "8ad130e1d1eb001feae599295264d249c757a92dbf1e39095af3447ad8a34836"
+    },
+    {
+      "path": "public/assets/fantasy-pack/ui.svg",
+      "source_sha256": "8bb4682020a95cfb75e7aa30f2a31e5619d5801d02ed41b072f25f0b3ecd194b",
+      "copy_sha256": "8bb4682020a95cfb75e7aa30f2a31e5619d5801d02ed41b072f25f0b3ecd194b"
+    },
+    {
+      "path": "public/assets/fantasy-pack/weapons.svg",
+      "source_sha256": "3a8c858ab39b2bcad312eaf8af3a43ef182983e3e7be0b2ce9ce9da2c3eb70e8",
+      "copy_sha256": "3a8c858ab39b2bcad312eaf8af3a43ef182983e3e7be0b2ce9ce9da2c3eb70e8"
+    },
+    {
+      "path": "public/config/merge/equipment.csv",
+      "source_sha256": "18ded75936696fd438c4aa98080801e096a1c1bf0be47e49aa3634f2a272b8e9",
+      "copy_sha256": "18ded75936696fd438c4aa98080801e096a1c1bf0be47e49aa3634f2a272b8e9"
+    },
+    {
+      "path": "public/config/merge/initial-board.csv",
+      "source_sha256": "da07b870e4cb84ec2bfa613436488fd94f7f74566325e7eca4e167bce38f4e72",
+      "copy_sha256": "da07b870e4cb84ec2bfa613436488fd94f7f74566325e7eca4e167bce38f4e72"
+    },
+    {
+      "path": "public/config/merge/items.csv",
+      "source_sha256": "49bf03c72bfa380a010397a0dec461429bcc609d7b5ca0e6df0d43d388e01b23",
+      "copy_sha256": "49bf03c72bfa380a010397a0dec461429bcc609d7b5ca0e6df0d43d388e01b23"
+    },
+    {
+      "path": "public/config/merge/orders.csv",
+      "source_sha256": "f70064c6c494cfe1b11fefa526098061d5a50b65dfb99d1509825075fbc426f2",
+      "copy_sha256": "f70064c6c494cfe1b11fefa526098061d5a50b65dfb99d1509825075fbc426f2"
+    },
+    {
+      "path": "public/config/monsters.csv",
+      "source_sha256": "2cb67bf8635bd553b7a5ada8c89e9f9751d87d4d614df61326c62fa1a5f93edd",
+      "copy_sha256": "2cb67bf8635bd553b7a5ada8c89e9f9751d87d4d614df61326c62fa1a5f93edd"
+    },
+    {
+      "path": "public/config/skills.csv",
+      "source_sha256": "b0f108c64c825854d9aa10e7ddb83441c4f7a29684d8adcaccdd50b959db439b",
+      "copy_sha256": "b0f108c64c825854d9aa10e7ddb83441c4f7a29684d8adcaccdd50b959db439b"
+    },
+    {
+      "path": "scripts/generate-item-icons.ps1",
+      "source_sha256": "b2e28a2d835c26c8d4ffd14fea52e4f064024d7bd900b6fe00a9e7aebe92b667",
+      "copy_sha256": "b2e28a2d835c26c8d4ffd14fea52e4f064024d7bd900b6fe00a9e7aebe92b667"
+    },
+    {
+      "path": "src/App.tsx",
+      "source_sha256": "4212494923a7de4e6666a51aa75c8b3391c115adbf282fd884138e5cb22a5d18",
+      "copy_sha256": "4212494923a7de4e6666a51aa75c8b3391c115adbf282fd884138e5cb22a5d18"
+    },
+    {
+      "path": "src/components/ArtIcon.tsx",
+      "source_sha256": "392691e6b4d2bc5734f2c51d1e6d29ccc74dda5621029afc9dbd9c89a6647776",
+      "copy_sha256": "392691e6b4d2bc5734f2c51d1e6d29ccc74dda5621029afc9dbd9c89a6647776"
+    },
+    {
+      "path": "src/components/BossFailModal.module.css",
+      "source_sha256": "9d490382ea6f736668241844a0d2b6ab3102dcec9edea514958f7f9b4e00b6a3",
+      "copy_sha256": "9d490382ea6f736668241844a0d2b6ab3102dcec9edea514958f7f9b4e00b6a3"
+    },
+    {
+      "path": "src/components/BossFailModal.tsx",
+      "source_sha256": "8e49eecc7c58017c0b9c31b30c66da9fa010f4b54288bff23094b4e17b3bc8b7",
+      "copy_sha256": "8e49eecc7c58017c0b9c31b30c66da9fa010f4b54288bff23094b4e17b3bc8b7"
+    },
+    {
+      "path": "src/components/BottomTabBar.module.css",
+      "source_sha256": "f826a4a91e2b405829b641fe9b88109573d5a453544f00157e04bb21ca2fb2e6",
+      "copy_sha256": "f826a4a91e2b405829b641fe9b88109573d5a453544f00157e04bb21ca2fb2e6"
+    },
+    {
+      "path": "src/components/BottomTabBar.tsx",
+      "source_sha256": "9d91fe2731122c89147f85020dc5072b44c079fb063757453877e567f34ffc2c",
+      "copy_sha256": "9d91fe2731122c89147f85020dc5072b44c079fb063757453877e567f34ffc2c"
+    },
+    {
+      "path": "src/components/CharacterAvatar.module.css",
+      "source_sha256": "74760f83859c80e598207cbf0e6402ba802b147181e5897603c1070105b8c7e7",
+      "copy_sha256": "74760f83859c80e598207cbf0e6402ba802b147181e5897603c1070105b8c7e7"
+    },
+    {
+      "path": "src/components/CharacterAvatar.tsx",
+      "source_sha256": "91d6d254295ec3d0d7932fd724fd95151b90a42826dca978927edfc0787356e6",
+      "copy_sha256": "91d6d254295ec3d0d7932fd724fd95151b90a42826dca978927edfc0787356e6"
+    },
+    {
+      "path": "src/components/CombatEffectsLayer.module.css",
+      "source_sha256": "8f105ff7248bd0ac5869a824e6f4ce63733a986d862020b725a2dfba678b1ffe",
+      "copy_sha256": "8f105ff7248bd0ac5869a824e6f4ce63733a986d862020b725a2dfba678b1ffe"
+    },
+    {
+      "path": "src/components/CombatEffectsLayer.tsx",
+      "source_sha256": "2b5088e61e79f30a210352f671a0c0e1b9112d4abc5bbd1650882e659f654dde",
+      "copy_sha256": "2b5088e61e79f30a210352f671a0c0e1b9112d4abc5bbd1650882e659f654dde"
+    },
+    {
+      "path": "src/components/CombatView.module.css",
+      "source_sha256": "af943755f7f885d4554834f6f84aff02a7eacb9092bb9bdf49c9cc4219d8ade6",
+      "copy_sha256": "af943755f7f885d4554834f6f84aff02a7eacb9092bb9bdf49c9cc4219d8ade6"
+    },
+    {
+      "path": "src/components/CombatView.tsx",
+      "source_sha256": "cf0b60effe69032d3671a00e20ce687d4b24e7e84fcf1047839c17eddc386694",
+      "copy_sha256": "cf0b60effe69032d3671a00e20ce687d4b24e7e84fcf1047839c17eddc386694"
+    },
+    {
+      "path": "src/components/EquipmentArt.module.css",
+      "source_sha256": "9815491d32176d65279e50e0bfb3389f45c643a751f7015b24b6ef270c346fef",
+      "copy_sha256": "9815491d32176d65279e50e0bfb3389f45c643a751f7015b24b6ef270c346fef"
+    },
+    {
+      "path": "src/components/EquipmentArt.tsx",
+      "source_sha256": "436c9050091c5309150db4d5350ed2624483b45283c32aa4dbc6b688ca5e32a8",
+      "copy_sha256": "436c9050091c5309150db4d5350ed2624483b45283c32aa4dbc6b688ca5e32a8"
+    },
+    {
+      "path": "src/components/EquipmentPickerPanel.module.css",
+      "source_sha256": "67a472002887c5707173a00df1c227163866416091292b27f6882ecbe4cd88c8",
+      "copy_sha256": "67a472002887c5707173a00df1c227163866416091292b27f6882ecbe4cd88c8"
+    },
+    {
+      "path": "src/components/EquipmentPickerPanel.tsx",
+      "source_sha256": "82182ce8c4cf4074687e61814aac9334a176ae063aef0459497c178b68d16ec3",
+      "copy_sha256": "82182ce8c4cf4074687e61814aac9334a176ae063aef0459497c178b68d16ec3"
+    },
+    {
+      "path": "src/components/EquipmentSlotIcon.tsx",
+      "source_sha256": "9dbfa42257e5311cde0812a1eba992ac3b12757213a69950935a2697cfc7b2b9",
+      "copy_sha256": "9dbfa42257e5311cde0812a1eba992ac3b12757213a69950935a2697cfc7b2b9"
+    },
+    {
+      "path": "src/components/EquipmentTab.module.css",
+      "source_sha256": "9f5e98febc8a258773b9f7e17ab78be2d62a1377dd2220777eb36426f498d457",
+      "copy_sha256": "9f5e98febc8a258773b9f7e17ab78be2d62a1377dd2220777eb36426f498d457"
+    },
+    {
+      "path": "src/components/EquipmentTab.tsx",
+      "source_sha256": "558e470c02c752f6cc5ce0b0cccb9d0336455d9d8c1cef4c0a830642a4d10ad1",
+      "copy_sha256": "558e470c02c752f6cc5ce0b0cccb9d0336455d9d8c1cef4c0a830642a4d10ad1"
+    },
+    {
+      "path": "src/components/GameDialog.module.css",
+      "source_sha256": "207a6aae3816ba539f8c345f2a96e8155e5fb9628dafb6ffadfb991f1c84ee38",
+      "copy_sha256": "207a6aae3816ba539f8c345f2a96e8155e5fb9628dafb6ffadfb991f1c84ee38"
+    },
+    {
+      "path": "src/components/GameDialog.tsx",
+      "source_sha256": "79c783dddffdcb0d1a28bdfdef4d8d0f267d3ab2001f9f34dc17592ff29b48e0",
+      "copy_sha256": "79c783dddffdcb0d1a28bdfdef4d8d0f267d3ab2001f9f34dc17592ff29b48e0"
+    },
+    {
+      "path": "src/components/HealthBar.module.css",
+      "source_sha256": "13b4ff35d58c377137e6d30db0d58b2e0469061528ad6d4d942a49ab90e0f81d",
+      "copy_sha256": "13b4ff35d58c377137e6d30db0d58b2e0469061528ad6d4d942a49ab90e0f81d"
+    },
+    {
+      "path": "src/components/HealthBar.tsx",
+      "source_sha256": "156d169104f65792a627681cb3cc79ac4d7d9a0f81986f02816b3bcfb30563bb",
+      "copy_sha256": "156d169104f65792a627681cb3cc79ac4d7d9a0f81986f02816b3bcfb30563bb"
+    },
+    {
+      "path": "src/components/HeroCard.module.css",
+      "source_sha256": "499440734665609d136028e4259778f2ac00ac274023949c73125c3ff4f29921",
+      "copy_sha256": "499440734665609d136028e4259778f2ac00ac274023949c73125c3ff4f29921"
+    },
+    {
+      "path": "src/components/HeroCard.tsx",
+      "source_sha256": "2f4da0098ed0a38cb0e2a6379142c340fc281cc330b3eacf45c2c3d0a4105783",
+      "copy_sha256": "2f4da0098ed0a38cb0e2a6379142c340fc281cc330b3eacf45c2c3d0a4105783"
+    },
+    {
+      "path": "src/components/HeroOverlayPanel.module.css",
+      "source_sha256": "dde5f9bb07729a42f2fdbcbec75e012dc54cc6349b86e864f789577174959c5b",
+      "copy_sha256": "dde5f9bb07729a42f2fdbcbec75e012dc54cc6349b86e864f789577174959c5b"
+    },
+    {
+      "path": "src/components/HeroOverlayPanel.tsx",
+      "source_sha256": "c7637678c78c0b2843d237a9dc8d8c66b20e99d5f672261d602260f7caadd6c3",
+      "copy_sha256": "c7637678c78c0b2843d237a9dc8d8c66b20e99d5f672261d602260f7caadd6c3"
+    },
+    {
+      "path": "src/components/HeroPanel.module.css",
+      "source_sha256": "af510f72307503db1f9b298945fb4cf98ecd04f5c54acd79364589a292a76232",
+      "copy_sha256": "af510f72307503db1f9b298945fb4cf98ecd04f5c54acd79364589a292a76232"
+    },
+    {
+      "path": "src/components/HeroPanel.tsx",
+      "source_sha256": "90feb6e343ff77fe02d994350b3d264014b52e83cdd080e93c52a51f9e1244e7",
+      "copy_sha256": "90feb6e343ff77fe02d994350b3d264014b52e83cdd080e93c52a51f9e1244e7"
+    },
+    {
+      "path": "src/components/HeroPlatforms.module.css",
+      "source_sha256": "827cba4a5a45435575652231d5b4987713c167399404a60181f8134e224dfb8c",
+      "copy_sha256": "827cba4a5a45435575652231d5b4987713c167399404a60181f8134e224dfb8c"
+    },
+    {
+      "path": "src/components/HeroPlatforms.tsx",
+      "source_sha256": "6eaa0ee33266502e7de06ce7a5f10fb0c9eae62514cf77557ed8640ba42c3eb9",
+      "copy_sha256": "6eaa0ee33266502e7de06ce7a5f10fb0c9eae62514cf77557ed8640ba42c3eb9"
+    },
+    {
+      "path": "src/components/MainPanel.module.css",
+      "source_sha256": "bad280bea08f4fc1964a9e82977e831c590962abb225bbe89a37bd283cdb5224",
+      "copy_sha256": "bad280bea08f4fc1964a9e82977e831c590962abb225bbe89a37bd283cdb5224"
+    },
+    {
+      "path": "src/components/MainPanel.tsx",
+      "source_sha256": "e9bb970209e1526f020bdcaa43085eb7aef39d0098479e29b80cabb035d49e9e",
+      "copy_sha256": "e9bb970209e1526f020bdcaa43085eb7aef39d0098479e29b80cabb035d49e9e"
+    },
+    {
+      "path": "src/components/MergeGameScreen.module.css",
+      "source_sha256": "47a49365a7ce222b49a93bb802265d6f8ece0e3f74a7dada84442f400abbc72f",
+      "copy_sha256": "47a49365a7ce222b49a93bb802265d6f8ece0e3f74a7dada84442f400abbc72f"
+    },
+    {
+      "path": "src/components/MergeGameScreen.tsx",
+      "source_sha256": "b637cef2644843068f526b962cc38271d7634c8e99654cb03e3ce6ead3a43ffd",
+      "copy_sha256": "b637cef2644843068f526b962cc38271d7634c8e99654cb03e3ce6ead3a43ffd"
+    },
+    {
+      "path": "src/components/MergePiece.module.css",
+      "source_sha256": "c6f65d9076ca5bce3654a42a09a63ef8ee8e1baf305c5d0af96136b1935088f3",
+      "copy_sha256": "c6f65d9076ca5bce3654a42a09a63ef8ee8e1baf305c5d0af96136b1935088f3"
+    },
+    {
+      "path": "src/components/MergePiece.tsx",
+      "source_sha256": "ff6f0207d3435ae2c8251eefddd5a9f528a2c5f1af6d512d2f90bd64e35d5392",
+      "copy_sha256": "ff6f0207d3435ae2c8251eefddd5a9f528a2c5f1af6d512d2f90bd64e35d5392"
+    },
+    {
+      "path": "src/components/MonsterSprite.module.css",
+      "source_sha256": "b08b371e18b59e5dfbb16ea1c18aa7d53469dd8912d7b3a15aa7f7b807b70d63",
+      "copy_sha256": "b08b371e18b59e5dfbb16ea1c18aa7d53469dd8912d7b3a15aa7f7b807b70d63"
+    },
+    {
+      "path": "src/components/MonsterSprite.tsx",
+      "source_sha256": "bb5de1726738adaf966639cc5f2fb555f116cbceff9a899033bbf19d61790393",
+      "copy_sha256": "bb5de1726738adaf966639cc5f2fb555f116cbceff9a899033bbf19d61790393"
+    },
+    {
+      "path": "src/components/SkillBookWallet.module.css",
+      "source_sha256": "96dc1275dcb55375044c724f0527dc1280134a6658abc0b3b64020589b20d5e2",
+      "copy_sha256": "96dc1275dcb55375044c724f0527dc1280134a6658abc0b3b64020589b20d5e2"
+    },
+    {
+      "path": "src/components/SkillBookWallet.tsx",
+      "source_sha256": "4a833e9d7e3d9a8b87d171ecee00c87fce1baa382aba98808cd7a7e6b739e8da",
+      "copy_sha256": "4a833e9d7e3d9a8b87d171ecee00c87fce1baa382aba98808cd7a7e6b739e8da"
+    },
+    {
+      "path": "src/components/SkillsTab.module.css",
+      "source_sha256": "6f9dbd89f69e6a5c7a13b39bd457404e4019b793ee803fd60e61440bb1975cfc",
+      "copy_sha256": "6f9dbd89f69e6a5c7a13b39bd457404e4019b793ee803fd60e61440bb1975cfc"
+    },
+    {
+      "path": "src/components/SkillsTab.tsx",
+      "source_sha256": "ff00401ed130c3c9de58329e7b841e9518579f5892b38b31e65a313c62418e89",
+      "copy_sha256": "ff00401ed130c3c9de58329e7b841e9518579f5892b38b31e65a313c62418e89"
+    },
+    {
+      "path": "src/components/Toast.module.css",
+      "source_sha256": "73e929d2467746272259b8cccb565be5799c653f815472bd4f9f242256032324",
+      "copy_sha256": "73e929d2467746272259b8cccb565be5799c653f815472bd4f9f242256032324"
+    },
+    {
+      "path": "src/components/Toast.tsx",
+      "source_sha256": "430d1d1c51695a7b97d87e8d93238867183eec3afbcace5b32a340111424193d",
+      "copy_sha256": "430d1d1c51695a7b97d87e8d93238867183eec3afbcace5b32a340111424193d"
+    },
+    {
+      "path": "src/components/WeaponIcon.module.css",
+      "source_sha256": "d5dc46534e64652ea6689f93dea3b53480827cee1b7d9df459409cb15096eada",
+      "copy_sha256": "d5dc46534e64652ea6689f93dea3b53480827cee1b7d9df459409cb15096eada"
+    },
+    {
+      "path": "src/components/WeaponIcon.tsx",
+      "source_sha256": "1de29ede7f30d2d99ec13fb177e414b44df1460d457d11a507758176fe281eac",
+      "copy_sha256": "1de29ede7f30d2d99ec13fb177e414b44df1460d457d11a507758176fe281eac"
+    },
+    {
+      "path": "src/components/WeaponPickerPanel.module.css",
+      "source_sha256": "81e8c3b5c833452a9a6ac780d59fae4c8b41fcc6dc28e317da23d0e01da28e26",
+      "copy_sha256": "81e8c3b5c833452a9a6ac780d59fae4c8b41fcc6dc28e317da23d0e01da28e26"
+    },
+    {
+      "path": "src/components/WeaponPickerPanel.tsx",
+      "source_sha256": "f125c6cf17c3edc0d44dd32ed4100ae96e456abcc963528f5e5f10722a90607e",
+      "copy_sha256": "f125c6cf17c3edc0d44dd32ed4100ae96e456abcc963528f5e5f10722a90607e"
+    },
+    {
+      "path": "src/data/combat.ts",
+      "source_sha256": "57359f1303090ead153f4845a0af94a97887d6ee9ec14e4d56df187f2073e9d7",
+      "copy_sha256": "57359f1303090ead153f4845a0af94a97887d6ee9ec14e4d56df187f2073e9d7"
+    },
+    {
+      "path": "src/data/combatStats.ts",
+      "source_sha256": "0fe9af0fc3e7544c5bee90c0840dce24598497476ca0eb1483c4cb8a26148e63",
+      "copy_sha256": "0fe9af0fc3e7544c5bee90c0840dce24598497476ca0eb1483c4cb8a26148e63"
+    },
+    {
+      "path": "src/data/csv.ts",
+      "source_sha256": "c13d2cd075566068f81b2247b4da571ffebcb975c6ecdcaebb79cdc56dcfa9d3",
+      "copy_sha256": "c13d2cd075566068f81b2247b4da571ffebcb975c6ecdcaebb79cdc56dcfa9d3"
+    },
+    {
+      "path": "src/data/equipmentConfig.ts",
+      "source_sha256": "2eb3e1e10e7a6a5c5a4395be107aa86745bd7f7816b0095b8b7d770aaa2e296b",
+      "copy_sha256": "2eb3e1e10e7a6a5c5a4395be107aa86745bd7f7816b0095b8b7d770aaa2e296b"
+    },
+    {
+      "path": "src/data/heroes.ts",
+      "source_sha256": "cfd09d95ee012eb622dfedac7e9f9e1172bf1af8337d8c7d69dc1b7829c60a52",
+      "copy_sha256": "cfd09d95ee012eb622dfedac7e9f9e1172bf1af8337d8c7d69dc1b7829c60a52"
+    },
+    {
+      "path": "src/data/mainHero.ts",
+      "source_sha256": "64c44032846155f5627dc1bb12f4673aa7df9070ed53f7d1badeb936e1a1450f",
+      "copy_sha256": "64c44032846155f5627dc1bb12f4673aa7df9070ed53f7d1badeb936e1a1450f"
+    },
+    {
+      "path": "src/data/mergeConfig.ts",
+      "source_sha256": "4ef8963e2ccfc256a777fdaf1f5c340e33c3c769fc9a5ecfde82bd9ef445f4ad",
+      "copy_sha256": "4ef8963e2ccfc256a777fdaf1f5c340e33c3c769fc9a5ecfde82bd9ef445f4ad"
+    },
+    {
+      "path": "src/data/mergeGame.ts",
+      "source_sha256": "4503b0757abd8abd20e360e57938b51622ce71c06e6304b7a32fbc0c230871c2",
+      "copy_sha256": "4503b0757abd8abd20e360e57938b51622ce71c06e6304b7a32fbc0c230871c2"
+    },
+    {
+      "path": "src/data/monsterConfig.ts",
+      "source_sha256": "49536d3d6349f32d53bdc13b106d2f96cfdc12399cc8347636c2d3c9f1f0e6b3",
+      "copy_sha256": "49536d3d6349f32d53bdc13b106d2f96cfdc12399cc8347636c2d3c9f1f0e6b3"
+    },
+    {
+      "path": "src/data/monsters.ts",
+      "source_sha256": "522048c89f63b2442f5262dd4b4ffee984b08b42d08ed397ca475f649e7e1a65",
+      "copy_sha256": "522048c89f63b2442f5262dd4b4ffee984b08b42d08ed397ca475f649e7e1a65"
+    },
+    {
+      "path": "src/data/skillConfig.ts",
+      "source_sha256": "68eddb1d35e4e5c8b17b3bce9b459208a158ad13584e4715f752f8aaf8ae85b2",
+      "copy_sha256": "68eddb1d35e4e5c8b17b3bce9b459208a158ad13584e4715f752f8aaf8ae85b2"
+    },
+    {
+      "path": "src/data/weapons.ts",
+      "source_sha256": "de1111c2f13d289919559ecac8b19638d0817576bc8b9085dce3d9f32bde7252",
+      "copy_sha256": "de1111c2f13d289919559ecac8b19638d0817576bc8b9085dce3d9f32bde7252"
+    },
+    {
+      "path": "src/hooks/useCombatEffects.ts",
+      "source_sha256": "e5f946468919ba43b735704f6c0b32cfe0f677707dfb592c2bfd5e6529f89344",
+      "copy_sha256": "e5f946468919ba43b735704f6c0b32cfe0f677707dfb592c2bfd5e6529f89344"
+    },
+    {
+      "path": "src/hooks/useGameLoop.ts",
+      "source_sha256": "7e2ab07249823d7b5d3807908edf81e1230a128f09f406743e64d0a33fc20322",
+      "copy_sha256": "7e2ab07249823d7b5d3807908edf81e1230a128f09f406743e64d0a33fc20322"
+    },
+    {
+      "path": "src/main.tsx",
+      "source_sha256": "043cce4ee167af826fc0f8bb2f7def979d2cc118d127f21454f55bcb4651baec",
+      "copy_sha256": "043cce4ee167af826fc0f8bb2f7def979d2cc118d127f21454f55bcb4651baec"
+    },
+    {
+      "path": "src/store/useGameStore.tsx",
+      "source_sha256": "b4be98bd3e812d36edf3296b7277c5bf2b586bf64c8afc838352a219d0178d0a",
+      "copy_sha256": "b4be98bd3e812d36edf3296b7277c5bf2b586bf64c8afc838352a219d0178d0a"
+    },
+    {
+      "path": "src/styles/global.css",
+      "source_sha256": "ae78e758de4f6ade6a1a8676a8d620c081024aec308ae65ea822fb57c67133cc",
+      "copy_sha256": "ae78e758de4f6ade6a1a8676a8d620c081024aec308ae65ea822fb57c67133cc"
+    },
+    {
+      "path": "src/styles/theme.css",
+      "source_sha256": "a777800f7f1276e698fac0b5e3b255520c2f9a4d0aa7271265218438326cadb5",
+      "copy_sha256": "a777800f7f1276e698fac0b5e3b255520c2f9a4d0aa7271265218438326cadb5"
+    },
+    {
+      "path": "src/utils/platformLayout.ts",
+      "source_sha256": "0c0ea0d66bcab5f55834f2f51eef2602e51302da61cfcacbf3116ca41d879cf4",
+      "copy_sha256": "0c0ea0d66bcab5f55834f2f51eef2602e51302da61cfcacbf3116ca41d879cf4"
+    },
+    {
+      "path": "src/vite-env.d.ts",
+      "source_sha256": "424faf9241dd699dda995b367ed36665732da1e6ec1f33b2fd40394488ecac92",
+      "copy_sha256": "424faf9241dd699dda995b367ed36665732da1e6ec1f33b2fd40394488ecac92"
+    },
+    {
+      "path": "tsconfig.app.json",
+      "source_sha256": "d1fff0dcac57c7c228463eda9f34e50cb639d3fcbece614eac0c34e445804b0f",
+      "copy_sha256": "d1fff0dcac57c7c228463eda9f34e50cb639d3fcbece614eac0c34e445804b0f"
+    },
+    {
+      "path": "tsconfig.json",
+      "source_sha256": "ad28d132ee48d6e23917cf5827cace785d0fc01a44ca68b0dda51cc8c3fd3f52",
+      "copy_sha256": "ad28d132ee48d6e23917cf5827cace785d0fc01a44ca68b0dda51cc8c3fd3f52"
+    },
+    {
+      "path": "tsconfig.node.json",
+      "source_sha256": "e908f6923e7c316ed6dd72a277ebff48d09e265cf67786c0fb3f3e579fc4badd",
+      "copy_sha256": "e908f6923e7c316ed6dd72a277ebff48d09e265cf67786c0fb3f3e579fc4badd"
+    },
+    {
+      "path": "vite.config.ts",
+      "source_sha256": "537bcf934522a5030ec0d25e9957be60e5489bfb40d25b31033ef97618bd1bb1",
+      "copy_sha256": "537bcf934522a5030ec0d25e9957be60e5489bfb40d25b31033ef97618bd1bb1"
+    }
+  ],
+  "original_design_directory": "C:\\Users\\cf\\Desktop\\合成文档",
+  "original_design_files": [
+    {
+      "path": "docs/history/original-design/Boss数值表.csv",
+      "bytes": 1432,
+      "sha256": "b1580bf2b9549ba317fa860d544f8f8fa8a48392e7fde2526e001bda1d6ba979"
+    },
+    {
+      "path": "docs/history/original-design/主角技能界面预览.png",
+      "bytes": 307045,
+      "sha256": "07560cef9996c2daf1a1a699388a92b0bafd5f6e9a7f8e15490c1d28e430eda7"
+    },
+    {
+      "path": "docs/history/original-design/仓库界面示意图.png",
+      "bytes": 107350,
+      "sha256": "e14d62e8f262420badef178f255677e9d75f81d0c02c813f88c01fe0f6f93a15"
+    },
+    {
+      "path": "docs/history/original-design/初始棋盘配置.png",
+      "bytes": 9514,
+      "sha256": "8da2ee3a551227f24315c8418913d6148f5e7e02cb0781cdf0ed064389caa2df"
+    },
+    {
+      "path": "docs/history/original-design/合成界面策划案.png",
+      "bytes": 275120,
+      "sha256": "a64e1ceb4bfe40d4e4521578152e4997b34a2e832cca7b17c0a663562f45452e"
+    },
+    {
+      "path": "docs/history/original-design/技能配置表.csv",
+      "bytes": 2228,
+      "sha256": "9b14292f2d6f0a727f892102cc6e48cc69de7a1d39c49f659ecb835f9e482303"
+    },
+    {
+      "path": "docs/history/original-design/旗子配置表.csv",
+      "bytes": 3800,
+      "sha256": "2e995963c5c76d3e2a551aa005e0e66f53a2bb1b3cd8fdc0530f8e434c92f533"
+    },
+    {
+      "path": "docs/history/original-design/订单奖励.csv",
+      "bytes": 3320,
+      "sha256": "0ff92ea909678a80b88d343fa57a270d137c2889c5ec18623fc9056c3692f840"
+    },
+    {
+      "path": "docs/history/original-design/订单数值.csv",
+      "bytes": 3007,
+      "sha256": "5b053f421e62b677b19e6a1225cd128b3ed98ca675da7152b35be857bcd0cc00"
+    },
+    {
+      "path": "docs/history/original-design/队友界面和队友技能界面预览.png",
+      "bytes": 363541,
+      "sha256": "54414e052cb86c1a4069ddbb2b23faf7e8444154bb0d43d847d1e3b888fef8f1"
+    }
+  ],
+  "opencode_export": {
+    "scope": "Exact source and earlier TitanDemo directory, including child directories and subagent sessions",
+    "format": "Visible user/assistant text only; not an OpenCode import package",
+    "sessions": [
+      {
+        "id": "ses_fcda519b0ffeP3IXijAy9EnW5x",
+        "parent_id": null,
+        "directory": "D:/OtherProject/TitanDemo/TitanDemo/src",
+        "title": "游戏项目概览",
+        "created_at": "2026-08-24T14:00:13+08:00",
+        "updated_at": "2026-08-25T20:43:31+08:00",
+        "database_messages": 221,
+        "text_messages": 202,
+        "omitted_part_counts": {
+          "step-start": 163,
+          "step-finish": 163,
+          "file": 17,
+          "tool": 254
+        },
+        "archive": ".local/titan-migration/opencode/ses_fcda519b0ffeP3IXijAy9EnW5x.json",
+        "sha256": "b087d3326f9400cabbedb6c8838b5b188752130fc5cbeb156d1478973bf3c3f7"
+      },
+      {
+        "id": "ses_fcd9c9a88ffejcm0d3bq3ISzK1",
+        "parent_id": "ses_fcda519b0ffeP3IXijAy9EnW5x",
+        "directory": "D:/OtherProject/TitanDemo/TitanDemo/src",
+        "title": "梳理美术接入点 (@explore subagent)",
+        "created_at": "2026-08-24T14:09:29+08:00",
+        "updated_at": "2026-08-24T14:10:51+08:00",
+        "database_messages": 8,
+        "text_messages": 2,
+        "omitted_part_counts": {
+          "step-start": 7,
+          "tool": 45,
+          "step-finish": 7
+        },
+        "archive": ".local/titan-migration/opencode/ses_fcd9c9a88ffejcm0d3bq3ISzK1.json",
+        "sha256": "bb68fab03489b13f349fe79b2bceec953892c217644fe9b93d835c2f62f58d4b"
+      },
+      {
+        "id": "ses_fcc782a74ffe68mNsGYuSRG4af",
+        "parent_id": "ses_fcda519b0ffeP3IXijAy9EnW5x",
+        "directory": "D:/OtherProject/TitanDemo/TitanDemo/src",
+        "title": "分析四项功能入口 (@explore subagent)",
+        "created_at": "2026-08-24T19:28:55+08:00",
+        "updated_at": "2026-08-24T19:30:04+08:00",
+        "database_messages": 6,
+        "text_messages": 2,
+        "omitted_part_counts": {
+          "step-start": 5,
+          "tool": 25,
+          "step-finish": 5
+        },
+        "archive": ".local/titan-migration/opencode/ses_fcc782a74ffe68mNsGYuSRG4af.json",
+        "sha256": "8ffc96bc417a624fdd59e65141d155217c368a2b74fc710dbaf8b0db773dfb6d"
+      },
+      {
+        "id": "ses_fc915408effeP141Q1qXjSmYOE",
+        "parent_id": "ses_fcda519b0ffeP3IXijAy9EnW5x",
+        "directory": "D:/OtherProject/TitanDemo/TitanDemo/src",
+        "title": "梳理经济解锁入口 (@explore subagent)",
+        "created_at": "2026-08-25T11:15:49+08:00",
+        "updated_at": "2026-08-25T11:17:07+08:00",
+        "database_messages": 6,
+        "text_messages": 2,
+        "omitted_part_counts": {
+          "step-start": 5,
+          "tool": 34,
+          "step-finish": 5
+        },
+        "archive": ".local/titan-migration/opencode/ses_fc915408effeP141Q1qXjSmYOE.json",
+        "sha256": "251d26fb63f6a363265282e572b152f6947394a81aef95b95a7208d91d37a871"
+      },
+      {
+        "id": "ses_fbe1d45e6ffevt8nybsvQ3lEEP",
+        "parent_id": null,
+        "directory": "D:/OtherProject/TitanDemo/TitanDemo/src",
+        "title": "合成系统方案设计与实现对齐",
+        "created_at": "2026-08-27T14:22:52+08:00",
+        "updated_at": "2026-08-27T14:22:58+08:00",
+        "database_messages": 2,
+        "text_messages": 2,
+        "omitted_part_counts": {
+          "file": 5,
+          "text": 6,
+          "step-start": 1,
+          "step-finish": 1
+        },
+        "archive": ".local/titan-migration/opencode/ses_fbe1d45e6ffevt8nybsvQ3lEEP.json",
+        "sha256": "d74dfd0cfbc79d8c314eba955cf75575792c88ac4cf1be60d7187adb91b6ed3f"
+      },
+      {
+        "id": "ses_fbe166811ffef2WUQMYIERKsBr",
+        "parent_id": null,
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "合成功能界面与实现方案梳理",
+        "created_at": "2026-08-27T14:30:22+08:00",
+        "updated_at": "2026-08-28T16:04:20+08:00",
+        "database_messages": 234,
+        "text_messages": 195,
+        "omitted_part_counts": {
+          "step-start": 178,
+          "tool": 211,
+          "step-finish": 178,
+          "file": 5
+        },
+        "archive": ".local/titan-migration/opencode/ses_fbe166811ffef2WUQMYIERKsBr.json",
+        "sha256": "7ef53ff521355e60ad4fa2833ca74c503dacb9440329d5897ed36d3d1579accd"
+      },
+      {
+        "id": "ses_fbe15fe67ffezGALXjlhMK2VKF",
+        "parent_id": "ses_fbe166811ffef2WUQMYIERKsBr",
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "Analyze app architecture (@explore subagent)",
+        "created_at": "2026-08-27T14:30:50+08:00",
+        "updated_at": "2026-08-27T14:31:42+08:00",
+        "database_messages": 6,
+        "text_messages": 2,
+        "omitted_part_counts": {
+          "step-start": 5,
+          "tool": 31,
+          "step-finish": 5
+        },
+        "archive": ".local/titan-migration/opencode/ses_fbe15fe67ffezGALXjlhMK2VKF.json",
+        "sha256": "58d7a817caba96832902416c8810691895f3f0fb5ad29966b3945ea567858943"
+      },
+      {
+        "id": "ses_fb8998ba3ffektsrGyvKxYoT8g",
+        "parent_id": null,
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "CSV中修改为20为何未生效",
+        "created_at": "2026-08-28T16:04:51+08:00",
+        "updated_at": "2026-08-28T16:04:53+08:00",
+        "database_messages": 2,
+        "text_messages": 1,
+        "omitted_part_counts": {
+          "file": 1
+        },
+        "archive": ".local/titan-migration/opencode/ses_fb8998ba3ffektsrGyvKxYoT8g.json",
+        "sha256": "4477c6a9e97b2a7cb4521f6c6670bbce794841d1e7d3a53637017931f06db99f"
+      },
+      {
+        "id": "ses_fb89852c6ffeuSHMEE2VIXfZOt",
+        "parent_id": null,
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "中文问候聊天",
+        "created_at": "2026-08-28T16:06:12+08:00",
+        "updated_at": "2026-08-28T16:06:12+08:00",
+        "database_messages": 2,
+        "text_messages": 1,
+        "omitted_part_counts": {},
+        "archive": ".local/titan-migration/opencode/ses_fb89852c6ffeuSHMEE2VIXfZOt.json",
+        "sha256": "bf4cbd210ec61da2750fdf5f007793d71da5f933ed987c92bcf918f01cbad92c"
+      },
+      {
+        "id": "ses_fb8977f3bffeaF2G8SMoSeNw4d",
+        "parent_id": null,
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "问候交流",
+        "created_at": "2026-08-28T16:07:06+08:00",
+        "updated_at": "2026-08-28T17:38:27+08:00",
+        "database_messages": 10,
+        "text_messages": 5,
+        "omitted_part_counts": {},
+        "archive": ".local/titan-migration/opencode/ses_fb8977f3bffeaF2G8SMoSeNw4d.json",
+        "sha256": "e584b74f9f80f472e87e1f709bd3f1c8cea0e04c4ec31aad45974110c2bf3038"
+      },
+      {
+        "id": "ses_f9f2af813ffezHw3mxTKYxZDxY",
+        "parent_id": null,
+        "directory": "D:\\OtherProject\\TitanDemoGithub\\TitanDemo",
+        "title": "修复冰霜龙王资源文件显示问题",
+        "created_at": "2026-09-02T14:36:09+08:00",
+        "updated_at": "2026-09-02T17:02:06+08:00",
+        "database_messages": 62,
+        "text_messages": 42,
+        "omitted_part_counts": {
+          "step-start": 53,
+          "tool": 88,
+          "step-finish": 53
+        },
+        "archive": ".local/titan-migration/opencode/ses_f9f2af813ffezHw3mxTKYxZDxY.json",
+        "sha256": "b3af2e143c56365aa29576781683833dae7b80fffd9bba197e6b7057e81fc00c"
+      }
+    ]
+  },
+  "git_bundle": {
+    "path": ".local/titan-migration/TitanDemo.bundle",
+    "sha256": "6ff2001784d6a0672c03aca2dd430edb341303819ec373509f83b18c54d40247",
+    "bytes": 154655
+  }
+}

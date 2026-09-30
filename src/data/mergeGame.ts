@@ -1,4 +1,6 @@
-import type { InitialMergeCell, MergeConfig, MergeItemConfig, MergeOrderConfig } from './mergeConfig'
+import { adjacentIndexes, weightedDrop, WAREHOUSE_EXPANSION_COSTS } from './mergeRules'
+export { WAREHOUSE_EXPANSION_COSTS } from './mergeRules'
+import type { InitialMergeCell, MergeConfig, MergeOrderConfig } from './mergeConfig'
 import { getEquipmentDismantleGold } from './equipmentConfig'
 
 export interface MergeCell extends InitialMergeCell {
@@ -49,7 +51,6 @@ export type MergeGameAction =
   | { type: 'CLEAR_MESSAGE' }
   | { type: 'CLEAR_EFFECT'; id: number }
 
-export const WAREHOUSE_EXPANSION_COSTS = [50, 100, 200, 400, 800, 1600]
 
 function createOrders(config: MergeConfig) {
   const count = Math.min(3, config.orders[0]?.maxConcurrent ?? 0, config.orders.length)
@@ -103,17 +104,6 @@ export function createMergeGameState(config: MergeConfig): MergeGameState {
   }
 }
 
-function adjacentIndexes(index: number) {
-  const row = Math.floor(index / 7)
-  const column = index % 7
-  const result: number[] = []
-  if (row > 0) result.push(index - 7)
-  if (row < 8) result.push(index + 7)
-  if (column > 0) result.push(index - 1)
-  if (column < 6) result.push(index + 1)
-  return result
-}
-
 function revealNeighbors(board: MergeCell[], unlockedIndex: number) {
   let reward = 0
   const revealedIndexes: number[] = []
@@ -138,17 +128,6 @@ function createCellGoldEffects(state: MergeGameState, indexes: number[], amount:
     sourceIndex,
     amount,
   }))
-}
-
-function weightedDrop(item: MergeItemConfig): number | null {
-  const total = item.drops.reduce((sum, drop) => sum + drop.weight, 0)
-  if (total <= 0) return null
-  let roll = Math.random() * total
-  for (const drop of item.drops) {
-    roll -= drop.weight
-    if (roll < 0) return drop.itemId
-  }
-  return item.drops[item.drops.length - 1]?.itemId ?? null
 }
 
 function countBoardItems(board: MergeCell[]) {
@@ -290,7 +269,7 @@ export function createMergeReducer(config: MergeConfig) {
           return { ...state, message: '该生成器尚未达到可生成等级' }
         }
         if (state.gold < item.openCost) return { ...state, message: '金币不足' }
-        const dropId = weightedDrop(item)
+        const dropId = weightedDrop(item, Math.random)
         if (!dropId) return { ...state, message: '生成器配置无有效产物' }
         const emptyCells = state.board.reduce<number[]>((indexes, entry, index) => {
           if (entry.lock === 0 && entry.itemId === null) indexes.push(index)

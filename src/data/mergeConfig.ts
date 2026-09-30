@@ -71,7 +71,7 @@ function parseDrops(value: string, itemId: number) {
   })
 }
 
-function parseItems(text: string): MergeItemConfig[] {
+export function parseItems(text: string): MergeItemConfig[] {
   return parseCsv(text).map((row) => {
     const id = integer(required(row, 'item_id', '棋子配置'), 'item_id')
     const itemType = required(row, 'item_type', `棋子 ${id}`) as MergeItemType
@@ -94,7 +94,7 @@ function parseItems(text: string): MergeItemConfig[] {
   })
 }
 
-function validateItems(items: MergeItemConfig[]) {
+export function validateItems(items: MergeItemConfig[]) {
   const itemById = new Map<number, MergeItemConfig>()
   items.forEach((item) => {
     if (itemById.has(item.id)) throw new Error(`重复棋子 ID: ${item.id}`)
@@ -139,7 +139,7 @@ function parseOrders(text: string, itemById: Map<number, MergeItemConfig>): Merg
   return orders
 }
 
-function parseBoard(text: string, itemById: Map<number, MergeItemConfig>) {
+export function parseBoard(text: string, itemById: Map<number, MergeItemConfig>) {
   const rows = parseCsv(text)
   if (rows.length !== 63) throw new Error(`初始棋盘必须有 63 格，实际 ${rows.length}`)
   const seen = new Set<number>()

@@ -1,0 +1,10 @@
+item_id,stat,amount
+211,hunger,10
+212,hunger,25
+213,hunger,40
+221,water,20
+222,water,40
+231,hp,5
+232,hp,20
+241,stamina,50
+242,stamina,120

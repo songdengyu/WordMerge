@@ -1,0 +1,19 @@
+.panel { position: absolute; inset: auto 0 0; z-index: 12; max-height: 70%; background: #f6f1e3; border-radius: 23px 23px 0 0; box-shadow: 0 -8px 40px #294b3433; display: flex; flex-direction: column; color: #435d49; }
+.panel button { cursor: pointer; font: inherit; font-size: 12px; color: #456046; border: 1px solid #c9d3ba; background: #e5ead5; border-radius: 8px; padding: 10px 12px; }
+.panel button:disabled { opacity: .55; cursor: default; }
+.panel header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 12px; }
+.panel header small { font-size: 10px; letter-spacing: 2px; color: #879276; }
+.panel h2 { font-family: "Songti SC", "SimSun", serif; font-size: 24px; font-weight: 500; margin-top: 5px; }
+.panel header button { width: 40px; height: 40px; border-radius: 50%; font-size: 22px; padding: 0; }
+.scroll { overflow-y: auto; min-height: 0; padding: 0 22px; }
+.blueprint { display: flex; align-items: center; gap: 12px; border: 1px solid #d5dac5; border-radius: 12px; padding: 12px; flex-wrap: wrap; }
+.blueprint h3 { font-size: 14px; font-weight: 500; }
+.blueprint p { font-size: 10px; color: #88977c; margin-top: 6px; }
+.blueprint button { margin-left: auto; }
+.house { font-size: 48px; color: #a48c65; }
+.note { font-size: 11px; line-height: 1.8; color: #8b967b; margin: 14px 0; }
+.buildingLink { width: 100%; margin-top: 10px; display: flex; justify-content: space-between; }
+.buildingLink span { color: #879576; font-size: 11px; }
+.panel footer { display: flex; gap: 10px; padding: 12px 22px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid #d6ddc6; }
+.panel footer button { flex: 1; }
+.panel footer button:last-child { color: #f8f0d9; background: #617b55; }

@@ -11,7 +11,7 @@ interface MergePieceProps {
 
 export function MergePiece({ item, selected = false, shaking = false, compact = false }: MergePieceProps) {
   const sheet = item.icon.replace(/\.svg$/, '')
-  const validSheet = sheet === 'weapons' || sheet === 'heroes' || sheet === 'ui' || sheet === 'monsters' || sheet === 'items'
+  const validSheet = sheet === 'weapons' || sheet === 'heroes' || sheet === 'ui' || sheet === 'monsters' || sheet === 'items' || sheet === 'survival'
   return (
     <span
       className={`${styles.piece} ${styles[`chain${item.chain}`]} ${styles[item.itemType]} ${selected ? styles.selected : ''} ${shaking ? styles.shaking : ''} ${compact ? styles.compact : ''}`}
