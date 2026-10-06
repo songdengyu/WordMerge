@@ -1,5 +1,6 @@
 import { BLUEPRINTS, blueprintById } from './buildingConfig'
-import { constructionNavigation, createConstruction, footprint, getOrderTarget, localToWorld, orderError, orderMaterials, orderSeconds, placementError, type ConstructionState } from './construction'
+import { buildingOrderId, constructionNavigation, createConstruction, footprint, getOrderTarget, localToWorld, orderError, orderMaterials, orderSeconds, placementError, type ConstructionState } from './construction'
+import { buildingSegments } from './buildingSegments'
 import type { RuntimeData } from './saveData'
 import { sameCell, type WorldMap } from './world'
 import { canWalkLine } from './smoothNavigation'
@@ -27,6 +28,12 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
       const part = entry.parts[config.id]
       check(record(part) && typeof part.built === 'boolean' && typeof part.xpGranted === 'boolean'
         && part.built === part.xpGranted && finite(part.hp) && part.hp <= config.hp && (part.built || part.hp === 0), '部件耐久或经验标记')
+      if (part.segments !== undefined) {
+        const segments = buildingSegments(blueprint, config), hp = part.segments
+        check(segments.length > 1 && record(hp) && Object.keys(hp).length === segments.length
+          && segments.every(segment => finite(hp[segment.id]) && Number(hp[segment.id]) <= config.hp && (part.built || hp[segment.id] === 0)), '独立部件耐久')
+        check(part.hp === Math.min(...Object.values(hp) as number[]), '部件汇总耐久')
+      }
       if (part.built) {
         xp += config.xp
         check(config.requires.every(id => record((entry.parts as Record<string, unknown>)[id]) && ((entry.parts as Record<string, Record<string, unknown>>)[id]).built === true), '建筑前置部件')
@@ -42,10 +49,12 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
   const orderIds = new Set<string>()
   for (const entry of raw.orders) {
     check(record(entry) && typeof entry.buildingId === 'string' && ids.has(entry.buildingId) && typeof entry.partId === 'string'
-      && typeof entry.id === 'string' && entry.id === `${entry.buildingId}:${entry.partId}` && !orderIds.has(entry.id)
+      && (entry.segmentId === undefined || typeof entry.segmentId === 'string' && entry.segmentId.length > 0)
+      && typeof entry.id === 'string' && entry.id === buildingOrderId(entry as unknown as ConstructionState['orders'][number]) && !orderIds.has(entry.id)
       && ['build', 'repair'].includes(String(entry.mode)), '工程订单归属')
     const building = state.buildings.find(building => building.id === entry.buildingId)!
     check(Object.prototype.hasOwnProperty.call(building.parts, entry.partId), '工程部件缺失')
+    check(entry.mode !== 'repair' || !building.parts[entry.partId].segments || typeof entry.segmentId === 'string', '修复必须指定独立部件')
     check(!orderError(state, entry as unknown as ConstructionState['orders'][number]), '工程目标已完成或前置未满足')
     orderIds.add(entry.id)
   }

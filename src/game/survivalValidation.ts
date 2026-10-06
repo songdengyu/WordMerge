@@ -2,11 +2,16 @@ import type { RuntimeData } from './saveData'
 import type { ProductionCatalog } from './productionConfig'
 import { ENEMIES, SURVIVAL_RULES as RULES, WEATHER } from './survivalConfig'
 import type { Actor, SurvivalState } from './survival'
-import { worldMinutes } from './survival'
+import { enemyNavigation, worldMinutes } from './survival'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { constructionNavigation } from './construction'
+import { blueprintById } from './buildingConfig'
+import { buildingSegments } from './buildingSegments'
 import { TAMING_ORDER, TAMING_SECONDS } from './taming'
 import { REGION_BOARS } from './regionContentConfig'
+import { combatResult, COMBAT_SECONDS, COMBAT_RESULT_SECONDS } from './companionCombat'
+import type { Enemy } from './survival'
+import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -16,6 +21,8 @@ const has = (object: object, key: string) => Object.prototype.hasOwnProperty.cal
 export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMap, catalog: ProductionCatalog, check: Check,
   rescueItems: readonly number[] = RULES.companion.rescueItems): asserts raw is SurvivalState {
   check(record(raw), '昼夜生存状态缺失')
+  const lockedCombat = !!raw.duel
+  const duelEnemyId = record(raw.duel) && record(raw.duel.enemy) ? raw.duel.enemy.id : null
   check(typeof raw.weather === 'string' && has(WEATHER, raw.weather) && typeof raw.forecast === 'string' && has(WEATHER, raw.forecast), '天气')
   check(Number.isSafeInteger(raw.weatherDay) && Number(raw.weatherDay) >= -1 && Number(raw.weatherDay) <= Math.floor((worldMinutes(world, data.elapsedSeconds) - 360) / 1440), '天气日历')
   check(integer(raw.randomState) && raw.randomState > 0 && raw.randomState <= 0xffffffff, '天气与夜袭随机状态')
@@ -23,19 +30,40 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
   check(integer(raw.raidNight) && integer(raw.nextEnemyId) && raw.nextEnemyId > 0, '夜袭序号')
   check(typeof raw.resting === 'boolean' && integer(raw.failureCount) && integer(raw.rescuedCount) && raw.rescuedCount <= raw.failureCount, '救援计数')
   const cell = (v: unknown): v is Cell => record(v) && Number.isSafeInteger(v.x) && Number.isSafeInteger(v.y) && world.isWalkable(v as unknown as Cell)
-  function actor(v: unknown): asserts v is Actor {
+  const point = (v: unknown): v is Cell => record(v) && typeof v.x === 'number' && typeof v.y === 'number'
+    && finitePoint(v as Cell) && world.isWalkable(pointCell(v as Cell))
+  function actor(v: unknown, companion = false): asserts v is Actor {
     check(record(v) && cell(v.cell) && finite(v.progress) && v.progress < 1 && finite(v.cooldown) && v.cooldown <= 3, '单位位置 / 攻击计时')
-    check(Array.isArray(v.route) && v.route.length <= world.config.chunks.length * 256 && (v.route.length > 0 || v.progress === 0), '单位路线')
-    let from = v.cell
-    for (const next of v.route) { check(cell(next) && world.canStep(from, next), '单位路线不可达'); from = next }
+    const motion = v.motion
+    const label = companion ? '伙伴' : '敌人'
+    const locked = lockedCombat && (companion || v.id === duelEnemyId)
+    const base = locked ? world : constructionNavigation(world, data.construction, companion ? 'friendly' : 'enemy')
+    const grid = companion ? base : enemyNavigation(world, base, typeof v.residentId === 'string' ? v.residentId : undefined)
+    check(Array.isArray(v.route) && v.route.length <= world.config.chunks.length * (motion ? 2048 : 256) && (v.route.length > 0 || v.progress === 0), '单位路线')
+    if (motion !== undefined) {
+      check(record(motion) && motion.version === 1 && point(motion.position) && v.progress === 0
+        && sameCell(pointCell(motion.position), v.cell), `${label}连续移动位置`)
+      // A locked duel may outlive repairs along its frozen future route; recheck those walls on resuming.
+      check(canWalkLine(grid, motion.position, motion.position), `${label}连续移动碰撞`)
+      let from = motion.position
+      for (const next of v.route) { check(point(next) && canWalkLine(grid, from, next), `${label}路线穿过障碍或建筑木墙`); from = next }
+    } else {
+      let from = v.cell
+      for (const next of v.route) { check(cell(next) && world.canStep(from, next), '单位路线不可达'); from = next }
+    }
     if (v.target === null) return
     const target = v.target
     check(record(target) && typeof target.kind === 'string', '单位目标')
     if (target.kind === 'player' || target.kind === 'companion') return
-    if (target.kind === 'point') { check(cell(target.cell), '驻守目标'); return }
+    if (target.kind === 'point') { check(motion ? point(target.cell) : cell(target.cell), '驻守目标'); return }
     if (target.kind === 'enemy') { check(typeof target.id === 'string' && /^e[1-9]\d*$/.test(target.id), '敌人目标'); return }
     check(target.kind === 'part' && typeof target.buildingId === 'string' && typeof target.partId === 'string' && cell(target.stand), '建筑目标')
     check(data.construction.buildings.some(building => building.id === target.buildingId && has(building.parts, target.partId as string)), '建筑目标缺失')
+    if (target.segmentId !== undefined) {
+      const building = data.construction.buildings.find(building => building.id === target.buildingId)!
+      const blueprint = blueprintById(building.blueprintId)!, config = blueprint.parts.find(part => part.id === target.partId)!
+      check(typeof target.segmentId === 'string' && buildingSegments(blueprint, config).some(segment => segment.id === target.segmentId), '独立部件目标')
+    }
   }
   check(Array.isArray(raw.enemies) && raw.enemies.length <= RULES.enemyLimit + REGION_BOARS.length
     && raw.enemies.filter(enemy => !record(enemy) || !enemy.residentId).length <= RULES.enemyLimit, '夜袭数量上限')
@@ -50,17 +78,47 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
     if (enemy.residentId !== undefined) {
       const spawn = REGION_BOARS.find(s => s.id === enemy.residentId)
       check(spawn && !residents.has(spawn.id) && enemy.kind === 'boar' && world.chunkAt(enemy.cell as Cell)?.id === spawn.regionId
-        && (enemy.route as Cell[]).every(cell => world.chunkAt(cell)?.id === spawn.regionId), '区域野猪来源或活动范围')
+        && (enemy.route as Cell[]).every(cell => world.chunkAt(pointCell(cell))?.id === spawn.regionId), '区域野猪来源或活动范围')
       residents.add(spawn.id)
     }
   }
   const buddy = raw.companion
   check(record(buddy), '伙伴状态')
-  actor(buddy)
-  check(['wild', 'active', 'injured', 'recovering'].includes(String(buddy.status)) && ['guard', 'follow', 'rest'].includes(String(buddy.mode)) && cell(buddy.guard), '伙伴指令')
+  actor(buddy, true)
+  check(['wild', 'active', 'injured', 'recovering'].includes(String(buddy.status)) && ['guard', 'follow', 'move'].includes(String(buddy.mode))
+    && (buddy.motion ? point(buddy.guard) : cell(buddy.guard)), '伙伴指令')
   check(finite(buddy.hp) && buddy.hp <= RULES.companion.hp && ((buddy.status === 'wild' || buddy.status === 'active') ? buddy.hp > 0 : buddy.hp === 0), '伙伴生命')
   check(finite(buddy.recoveryRemaining) && buddy.recoveryRemaining <= RULES.companion.recoverySeconds && (buddy.status === 'recovering' ? buddy.recoveryRemaining > 0 : buddy.recoveryRemaining === 0), '伙伴救治计时')
   check(buddy.orderedEnemy === null || (typeof buddy.orderedEnemy === 'string' && /^e[1-9]\d*$/.test(buddy.orderedEnemy)), '伙伴指定目标')
+  if (raw.duel !== null) {
+    const duel = raw.duel
+    check(record(duel) && (duel.phase === 'fighting' || duel.phase === 'result') && finite(duel.remaining)
+      && duel.remaining > 0 && duel.remaining <= (duel.phase === 'fighting' ? COMBAT_SECONDS : COMBAT_RESULT_SECONDS), '伙伴战斗计时')
+    const startBuddy = duel.companion, startEnemy = duel.enemy
+    actor(startBuddy, true); actor(startEnemy)
+    check(record(startBuddy) && finite(startBuddy.hp) && startBuddy.hp > 0 && startBuddy.hp <= RULES.companion.hp, '战斗初始伙伴生命')
+    check(record(startEnemy) && typeof startEnemy.id === 'string' && /^e[1-9]\d*$/.test(startEnemy.id)
+      && Number(startEnemy.id.slice(1)) < raw.nextEnemyId && typeof startEnemy.kind === 'string' && has(ENEMIES, startEnemy.kind)
+      && finite(startEnemy.hp) && startEnemy.hp > 0 && startEnemy.hp <= ENEMIES[startEnemy.kind as keyof typeof ENEMIES].hp, '战斗初始敌人')
+    if (startEnemy.residentId !== undefined) {
+      const spawn = REGION_BOARS.find(spawn => spawn.id === startEnemy.residentId)
+      check(spawn && startEnemy.kind === 'boar' && world.chunkAt(startEnemy.cell)?.id === spawn.regionId
+        && startEnemy.route.every(cell => world.chunkAt(pointCell(cell))?.id === spawn.regionId), '战斗区域动物')
+    }
+    const expected = combatResult({ hp: startBuddy.hp, cooldown: startBuddy.cooldown }, startEnemy as unknown as Enemy)
+    const result = duel.result
+    check(record(result) && Object.entries(expected).every(([key, value]) => result[key] === value), '战斗预计算结果')
+    const samePosition = (a: Actor, b: Actor) => sameCell(a.cell, b.cell) && a.progress === b.progress
+      && JSON.stringify(a.route) === JSON.stringify(b.route) && JSON.stringify(a.motion) === JSON.stringify(b.motion)
+    check(samePosition(buddy, startBuddy) && buddy.hp === (duel.phase === 'fighting' ? startBuddy.hp : expected.companionHp)
+      && buddy.cooldown === (duel.phase === 'fighting' ? startBuddy.cooldown : expected.companionCooldown)
+      && buddy.status === (duel.phase === 'result' && expected.companionHp === 0 ? 'injured' : 'active'), '战斗伙伴锁定状态')
+    const enemy = (raw.enemies as Enemy[]).find(enemy => enemy.id === startEnemy.id)
+    if (duel.phase === 'result' && expected.enemyHp === 0) check(!enemy, '战败敌人已结算')
+    else check(enemy && samePosition(enemy, startEnemy) && enemy.kind === startEnemy.kind && enemy.residentId === startEnemy.residentId
+      && enemy.hp === (duel.phase === 'fighting' ? startEnemy.hp : expected.enemyHp)
+      && enemy.cooldown === (duel.phase === 'fighting' ? startEnemy.cooldown : expected.enemyCooldown), '战斗敌人锁定状态')
+  }
   const taming = raw.taming
   check(record(taming) && typeof taming.ordered === 'boolean', '驯服订单')
   check(buddy.status === 'wild' || (!taming.ordered && taming.job === null), '已驯服动物不得保留订单')

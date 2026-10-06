@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameRuntime, GameCommand, UiSnapshot } from '../../game/GameRuntime'
 import { BLUEPRINTS } from '../../game/buildingConfig'
-import { localToWorld } from '../../game/construction'
 import { ENEMIES, SURVIVAL_RULES, WEATHER } from '../../game/survivalConfig'
 import { dayCycle } from '../../game/environment'
 import { nearbyThreats } from '../../game/survival'
@@ -33,7 +32,7 @@ export function CampThreat({ state }: { state: UiSnapshot }) {
     <p>{damaged.length ? damaged.join(' · ') : state.warning}</p>
   </div>
 }
-export function CampCare({ runtime, close, openMerge, message }: { runtime: GameRuntime; close: () => void; openMerge: () => void; message: (text: string) => void }) {
+export function CampCare({ runtime, close, openMerge, message, control }: { runtime: GameRuntime; close: () => void; openMerge: () => void; message: (text: string) => void; control: () => void }) {
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot), buddy = state.survival.companion
   const dialog = useRef<HTMLDialogElement>(null)
   const [feedback, setFeedback] = useState('')
@@ -54,23 +53,20 @@ export function CampCare({ runtime, close, openMerge, message }: { runtime: Game
       {buddy.status === 'wild' ? <><p>白天点击小犬头顶的材料气泡，准备 1 份 3 级野餐餐盒后自动前往，驯服需要 2 秒。</p><div className={styles.buttons}>
         <button disabled={!!state.survival.taming.job} onClick={() => void send({ type: 'taming-interact' })}>前往驯服</button></div></>
         : <><p>生命 <b data-testid="companion-hp">{Math.ceil(buddy.hp)}</b> / {SURVIVAL_RULES.companion.hp}
-          {buddy.status === 'recovering' ? ` · 还需 ${Math.ceil(buddy.recoveryRemaining)} 秒` : buddy.status === 'active' ? ` · ${{ guard: '驻守', follow: '跟随', rest: '休养' }[buddy.mode]}` : ' · 草药绷带救治后需休养 60 秒'}</p>
+          {buddy.status === 'recovering' ? ` · 还需 ${Math.ceil(buddy.recoveryRemaining)} 秒` : buddy.status === 'active' ? ` · ${{ guard: '驻守', follow: '跟随', move: '移动' }[buddy.mode]}` : ' · 草药绷带救治后需休养 60 秒'}</p>
           <div className={styles.buttons}>
-            <button disabled={buddy.status !== 'active'} onClick={() => void send({ type: 'companion-mode', mode: 'guard', guard: state.player })}>驻守此处</button>
-            <button disabled={buddy.status !== 'active'} onClick={() => void send({ type: 'companion-mode', mode: 'follow' })}>跟随我</button>
-            <button disabled={buddy.status !== 'active'} onClick={() => void send({ type: 'companion-mode', mode: 'rest' })}>伙伴休养</button>
-            <button disabled={buddy.status === 'recovering' || buddy.hp >= SURVIVAL_RULES.companion.hp} onClick={() => void send({ type: 'companion-treat' })}>用草药绷带治疗</button>
+            <button disabled={!!state.survival.duel || buddy.status !== 'active'} onClick={() => void send({ type: 'companion-mode', mode: 'guard', guard: state.player })}>驻守此处</button>
+            <button disabled={!!state.survival.duel || buddy.status !== 'active'} onClick={() => void send({ type: 'companion-mode', mode: 'follow' })}>跟随我</button>
+            <button disabled={!!state.pauseReasons.length || !!state.survival.duel || buddy.status !== 'active'} onClick={control}>指定移动</button>
+            <button disabled={!!state.survival.duel || buddy.status === 'recovering' || buddy.hp >= SURVIVAL_RULES.companion.hp} onClick={() => void send({ type: 'companion-treat' })}>用草药绷带治疗</button>
           </div><p className={styles.subtle}>驻守点以主角当前位置为准。伙伴会拦截附近敌人，受伤后保留成长。</p></>}
     </section>
     <section><h3>营地防御 <span>{state.survival.enemies.length} 个敌人</span></h3>
       <CampThreat state={state} />
-      {state.survival.enemies.map(enemy => <button className={styles.enemy} key={enemy.id} disabled={buddy.status !== 'active'} onClick={() => void send({ type: 'companion-attack', enemyId: enemy.id })}>
+      {state.survival.enemies.map(enemy => <button className={styles.enemy} key={enemy.id} disabled={!!state.survival.duel || buddy.status !== 'active'} onClick={() => void send({ type: 'companion-attack', enemyId: enemy.id })}>
         <span>{ENEMIES[enemy.kind].name} · {Math.ceil(enemy.hp)} / {ENEMIES[enemy.kind].hp}</span><span>让栗栗拦截</span></button>)}
       <div className={styles.buttons}>
-        <button onClick={() => { const house = state.construction.buildings.find(building => building.parts.foundation.built)
-          if (!house) { report('先放置图纸、建造木屋'); return }
-          void send({ type: 'move', target: localToWorld(house, { x: 1, y: 1 }) }); close()
-        }}>走进木屋</button><button onClick={() => void send({ type: 'player-rest' })}>{state.survival.resting ? '结束休养' : '床边休养'}</button>
+        <button onClick={() => void send({ type: 'player-rest' })}>{state.survival.resting ? '结束休养' : '床边休养'}</button>
       </div>
     </section>
     <button className={styles.primary} onClick={() => { close(); openMerge() }}>去合成补给</button>

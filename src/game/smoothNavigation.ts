@@ -8,6 +8,16 @@ export const pointCell = (point: Cell): Cell => ({ x: Math.round(point.x), y: Ma
 export const pointDistance = (a: Cell, b: Cell) => Math.hypot(a.x - b.x, a.y - b.y)
 export const finitePoint = (point: Cell) => Number.isFinite(point.x) && Number.isFinite(point.y)
 
+/** Keep the tapped point, pulling it inside its tile only when clearance requires it. */
+export function moveTarget(grid: NavigationGrid, target: Cell): Cell | null {
+  if (!target || !finitePoint(target) || !grid.isWalkable(pointCell(target))) return null
+  if (canWalkLine(grid, target, target)) return { ...target }
+  const cell = pointCell(target)
+  const safe = { x: cell.x + Math.max(-.34, Math.min(.34, target.x - cell.x)),
+    y: cell.y + Math.max(-.34, Math.min(.34, target.y - cell.y)) }
+  return canWalkLine(grid, safe, safe) ? safe : null
+}
+
 /** Segment versus an expanded solid rectangle; touching the clearance boundary is allowed. */
 function hitsBox(from: Cell, to: Cell, left: number, top: number, right: number, bottom: number) {
   let near = 0, far = 1

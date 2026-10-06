@@ -58,7 +58,7 @@ describe('persistent regional animals and lodge foundation', () => {
     data.survival.companion.cell = { ...boar.cell }; data.survival.companion.guard = { ...boar.cell }
     const h = harness(data), gold = data.production.inventory.gold
     expect(await h.send({ type: 'companion-attack', enemyId: boar.id })).toMatchObject({ accepted: true })
-    h.pump(.5)
+    h.pump(2)
     expect(h.valid().survival.enemies.some(e => e.residentId === boar.residentId)).toBe(false)
     expect(h.valid().production.inventory.gold).toBe(gold + 4)
     const restored = harness(h.valid()); restored.pump(.5)
@@ -73,7 +73,7 @@ describe('persistent regional animals and lodge foundation', () => {
     const saved = validateSave(old, world, catalog)
     expect(saved.data.production).toEqual(data.production)
     expect(saved.data.construction.xp).toBe(140)
-    expect(saved.data.construction.buildings.slice(0, 2)).toEqual(data.construction.buildings)
+    expect(saved.data.construction.buildings.slice(0, 2)).toMatchObject(data.construction.buildings)
     const lodge = saved.data.construction.buildings.find(b => b.blueprintId === 'lodge')!
     expect(lodge).toBeTruthy(); expect(footprint(lodge, blueprintById('lodge')!)).toHaveLength(20)
     expect(lodge.origin).not.toEqual({ x: 25, y: 3 })

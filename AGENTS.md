@@ -15,15 +15,21 @@
 ## 实施要点
 
 - React 18 + TypeScript + Vite 5，样式为 CSS Modules。旧 Demo 使用 Context / reducer；新模式由 `src/game/GameRuntime.ts` 管理权威状态，React 用 `useSyncExternalStore` 订阅，Pixi 仅负责地图表现。
-- 主角移动已改为 `smoothNavigation.ts` 连续坐标：直达优先，八向 A* 绕行，再做视线简化与安全拐角圆滑；沿路径按实际距离推进，途中改点立即从当前位置重规划。碰撞检查含地形、墙边与角色半径，不能仅检查端点。交互 / 建造仍用格坐标，工作位必须精确到达才扣料。保存 `motion.version = 1` 与精确位置，兼容旧 cell / progress 存档；细节见 `docs/implementation/SMOOTH-MOVEMENT.md`。
+- 主角、伙伴与敌人移动已统一为 `smoothNavigation.ts` 连续坐标：直达优先，八向 A* 绕行，再做视线简化与安全拐角圆滑；沿路径按实际距离推进，途中改点立即从当前位置重规划。碰撞检查含地形、墙边与角色半径，不能仅检查端点。敌人仍用敌方墙门规则和自身速度，区域野猪的寻路 / 步进 / 存档共用区域边界；Runtime 按敌人 ID 保存上一模拟步位置供 Pixi 插值，交战只冻结双方。交互 / 建造仍用格坐标，工作位必须精确到达才扣料。保存 `motion.version = 1` 与精确位置，兼容旧 cell / progress 存档；细节见 `docs/implementation/SMOOTH-MOVEMENT.md`。
+- 伙伴指定移动 / 跟随 / 回位 / 追敌也复用 `SmoothPathSearch`、`moveTarget`、`walkPath`，速度仍由伙伴配置决定。伙伴保存可选 `motion.version = 1` 与精确位置，旧 cell / progress 从实际中途位置转换；路线按友方墙门验证，交战期间冻结路线恢复时重新检查。场景用 `previousCompanionPosition` 插值。主角不显示路径，只显示终点，伙伴手动移动显示绿色终点。
 - 合成运行配置是 `public/config/` 下英文表头 CSV；M3 蓝图、M4 生存参数、M5 剧情与区域扩展暂用版本化 TypeScript 目录，基础地图用 JSON。桌面原表和归档表不是运行输入。
 - 新合成配置在 `public/config/survival/merge/`，复用原棋子表头，`open_cost` 在新模式表示体力；物品使用效果和委托奖励独立配置，不接旧装备奖励。详情见 `docs/implementation/M2-PRODUCTION-SAVE.md`。
 - 新模式的物品与订单只通过 Runtime 命令改变。棋盘 / 仓库使用唯一实例 ID；禁止从 React effect 或动画回调扣料、发奖。当前 schema 4 显式迁移兼容的 M2 schema 1、M3 schema 2 与 M4 schema 3；其他不兼容版本拒绝覆盖，保留故障数据。
+- 合成订单以 Runtime 的临时 `productionOrderFocus` 记住当前地图需求，ProductionScreen 排到首位、绘制绿色边框与类型角标；点击可换单，完成 / 取消后回退首单。选择不写存档、不更改库存。StatusIcons 观察 HP 下降显示红色飘字，动画只负责表现，不参与伤害结算。林岚位置与命中共享 CampScene 的 `RESIDENT_CELL`，当前为 `(11, 8)`。
 - 状态快捷补给由 `quickSupply.ts` 经 Runtime 提交，复用实际物品使用，不另建库存；补给订单放在 `production.supplyOrders`，按状态去重，schema 4 旧档缺少该字段时补空列表。当前支持生命 / 饱食 / 水分，温度道具待确认。详情见 `docs/implementation/QUICK-SUPPLY.md`。
 - M3 蓝图参数在 `src/game/buildingConfig.ts`，内容指纹参与存档兼容性。工程原位预留，到工作位才扣料；开工不可中断且主角 / 当前部件免伤。墙门格边导航由 Runtime 建筑状态派生，Pixi 不持有权威施工或耐久状态。
+- 建造仍按图纸组一次完成；围墙按 `edgeN`、地基 / 屋顶按 `tileX-Y` 保存 `parts[id].segments` 独立耐久，组 `hp` 仅为最小值汇总。攻击和修复带 `segmentId`，修复订单为 `buildingId:partId:segmentId`；只恢复 / 保护目标段，首次建造保护整组。导航只阻挡尚存墙段。旧档先验证后补段耐久并迁移旧修复 ID / 工程 / 预留，不清档、不补扣或重发经验。新建与区域补入都用 `createBuildingParts`；不得直接写组 hp 代替段耐久。屋内点击走普通移动，不再拦截为建筑选择；完工进入气泡与照护页走进木屋按钮已移除。见 `docs/implementation/BUILDING-SEGMENTS.md`。
+- 小木屋 / 大屋单段墙耐久分别为 20 / 30；`migrations/wallDurability.ts` 兼容原建筑指纹 `d146dff6` 与区域指纹 `b3fb1516`，将旧 160 / 320 耐久按剩余比例迁移，已破坏的墙仍为 0，兼容旧整组和独立段存档。只转换墙体，不重置工程、预留或经验；原 M3 工期与旧 M4 / M5 迁移链仍保留。
 - 建造交互改为地图材料气泡：满足条件变绿、点击直接安排；缺料点击去合成，不开材料详情子界面。建造 / 修复统一 2 秒，旧 M3 工期按已完成比例迁移，不能清档或重发经验。
 - 建造气泡由 `src/scene/BuildingBubbles.ts` 在 Pixi 地图容器内绘制，大小、图标、文字和命中区域随镜头缩放；地图统一处理轻点 / 拖动 / 捏合，不能恢复成固定大小的 DOM 视觉覆盖层。透明 DOM 镜像仅用于无障碍与只读坐标，不拦截指针。
-- M4 生存参数在 `src/game/survivalConfig.ts`，昼夜 / 天气 / 敌人与伙伴由 `survival.ts` 跟随 Runtime 固定步进。先收集同拍攻击再统一扣血；天亮先撤敌。仅主角生命归零触发持久化失败，接受救援仅结算该次记录一次，保存失败重试不得重复扣物资。
+- 修复气泡固定在各自场景部件上方，墙 / 门用边中点，地板 / 屋顶用格子位置，床用自身位置；不要自动避让上推或把单件修复放回建筑中央横排。只有未建造的整组气泡仍横排。
+- M4 生存参数在 `src/game/survivalConfig.ts`，昼夜 / 天气 / 敌人与伙伴由 `survival.ts` 跟随 Runtime 固定步进。主角 / 建筑保持即时受击；伙伴与敌人靠近后锁定一对，用 `companionCombat.ts` 按当前生命 / 攻击 / 间隔 / 冷却预算整场结果，隐藏模型演出 2 秒烟尘后统一扣血与发奖，再播放 1 秒胜负动作。`survival.duel` 持久化阶段、计时与结果，旧 schema 4 缺少时补 null；同拍允许双败，战斗中不治疗 / 改令。天亮先撤未交战敌人，已交战对完成后再撤。仅主角生命归零触发失败；救援先结算尚未提交的交战结果，再回营地，保存重试不得重复奖励或扣物资。详见 `docs/implementation/COMPANION-COMBAT.md`。
+- 伙伴主动“休养”改为“移动”：React 仅持有临时操控模式，CampScene 在材料气泡 / 动物 / 建筑点击前优先提交 `companion-move`，底部“取消操控”恢复主角输入；退出不撤销已经下达的目的地。Runtime 用 `mode: move` 与 `guard` 保存目的地，途中可改点，到达后驻守；战斗时拒绝改令，受伤 / 失败 / 剧情或打开其他面板退出操控。移除主动休养回血，保留用药恢复；旧 `rest` 存档迁为当前位置 `guard`，旧 `restHpPerSecond` 仅保留配置指纹兼容，不再使用。本轮仅构建，按用户要求未运行游戏验证，规则与浏览器测试也未运行。
 - 栗栗驯服使用 1 份 3 级野餐餐盒（213）；旧野莓存档显式迁移，前往中释放旧预留并保留订单，已开工 / 已驯服保留。驯服由 `taming.ts` / Runtime 管理：气泡缺料建单，足料预留、自动前往，精确到达才扣料并计时 2 秒；途中取消或入夜释放预留，开始后不可中断、主角免伤。与施工互斥，旧 `companion-rescue` 同样走计时流程。schema 4 旧档缺少 `survival.taming` 时补默认值；施工与驯服分别验证预留归属，`saveData.ts` 最后统一检查孤立预留。伙伴场景点击打开 `CompanionWheel`，世界继续运行。
 - M5 内容在 `src/game/progressionConfig.ts`；剧情逐页保存，只有对话暂停世界，手记 / 装扮不暂停。最终回应原子提交扣料、奖励和完成标记，生成器奖励必须有棋盘空位。区域解锁派生新的 WorldMap，保留原地图配置指纹；寻路、施工、场景和读档都使用派生地图。服装与摆件仅改变外观，救援保留剧情、区域与收藏。
 - 区域开放在每个未开放地块四边预设场景指示牌，仅与已解锁地块接壤的一侧显示，其余隐藏；邻接区域开放后自动更新，解锁后该地块所有牌子消失。仅检查建设经验（不消耗），点可达的一侧，前往地块外侧工作位后开放 2 秒，途中可取消、开工不可中断且主角免伤；与施工 / 驯服互斥。`regionUnlock.ts` / Runtime 保存前往与计时状态，schema 4 兼容旧 M5 剧情指纹 `7a73e35c` 并补 `progression.regionUnlock = null`。营地地图页已删除，手记目标改为定位指示牌或已开放区域的地标；详见 `docs/implementation/REGION-SIGNPOSTS.md`。

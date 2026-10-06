@@ -1,4 +1,5 @@
 import { blueprintById } from './buildingConfig'
+import { createBuildingParts } from './buildingSegments'
 import { footprint, placementError, type ConstructionState } from './construction'
 import type { ProgressionState } from './progression'
 import { REGION_BOARS, REGION_LODGE } from './regionContentConfig'
@@ -39,7 +40,7 @@ export function populateRegionContent(world: WorldMap, construction: Constructio
     })
     if (origin) {
       construction.buildings.push({ id: `b${construction.nextId++}`, blueprintId: blueprint.id, origin, rotation: 0,
-        parts: Object.fromEntries(blueprint.parts.map(part => [part.id, { hp: 0, built: false, xpGranted: false }])) })
+        parts: createBuildingParts(blueprint) })
       initialized.push(REGION_LODGE.regionId); changed = true
     }
   }

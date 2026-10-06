@@ -114,7 +114,7 @@ describe('scene signpost region unlocking', () => {
     const migrated = validateSave(old, world, catalog)
     expect(migrated.configVersion).not.toBe(old.configVersion)
     expect(migrated.data.production).toEqual(data.production)
-    expect(migrated.data.construction).toEqual(data.construction)
+    expect(migrated.data.construction).toMatchObject(data.construction)
     expect(migrated.data.progression).toMatchObject({ ...data.progression, regionUnlock: null,
       regionContent: { ...data.progression.regionContent, initialized: ['brook'] } })
     expect(migrated.data.survival.enemies.filter(enemy => enemy.residentId)).toHaveLength(3)

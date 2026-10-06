@@ -2,11 +2,13 @@ import { BLUEPRINTS, blueprintById, type Blueprint, type BuildingPartConfig } fr
 import { matchRequirements, type InventoryState, type ProductionState } from './inventory'
 import { PathSearch, type NavigationGrid } from './navigation'
 import { edgeKey, sameCell, type Cell, type WorldMap } from './world'
+import { buildingSegments, createBuildingParts, ensureSegments, segmentHp, setSegmentHp } from './buildingSegments'
 
 export type Rotation = 0 | 1 | 2 | 3
-export interface BuildingPart { hp: number; built: boolean; xpGranted: boolean }
+export interface BuildingPart { hp: number; built: boolean; xpGranted: boolean; segments?: Record<string, number> }
 export interface Building { id: string; blueprintId: string; origin: Cell; rotation: Rotation; parts: Record<string, BuildingPart> }
-export interface BuildingOrder { id: string; buildingId: string; partId: string; mode: 'build' | 'repair' }
+export interface BuildingOrder { id: string; buildingId: string; partId: string; mode: 'build' | 'repair'; segmentId?: string }
+export interface BuildingTarget { buildingId: string; partId: string; segmentId?: string }
 export interface ConstructionJob {
   orderId: string
   phase: 'queued' | 'travel' | 'building'
@@ -25,8 +27,8 @@ export interface ConstructionState {
 export type ConstructionCommand =
   | { type: 'building-place'; blueprintId: string; origin: Cell; rotation: Rotation }
   | { type: 'building-remove'; buildingId: string }
-  | { type: 'building-order'; buildingId: string; partId: string }
-  | { type: 'building-interact'; buildingId: string; partId: string }
+  | ({ type: 'building-order' } & BuildingTarget)
+  | ({ type: 'building-interact' } & BuildingTarget)
   | { type: 'building-claim'; orderId: string }
   | { type: 'building-cancel'; orderId: string }
 
@@ -44,8 +46,40 @@ export function buildingAt(state: ConstructionState, cell: Cell) {
 }
 export function getOrderTarget(state: ConstructionState, order: BuildingOrder) {
   const building = state.buildings.find(building => building.id === order.buildingId)!
-  const config = blueprintById(building.blueprintId)!.parts.find(part => part.id === order.partId)!
-  return { building, config, part: building.parts[order.partId] }
+  const blueprint = blueprintById(building.blueprintId)!
+  const base = blueprint.parts.find(part => part.id === order.partId)!
+  const segment = order.segmentId ? buildingSegments(blueprint, base).find(segment => segment.id === order.segmentId) : undefined
+  // Original work positions remain valid for already-running legacy repairs.
+  const config = segment ? { ...base, name: segment.name, work: [segment.cell, ...(segment.edge ? [segment.edge.to] : []), ...base.work] } : base
+  return { building, config, part: building.parts[order.partId], segment }
+}
+export function buildingOrderId(target: BuildingTarget) {
+  return `${target.buildingId}:${target.partId}${target.segmentId ? `:${target.segmentId}` : ''}`
+}
+/** Upgrade validated legacy groups and retain their paid/queued repairs and reservations. */
+export function upgradeConstruction(state: ConstructionState, inventory: InventoryState) {
+  for (const building of state.buildings) {
+    const blueprint = blueprintById(building.blueprintId)!
+    for (const config of blueprint.parts) ensureSegments(building.parts[config.id], buildingSegments(blueprint, config))
+  }
+  for (const order of state.orders) {
+    if (order.mode !== 'repair' || order.segmentId) continue
+    const { building, config, part } = getOrderTarget(state, order)
+    const segments = buildingSegments(blueprintById(building.blueprintId)!, config)
+    if (segments.length <= 1) continue
+    const segment = segments.find(segment => segmentHp(part, segment.id) < config.hp)
+    if (!segment) continue
+    const previous = order.id
+    order.segmentId = segment.id; order.id = buildingOrderId(order)
+    for (const job of state.jobs) if (job.orderId === previous) job.orderId = order.id
+    for (const item of Object.values(inventory.items)) if (item.reservedBy === previous) item.reservedBy = order.id
+  }
+}
+export function protectedBuildingTarget(state: ConstructionState, target: BuildingTarget) {
+  const job = state.jobs.find(job => job.phase === 'building')
+  const order = job && state.orders.find(order => order.id === job.orderId)
+  return order?.buildingId === target.buildingId && order.partId === target.partId
+    && (!order.segmentId || order.segmentId === target.segmentId)
 }
 export const orderMaterials = (state: ConstructionState, order: BuildingOrder) => {
   const { config } = getOrderTarget(state, order)
@@ -58,8 +92,10 @@ export function constructionNavigation(world: WorldMap, state: ConstructionState
   const blocked = new Set<string>()
   for (const building of state.buildings) for (const config of blueprintById(building.blueprintId)!.parts) {
     const part = building.parts[config.id]
-    if (!part.built || part.hp <= 0 || (config.kind === 'door' && actor === 'friendly')) continue
-    for (const edge of config.edges) blocked.add(edgeKey(localToWorld(building, edge.from), localToWorld(building, edge.to)))
+    if (!part.built || !config.edges.length || (config.kind === 'door' && actor === 'friendly')) continue
+    for (const segment of buildingSegments(blueprintById(building.blueprintId)!, config)) {
+      if (segment.edge && segmentHp(part, segment.id) > 0) blocked.add(edgeKey(localToWorld(building, segment.edge.from), localToWorld(building, segment.edge.to)))
+    }
   }
   return { isWalkable: cell => world.isWalkable(cell), canStep: (from, to) => world.canStep(from, to) && !blocked.has(edgeKey(from, to)) }
 }
@@ -90,8 +126,9 @@ export function placementError(world: WorldMap, state: ConstructionState, bluepr
 }
 
 export function orderError(state: ConstructionState, order: BuildingOrder): string | null {
-  const { building, config, part } = getOrderTarget(state, order)
-  if (order.mode === 'build' ? part.built : !part.built || part.hp >= config.hp) return '该部件不需要施工或修复'
+  const { building, config, part, segment } = getOrderTarget(state, order)
+  if (order.segmentId && (!segment || order.mode !== 'repair')) return '修复部件不存在'
+  if (order.mode === 'build' ? part.built : !part.built || (segment ? segmentHp(part, segment.id) : part.hp) >= config.hp) return '该部件不需要施工或修复'
   if (config.requires.some(id => !building.parts[id].built)) return '请先完成前置部件'
   return null
 }
@@ -102,6 +139,7 @@ export function releaseJob(state: ConstructionState, inventory: InventoryState, 
 
 export function applyConstructionCommand(original: ConstructionState, production: ProductionState, world: WorldMap, player: Cell, command: ConstructionCommand) {
   const state = structuredClone(original), nextProduction = structuredClone(production), inventory = nextProduction.inventory
+  upgradeConstruction(state, inventory)
   const reject = (reason: string) => ({ accepted: false as const, reason })
   const accept = (message: string, openProduction = false) => ({ accepted: true as const, state, production: nextProduction, message, openProduction })
   const claim = (order: BuildingOrder) => {
@@ -120,7 +158,7 @@ export function applyConstructionCommand(original: ConstructionState, production
     if (error) return reject(error)
     const blueprint = blueprintById(command.blueprintId)!
     state.buildings.push({ id: `b${state.nextId++}`, blueprintId: blueprint.id, origin: command.origin, rotation: command.rotation,
-      parts: Object.fromEntries(blueprint.parts.map(part => [part.id, { hp: 0, built: false, xpGranted: false }])) })
+      parts: createBuildingParts(blueprint) })
     return accept('图纸已放好，先为木地基准备材料')
   }
   if (command.type === 'building-remove') {
@@ -135,8 +173,14 @@ export function applyConstructionCommand(original: ConstructionState, production
   if (command.type === 'building-order' || command.type === 'building-interact') {
     const building = state.buildings.find(building => building.id === command.buildingId)
     if (!building || !Object.prototype.hasOwnProperty.call(building.parts, command.partId)) return reject('找不到这个建筑部件')
-    const order: BuildingOrder = { id: `${building.id}:${command.partId}`, buildingId: building.id, partId: command.partId,
-      mode: building.parts[command.partId].built ? 'repair' : 'build' }
+    const blueprint = blueprintById(building.blueprintId)!, config = blueprint.parts.find(part => part.id === command.partId)!
+    const part = building.parts[command.partId], segments = buildingSegments(blueprint, config)
+    if (command.segmentId !== undefined && (segments.length <= 1 || !segments.some(segment => segment.id === command.segmentId))) return reject('请选择有效的受损部件')
+    const segmentId = command.segmentId ?? (part.built && segments.length > 1 ? segments.find(segment => segmentHp(part, segment.id) < config.hp)?.id : undefined)
+    if (segmentId && (!part.built || !segments.some(segment => segment.id === segmentId))) return reject('请选择有效的受损部件')
+    if (part.built && segments.length > 1 && !segmentId) return reject('该部件不需要修复')
+    const target = { buildingId: building.id, partId: command.partId, ...(segmentId ? { segmentId } : {}) }
+    const order: BuildingOrder = { ...target, id: buildingOrderId(target), mode: part.built ? 'repair' : 'build' }
     const error = orderError(state, order)
     if (error) return reject(error)
     if (!state.orders.some(other => other.id === order.id)) state.orders.push(order)
@@ -160,16 +204,23 @@ export function applyConstructionCommand(original: ConstructionState, production
 
 /** Used by simulation damage events, never by a view or an animation callback. No deferred damage. */
 export function constructionDamage(state: ConstructionState, production: ProductionState,
-  target: 'player' | { buildingId: string; partId: string }, amount: number) {
+  target: 'player' | BuildingTarget, amount: number) {
   const next = structuredClone(state), nextProduction = structuredClone(production)
   const active = next.jobs.find(job => job.phase === 'building')
-  const protectedOrder = active && next.orders.find(order => order.id === active.orderId)
   if (!Number.isFinite(amount) || amount <= 0) return { state, production }
   if (target === 'player') {
     if (!active) nextProduction.vitals.hp = Math.max(0, nextProduction.vitals.hp - amount)
   } else {
-    const part = next.buildings.find(building => building.id === target.buildingId)?.parts[target.partId]
-    if (part?.built && !(protectedOrder?.buildingId === target.buildingId && protectedOrder.partId === target.partId)) part.hp = Math.max(0, part.hp - amount)
+    const building = next.buildings.find(building => building.id === target.buildingId), part = building?.parts[target.partId]
+    if (building && part?.built) {
+      const blueprint = blueprintById(building.blueprintId)!, config = blueprint.parts.find(part => part.id === target.partId)!
+      const segments = buildingSegments(blueprint, config)
+      const segment = target.segmentId ? segments.find(segment => segment.id === target.segmentId) : segments.find(segment => segmentHp(part, segment.id) > 0)
+      if (segment && !protectedBuildingTarget(next, { ...target, segmentId: segment.id })) {
+        ensureSegments(part, segments)
+        setSegmentHp(part, segment.id, Math.max(0, segmentHp(part, segment.id) - amount))
+      }
+    }
   }
   return { state: next, production: nextProduction }
 }

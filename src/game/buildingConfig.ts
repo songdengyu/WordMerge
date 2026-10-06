@@ -22,7 +22,7 @@ export const BLUEPRINTS: readonly Blueprint[] = [{
   id: 'cabin', name: '林间小木屋', width: 3, height: 2,
   parts: [
     { id: 'foundation', name: '木地基', kind: 'foundation', requires: [], materials: [202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 100, xp: 10, work: [{ x: 1, y: 1 }], edges: [] },
-    { id: 'walls', name: '围护木墙', kind: 'wall', requires: ['foundation'], materials: [202, 202], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 160, xp: 20, work: [{ x: 1, y: 1 }], edges: [
+    { id: 'walls', name: '围护木墙', kind: 'wall', requires: ['foundation'], materials: [202, 202], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 20, xp: 20, work: [{ x: 1, y: 1 }], edges: [
       { from: { x: 0, y: 0 }, to: { x: 0, y: -1 } }, { from: { x: 1, y: 0 }, to: { x: 1, y: -1 } }, { from: { x: 2, y: 0 }, to: { x: 2, y: -1 } },
       { from: { x: 0, y: 0 }, to: { x: -1, y: 0 } }, { from: { x: 0, y: 1 }, to: { x: -1, y: 1 } },
       { from: { x: 2, y: 0 }, to: { x: 3, y: 0 } }, { from: { x: 2, y: 1 }, to: { x: 3, y: 1 } },
@@ -36,7 +36,7 @@ export const BLUEPRINTS: readonly Blueprint[] = [{
   id: 'lodge', name: '林地大屋', width: 5, height: 4, fixedRegion: 'grove',
   parts: [
     { id: 'foundation', name: '大屋地基', kind: 'foundation', requires: [], materials: [203, 203], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 180, xp: 20, work: [{ x: 2, y: 2 }], edges: [] },
-    { id: 'walls', name: '大屋围墙', kind: 'wall', requires: ['foundation'], materials: [203, 203, 203], repairMaterials: [203], seconds: 2, repairSeconds: 2, hp: 320, xp: 30, work: [{ x: 2, y: 3 }], edges: [
+    { id: 'walls', name: '大屋围墙', kind: 'wall', requires: ['foundation'], materials: [203, 203, 203], repairMaterials: [203], seconds: 2, repairSeconds: 2, hp: 30, xp: 30, work: [{ x: 2, y: 3 }], edges: [
       ...Array.from({ length: 5 }, (_, x) => ({ from: { x, y: 0 }, to: { x, y: -1 } })),
       ...Array.from({ length: 4 }, (_, y) => ({ from: { x: 0, y }, to: { x: -1, y } })),
       ...Array.from({ length: 4 }, (_, y) => ({ from: { x: 4, y }, to: { x: 5, y } })),

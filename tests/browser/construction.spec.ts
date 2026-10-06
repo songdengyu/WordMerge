@@ -19,8 +19,13 @@ async function readSave(page: Page) {
     finally { db.close() }
   })
 }
+async function tapGround(page: Page, x: number, y: number) {
+  const [cx, cy, zoom] = (await page.getByTestId('camp-scene').getAttribute('data-camera'))!.split(',').map(Number)
+  const box = (await page.getByTestId('camp-canvas').boundingBox())!
+  await page.touchscreen.tap(box.x + cx + (x - y) * 32 * zoom, box.y + cy + (x + y) * 16 * zoom)
+}
 async function place(page: Page) {
-  await page.getByRole('button', { name: '建', exact: true }).click()
+  await page.getByRole('button', { name: '建造', exact: true }).click()
   await page.getByRole('button', { name: '放置图纸', exact: true }).click()
   await expect(page.getByTestId('placement-status')).toContainText('可以安家')
   await page.getByRole('button', { name: '确认放置', exact: true }).click()
@@ -79,7 +84,7 @@ test('missing materials lead to merge, warehouse delivery, travel, protected con
 
 test('placement rejects occupied ground, can rotate and cancel, and fits a small portrait screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 }); await enter(page)
-  await page.getByRole('button', { name: '建', exact: true }).click()
+  await page.getByRole('button', { name: '建造', exact: true }).click()
   await page.getByRole('button', { name: '放置图纸', exact: true }).click()
   await page.getByRole('button', { name: '旋转图纸' }).click()
   await expect(page.getByTestId('placement-panel')).toContainText('90°')
@@ -210,7 +215,9 @@ test('a complete cabin can be built with generated materials and keeps its doorw
     await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'idle', { timeout: 4000 })
     await expect(page.getByTestId('building-panel')).toHaveCount(0)
   }
-  await expect(page.getByTestId('building-complete-b1')).toHaveAccessibleName(/围护封闭/)
+  await expect(page.getByTestId('building-complete-b1')).toHaveCount(0)
+  await tapGround(page, 8.2, 10.2)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '8,10')
   await expect(page.getByTestId('building-xp')).toHaveText('70')
   await page.screenshot({ path: 'test-results/m3-cabin-complete.png' })
 })
@@ -249,7 +256,7 @@ test('scene bubbles scale at both zoom limits and drag, pinch and cancel do not 
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-building-count', '0')
 })
 
-test('scene repair bubbles keep cancellation, material refunds, keyboard access and completed entry', async ({ page }) => {
+test('scene repair bubbles keep cancellation, material refunds, keyboard access and direct floor movement', async ({ page }) => {
   await enter(page); await place(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
@@ -259,7 +266,7 @@ test('scene repair bubbles keep cancellation, material refunds, keyboard access 
   data.cell = { x: 12, y: 9 }
   data.motion = { version: 1, position: { ...data.cell } }
   const building = data.construction.buildings[0]
-  building.parts = Object.fromEntries(Object.entries({ foundation: 100, walls: 160, door: 50, roof: 120, bed: 80 })
+  building.parts = Object.fromEntries(Object.entries({ foundation: 100, walls: 20, door: 50, roof: 120, bed: 80 })
     .map(([id, hp]) => [id, { built: true, hp, xpGranted: true }]))
   data.construction.xp = 70
   await page.evaluate(async value => {
@@ -270,7 +277,7 @@ test('scene repair bubbles keep cancellation, material refunds, keyboard access 
   await enter(page)
   // Locate the house without moving the player, keeping time to cancel the travel phase.
   await expect(page.getByTestId('building-xp')).toHaveText('70')
-  await page.getByRole('button', { name: '建', exact: true }).click()
+  await page.getByRole('button', { name: '建造', exact: true }).click()
   await page.getByRole('button', { name: /林间小木屋 · B1/ }).click()
   const repair = page.getByTestId('build-bubble-b1:door')
   await expect(repair).toHaveAccessibleName(/修复营地木门.*点击修复/)
@@ -283,10 +290,50 @@ test('scene repair bubbles keep cancellation, material refunds, keyboard access 
   expect(cancelled.construction.jobs).toHaveLength(0)
   expect(Object.values(cancelled.production.inventory.items).filter((item: any) => item.reservedBy)).toHaveLength(0)
   await tapSceneControl(page, repair)
-  await expect(page.getByTestId('building-complete-b1')).toBeVisible({ timeout: 10_000 })
+  await expect(repair).toHaveCount(0, { timeout: 10_000 })
+  await expect(page.getByTestId('building-complete-b1')).toHaveCount(0)
   await expect(page.getByTestId('building-xp')).toHaveText('70')
-  await tapSceneControl(page, page.getByTestId('building-complete-b1'))
-  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '8,11')
+  await tapGround(page, 9, 10)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '9,10')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
   expect((await readSave(page)).data.construction.buildings[0].parts.door.hp).toBe(100)
+})
+
+test('separate wall repair bubbles restore one segment and persist the neighboring breach', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
+  await enter(page); await place(page)
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
+  const save = await readSave(page); await page.goto('/')
+  const data = save.data
+  data.cell = { x: 8, y: 11 }; data.motion = { version: 1, position: data.cell }
+  data.construction.buildings[0].parts = Object.fromEntries(Object.entries({ foundation: 100, walls: 0, door: 100, roof: 120, bed: 80 })
+    .map(([id, hp]) => [id, { built: true, hp, xpGranted: true }]))
+  data.construction.buildings[0].parts.walls.segments = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`edge${i}`, i === 0 ? 10 : i === 2 ? 0 : 20]))
+  data.construction.xp = 70
+  const inv = data.production.inventory
+  inv.items[inv.board[7].instanceId].itemId = 202
+  await page.evaluate(async value => {
+    const db = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open('wordmerge-survival', 1); request.onsuccess = () => resolve(request.result) })
+    const tx = db.transaction('snapshots', 'readwrite'); tx.objectStore('snapshots').put(value, 'current')
+    await new Promise<void>(resolve => { tx.oncomplete = () => resolve() }); db.close()
+  }, save)
+  await enter(page)
+  await page.getByRole('button', { name: '建造', exact: true }).click()
+  await page.getByRole('button', { name: /林间小木屋 · B1/ }).click()
+  const first = page.getByTestId('build-bubble-b1:walls:edge0'), second = page.getByTestId('build-bubble-b1:walls:edge2')
+  await expect(first).toBeVisible(); await expect(second).toBeVisible()
+  await page.screenshot({ path: 'test-results/building-segment-damage.png' })
+  await tapSceneControl(page, first)
+  await expect(first).toHaveCount(0, { timeout: 10_000 })
+  await expect(second).toBeVisible()
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
+  const after = await readSave(page)
+  expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge2: 0 })
+  expect(after.data.construction.xp).toBe(70)
+  await page.reload(); await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
+  await expect(first).toHaveCount(0); await expect(second).toBeVisible()
+  await tapSceneControl(page, second)
+  await expect(page.getByTestId('building-order-b1:walls:edge2')).toHaveAttribute('data-current', 'true')
+  expect(errors).toEqual([])
 })

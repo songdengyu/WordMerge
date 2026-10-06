@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { GameRuntime, UiSnapshot } from '../../game/GameRuntime'
 import { MergePiece } from '../../components/MergePiece'
 import { supplyDanger, supplyFor } from '../../game/quickSupply'
@@ -47,6 +47,19 @@ export function VitalIcons({ state, runtime, openMerge, message, compact = false
 }) {
   const production = state.production!, vitals = production.vitals
   const lock = useRef(false), [busy, setBusy] = useState(false)
+  const previousHp = useRef({ runtime, value: vitals.hp })
+  const damageId = useRef(0)
+  const [damageFloats, setDamageFloats] = useState<{ id: number; amount: number }[]>([])
+  const importing = state.pauseReasons.includes('importing')
+  useEffect(() => {
+    const previous = previousHp.current
+    previousHp.current = { runtime, value: vitals.hp }
+    if (previous.runtime !== runtime || importing) { setDamageFloats([]); return }
+    const damage = Math.round((previous.value - vitals.hp) * 10) / 10
+    if (damage <= 0) return
+    const entry = { id: ++damageId.current, amount: damage }
+    setDamageFloats(floats => [...floats.slice(-4), entry])
+  }, [runtime, vitals.hp, importing])
   const useSupply = async (kind: Vital, requestOnMissing: boolean) => {
     if (lock.current) return
     if (kind === 'temperature') { message('进入有门墙和屋顶的住所保暖，炎热时寻找遮蔽处降温'); return }
@@ -65,6 +78,9 @@ export function VitalIcons({ state, runtime, openMerge, message, compact = false
       const item = supply && runtime.catalog!.itemById.get(supply.itemId)!
       return <span className={styles.slot} key={kind}>
         <VitalIcon kind={kind} value={vitals[kind]} disabled={disabled} onClick={() => void useSupply(kind, false)} />
+        {kind === 'hp' && damageFloats.map(entry => <span key={entry.id} className={styles.damageFloat}
+          data-testid="hp-damage-float" aria-hidden="true"
+          onAnimationEnd={() => setDamageFloats(floats => floats.filter(float => float.id !== entry.id))}>−{entry.amount}</span>)}
         {warning && supply && item && <button type="button" className={styles.supply} data-testid={`vital-supply-${kind}`}
           data-ready={String(supply.owned > 0)} data-item-id={supply.itemId} disabled={disabled}
           aria-label={supply.owned ? `使用${item.name}补充${NAMES[kind]}` : `缺少${item.name}，去合成并添加补给订单`}

@@ -27,7 +27,7 @@ async function seed(page: Page, edit: (save: any) => void) {
 function prepared(save: any, count: number) {
   const data = save.data
   data.construction = { unlockedBlueprints: ['cabin'], nextId: 2, xp: 70, orders: [], jobs: [], buildings: [{ id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
-    parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 160, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])) }] }
+    parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 20, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])) }] }
   data.survival.companion.status = 'active'
   const ids = ['letter', 'foundation', 'friend', 'visitor', 'shelter', 'grove'], choices = ['truth', 'keep', 'together', 'welcome', 'light', 'promise']
   const progress = data.progression

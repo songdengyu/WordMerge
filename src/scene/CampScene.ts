@@ -3,7 +3,8 @@ import { CHUNK_SIZE, type Cell, type WorldObject } from '../game/world'
 import type { GameRuntime, SceneSnapshot } from '../game/GameRuntime'
 import { Camera, gridToWorld, worldToPosition } from './camera'
 import { attachMapInput } from './mapInput'
-import { buildingAt, footprint, localToWorld, type Rotation } from '../game/construction'
+import { footprint, localToWorld, type Rotation } from '../game/construction'
+import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { blueprintById } from '../game/buildingConfig'
 import { actorPosition, distance } from '../game/survival'
 import { SurvivalActors } from './SurvivalActors'
@@ -12,6 +13,8 @@ import { OUTFITS, REGIONS, type DecorId } from '../game/progressionConfig'
 import { drawDecoration, ProgressionViews } from './ProgressionViews'
 import { Atmosphere } from './Atmosphere'
 import { BuildingBubbles } from './BuildingBubbles'
+
+const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
 const diamond = (graphics: Graphics, x: number, y: number, color: number, alpha = 1) =>
   graphics.poly([x, y - 16, x + 32, y, x, y + 16, x - 32, y]).fill({ color, alpha })
@@ -112,11 +115,12 @@ export class CampScene {
   private contextLost = false
   private readonly buildingBubbles: BuildingBubbles
   private bubblesHidden = false
+  private companionControl = false
   private readonly assetAbort = new AbortController()
 
   constructor(private readonly host: HTMLDivElement, private readonly runtime: GameRuntime,
     private readonly onMessage: (message: string) => void, private readonly onError: (message: string) => void,
-    private readonly onBuilding: (id: string) => void, private readonly onOrigin: (cell: Cell) => void,
+    private readonly onOrigin: (cell: Cell) => void,
     private readonly openMerge: () => void, private readonly onCompanion: () => void, private readonly onJournal: () => void) {
     this.buildingBubbles = new BuildingBubbles(runtime, host, onMessage, openMerge)
     const corners = runtime.world.config.chunks.flatMap(chunk => [
@@ -154,7 +158,7 @@ export class CampScene {
       this.resizeObserver = new ResizeObserver(() => this.resize())
       this.resizeObserver.observe(this.host)
       this.detachInput = attachMapInput(canvas, this.camera, (cell, world) => {
-        if (!this.buildingBubbles.tap(world)) this.tap(cell, worldToPosition(world))
+        if (this.companionControl || !this.buildingBubbles.tap(world)) this.tap(cell, worldToPosition(world))
       })
       this.app.ticker.add(this.render)
       this.app.start()
@@ -182,17 +186,24 @@ export class CampScene {
   }
   setPlacement(placement: typeof this.placement) { this.placement = placement }
   setBubblesHidden(hidden: boolean) { this.bubblesHidden = hidden }
+  setCompanionControl(active: boolean) { this.companionControl = active }
   zoomBy(factor: number) { this.camera.zoomAt(this.camera.zoom * factor, { x: this.camera.width / 2, y: this.camera.height / 2 }) }
 
   private tap(cell: Cell, point: Cell) {
+    if (this.companionControl) {
+      void this.runtime.dispatch({ type: 'companion-move', target: point }).then(result => {
+        if (!this.disposed && !result.accepted) this.onMessage(result.reason)
+      })
+      return
+    }
     if (this.placement || this.decorationPlacement) { this.onOrigin(cell); return }
     const progress = this.runtime.getUiSnapshot().progression
-    if (progress.completed.includes('visitor') && distance(cell, { x: 9, y: 8 }) < .8) { this.onJournal(); return }
+    if (progress.completed.includes('visitor') && distance(cell, RESIDENT_CELL) < .8) { this.onJournal(); return }
     const landmark = REGIONS.find(r => progress.unlockedRegions.includes(r.id) && distance(cell, r.point) < .8)
     if (landmark && progress.discoveries.includes(landmark.id)) { this.onJournal(); return }
     const survival = this.runtime.getUiSnapshot().survival
     const animalPoint = gridToWorld(actorPosition(survival.companion)), tapPoint = gridToWorld(point)
-    if (Math.abs(tapPoint.x - animalPoint.x) <= 26 && tapPoint.y >= animalPoint.y - 38 && tapPoint.y <= animalPoint.y + 10) {
+    if (!survival.duel && Math.abs(tapPoint.x - animalPoint.x) <= 26 && tapPoint.y >= animalPoint.y - 38 && tapPoint.y <= animalPoint.y + 10) {
       if (survival.companion.status !== 'wild') this.onCompanion()
       else void this.runtime.dispatch({ type: 'taming-interact' }).then(result => {
         if (this.disposed) return
@@ -202,14 +213,12 @@ export class CampScene {
       })
       return
     }
-    const enemy = survival.enemies.find(enemy => distance(actorPosition(enemy), cell) < .8)
+    const enemy = survival.enemies.find(enemy => enemy.id !== survival.duel?.enemy.id && distance(actorPosition(enemy), cell) < .8)
     if (enemy) {
       void this.runtime.dispatch({ type: 'companion-attack', enemyId: enemy.id }).then(result => {
         if (!this.disposed) this.onMessage(result.accepted ? result.message ?? '已指派伙伴' : result.reason)
       }); return
     }
-    const building = buildingAt(this.runtime.getUiSnapshot().construction, cell)
-    if (building) { this.onBuilding(building.id); return }
     const object = this.runtime.world.objectAt(cell)
     if (object) {
       this.onMessage(object.kind === 'campfire' ? '旧营火旁留着生活的痕迹，也许有人来过。'
@@ -229,15 +238,19 @@ export class CampScene {
       const g = this.buildings.clear()
       for (const building of snapshot.construction.buildings) {
         const blueprint = blueprintById(building.blueprintId)!
-        for (const cell of footprint(building, blueprint)) {
-          const p = gridToWorld(cell)
-          diamond(g, p.x, p.y, building.parts.foundation.built ? 0xc3a477 : 0xeee5be, building.parts.foundation.built ? 0.95 : 0.38)
+        const foundation = building.parts.foundation, floorConfig = blueprint.parts.find(part => part.kind === 'foundation')!
+        for (const segment of buildingSegments(blueprint, floorConfig)) {
+          const p = gridToWorld(localToWorld(building, segment.cell)), hp = segmentHp(foundation, segment.id)
+          diamond(g, p.x, p.y, foundation.built ? hp > 0 ? 0xc3a477 : 0x756951 : 0xeee5be, foundation.built ? hp > 0 ? .95 : .45 : .38)
           g.poly([p.x, p.y - 15, p.x + 31, p.y, p.x, p.y + 15, p.x - 31, p.y]).stroke({ width: 1, color: 0xf9edc7, alpha: 0.65 })
+          if (foundation.built && hp < floorConfig.hp) g.moveTo(p.x - 10, p.y - 5).lineTo(p.x, p.y).lineTo(p.x - 3, p.y + 6).lineTo(p.x + 12, p.y + 5).stroke({ width: 2, color: 0x70513d })
         }
         for (const config of blueprint.parts) {
           const part = building.parts[config.id]
-          if (!part.built || !part.hp) continue
-          for (const edge of config.edges) {
+          if (!part.built) continue
+          for (const segment of buildingSegments(blueprint, config)) {
+            const edge = segment.edge, hp = segmentHp(part, segment.id)
+            if (!edge || hp <= 0) continue
             const from = localToWorld(building, edge.from), to = localToWorld(building, edge.to)
             const dx = to.x - from.x, dy = to.y - from.y
             const a = gridToWorld({ x: (from.x + to.x) / 2 - dy / 2, y: (from.y + to.y) / 2 + dx / 2 })
@@ -246,14 +259,19 @@ export class CampScene {
             g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: config.kind === 'door' ? 0xb6814e : 0x8e775b, alpha: .8 })
               .stroke({ width: 1.5, color: 0xe4c698 })
             if (config.kind === 'door') g.circle((a.x + b.x) / 2 + 4, (a.y + b.y) / 2 - 8, 2).fill(0xf1d59a)
+            if (hp < config.hp) g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - h).lineTo((a.x + b.x) / 2 - 4, (a.y + b.y) / 2 - h / 2)
+              .lineTo((a.x + b.x) / 2 + 3, (a.y + b.y) / 2 - 4).stroke({ width: 2, color: 0x4e3c30 })
           }
           if (config.kind === 'roof') {
-            const points = [{ x: -.5, y: -.5 }, { x: blueprint.width - .5, y: -.5 }, { x: blueprint.width - .5, y: blueprint.height - .5 }, { x: -.5, y: blueprint.height - .5 }]
-              .map(cell => gridToWorld(localToWorld(building, cell)))
-            g.poly(points.flatMap(p => [p.x, p.y - 38])).fill({ color: 0xb66f59, alpha: .55 }).stroke({ width: 2, color: 0xe4af86, alpha: .8 })
-            g.moveTo(points[0].x, points[0].y - 38).lineTo(points[2].x, points[2].y - 38).stroke({ width: 2, color: 0xf5c79e, alpha: .8 })
+            for (const segment of buildingSegments(blueprint, config)) {
+              const hp = segmentHp(part, segment.id)
+              if (hp <= 0) continue
+              const p = gridToWorld(localToWorld(building, segment.cell))
+              diamond(g, p.x, p.y - 38, hp < config.hp ? 0x96694f : 0xb66f59, .24)
+              g.poly([p.x, p.y - 54, p.x + 32, p.y - 38, p.x, p.y - 22, p.x - 32, p.y - 38]).stroke({ width: 1, color: 0xe4af86, alpha: .4 })
+            }
           }
-          if (config.kind === 'bed') {
+          if (config.kind === 'bed' && part.hp > 0) {
             const p = gridToWorld(localToWorld(building, { x: 0, y: 1 }))
             g.roundRect(p.x - 13, p.y - 16, 26, 15, 4).fill(0xd9b4a0).stroke({ width: 2, color: 0xffefd2 })
             g.roundRect(p.x - 10, p.y - 14, 8, 10, 3).fill(0xf7e5c9)
@@ -353,7 +371,7 @@ export class CampScene {
     }
     if (snapshot.progression.completed.includes('visitor') && !this.resident) {
       this.resident = makePlayer(0x7c92a2)
-      const p = gridToWorld({ x: 9, y: 8 }); this.resident.position.set(p.x, p.y); this.resident.zIndex = p.y + .1
+      const p = gridToWorld(RESIDENT_CELL); this.resident.position.set(p.x, p.y); this.resident.zIndex = p.y + .1
       const label = new Text({ text: '林岚', style: { fontSize: 11, fill: 0xfff4d8, stroke: { color: 0x49624d, width: 3 } } })
       label.anchor.set(.5, 1); label.y = -50; this.resident.addChild(label); this.actors.addChild(this.resident)
     } else if (!snapshot.progression.completed.includes('visitor') && this.resident) { this.resident.destroy({ children: true }); this.resident = null }
@@ -365,7 +383,7 @@ export class CampScene {
       drawDecoration(this.decorPreview, kind, p.x, p.y, .8)
     }
     this.drawBuildings(snapshot)
-    this.survivalActors.draw(snapshot)
+    this.survivalActors.draw(snapshot, this.runtime.getInterpolation())
     const lights = [
       ...this.runtime.world.config.objects.filter(o => o.kind === 'campfire'),
       ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
@@ -379,21 +397,16 @@ export class CampScene {
     this.player.zIndex = foot.y + 0.1
     this.root.position.set(this.camera.x, this.camera.y)
     this.root.scale.set(this.camera.zoom)
-    this.buildingBubbles.update(this.runtime.getUiSnapshot(), this.camera, this.bubblesHidden)
+    this.buildingBubbles.update(this.runtime.getUiSnapshot(), this.camera, this.bubblesHidden || this.companionControl)
     if (snapshot !== this.lastSnapshot) {
       this.route.clear()
-      if (snapshot.route.length) {
-        this.route.moveTo(foot.x, foot.y)
-        for (const cell of snapshot.route) { const p = gridToWorld(cell); this.route.lineTo(p.x, p.y) }
-        this.route.stroke({ width: 2, color: 0xfff5cd, alpha: 0.75 })
-        for (const cell of snapshot.route) {
-          const p = gridToWorld(cell)
-          this.route.circle(p.x, p.y, 2.5).fill({ color: 0xfff7dd, alpha: 0.9 })
-        }
-      }
       if (snapshot.destination) {
         const p = gridToWorld(snapshot.destination)
         this.route.ellipse(p.x, p.y, 15, 7).stroke({ width: 2, color: 0xfff5cf })
+      }
+      if (snapshot.survival.companion.mode === 'move') {
+        const p = gridToWorld(snapshot.survival.companion.guard)
+        this.route.ellipse(p.x, p.y, 15, 7).stroke({ width: 2, color: 0xc4e49b })
       }
       this.lastSnapshot = snapshot
     }
@@ -411,6 +424,8 @@ export class CampScene {
     this.host.dataset.position = `${position.x.toFixed(4)},${position.y.toFixed(4)}`
     const companionPosition = actorPosition(snapshot.survival.companion)
     this.host.dataset.companionPosition = `${companionPosition.x.toFixed(4)},${companionPosition.y.toFixed(4)}`
+    this.host.dataset.duelPhase = snapshot.survival.duel?.phase ?? 'idle'
+    this.host.dataset.duelEnemy = snapshot.survival.duel?.enemy.id ?? ''
     this.host.dataset.weather = snapshot.survival.weather
     this.host.dataset.phase = light.phase
     this.host.dataset.darkness = light.darkness.toFixed(3)

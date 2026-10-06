@@ -1,7 +1,7 @@
 import { requestTaming, releaseTaming, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
 import { SURVIVAL_RULES } from './survivalConfig'
 import type { NavigationGrid } from './navigation'
-import { canWalkLine, finitePoint, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
+import { canWalkLine, finitePoint, moveTarget, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { applyInventoryCommand, createProduction, type InventoryCommand, type ProductionState } from './inventory'
 import type { ProductionCatalog } from './productionConfig'
@@ -9,9 +9,11 @@ import { syncStamina } from './stamina'
 import { configVersion, parseSaveFile, SaveError, type RuntimeData, type SaveEnvelope } from './saveData'
 import type { SaveRepository } from './persistence'
 import { applyConstructionCommand, constructionDamage, constructionNavigation, createConstruction, getOrderTarget, localToWorld,
-  orderError, orderMaterials, orderSeconds, placementError, reachable, releaseJob,
-  type ConstructionCommand, type ConstructionState, type Rotation } from './construction'
-import { acceptRescue, advanceSurvival, applySurvivalCommand, beginFailure, createSurvival, dayTime, shelterAt, survivalWarning, worldMinutes,
+  buildingOrderId, orderError, orderMaterials, orderSeconds, placementError, reachable, releaseJob, upgradeConstruction,
+  type BuildingTarget, type ConstructionCommand, type ConstructionState, type Rotation } from './construction'
+import { buildingSegments, ensureSegments, setSegmentHp } from './buildingSegments'
+import { blueprintById } from './buildingConfig'
+import { acceptRescue, actorPosition, advanceSurvival, applySurvivalCommand, beginFailure, createSurvival, dayTime, shelterAt, survivalWarning, worldMinutes,
   type Failure, type SurvivalCommand, type SurvivalState } from './survival'
 import { applyProgressionCommand, applyStoryCommand, createProgression, discoverRegions, progressedWorld, type ProgressionCommand, type ProgressionState, type StoryCommand } from './progression'
 import { testEnvironment, type EnvironmentCommand } from './environment'
@@ -39,6 +41,7 @@ export interface UiSnapshot {
   readonly feedback: string
   readonly pauseReasons: readonly PauseReason[]
   readonly production: ProductionState | null
+  readonly productionOrderFocus: string | null
   readonly construction: ConstructionState
   readonly protected: boolean
   readonly saveStatus: SaveStatus
@@ -50,6 +53,8 @@ export interface UiSnapshot {
 export interface SceneSnapshot {
   readonly position: Cell
   readonly previousPosition: Cell
+  readonly previousCompanionPosition: Cell
+  readonly previousEnemyPositions: Readonly<Record<string, Cell>>
   readonly route: readonly Cell[]
   readonly destination: Cell | null
   readonly elapsedSeconds: number
@@ -77,6 +82,7 @@ export class GameRuntime {
   private uiSnapshot: UiSnapshot
   private sceneSnapshot: SceneSnapshot
   private production: ProductionState | null
+  private productionOrderFocus: string | null = null
   private construction = createConstruction()
   private survival: SurvivalState
   private progression = createProgression()
@@ -114,6 +120,13 @@ export class GameRuntime {
   getSceneSnapshot = () => this.sceneSnapshot
   getInterpolation = () => this.pauses.size ? 1 : Math.min(1, this.accumulator / FIXED_STEP_MS)
   subscribeUi = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
+
+  // Transient presentation selection; never changes inventory or save data.
+  focusProductionOrder(id: string) {
+    if (this.productionOrderFocus === id) return
+    this.productionOrderFocus = id
+    this.publish()
+  }
 
   dispatch(command: GameCommand): Promise<CommandResult> {
     if (command.type === 'rescue') return this.rescue()
@@ -157,6 +170,8 @@ export class GameRuntime {
 
   private step() {
     const previous = this.position()
+    const previousCompanion = { ...actorPosition(this.survival.companion) }
+    const previousEnemies = this.enemyPositions()
     const priorDay = Math.floor((this.gameMinutes() - 360) / 1440)
     let timeJumped = false
     this.elapsedSeconds += FIXED_STEP_MS / 1000
@@ -187,6 +202,7 @@ export class GameRuntime {
         const result = applyQuickSupply(this.production, this.catalog, command, this.now())
         if (!result.accepted) return result
         this.production = result.state; this.feedback = result.message
+        if (result.openProduction) this.productionOrderFocus = `supply:${command.stat}`
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
       }
       if (command.type === 'test-time' || command.type === 'test-weather') {
@@ -222,6 +238,7 @@ export class GameRuntime {
         const result = requestTaming(this.survival, this.production, this.construction, this.world, this.point, dayTime(this.gameMinutes()), command)
         if (!result.accepted) return result
         this.survival = result.state; this.production = result.production; this.feedback = result.message
+        if (result.openProduction) this.productionOrderFocus = TAMING_ORDER
         if (command.type === 'taming-cancel') { if (wasTravel) this.stopMovement() }
         else if (result.state.taming.job) this.move(result.state.taming.job.workCell)
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
@@ -243,6 +260,11 @@ export class GameRuntime {
         const result = applyConstructionCommand(this.construction, this.production, this.world, this.cell, buildingCommand)
         if (!result.accepted) return result
         this.construction = result.state; this.production = result.production
+        if (buildingCommand.type === 'building-interact' || buildingCommand.type === 'building-order') {
+          const order = [...this.construction.orders].reverse().find(order => order.buildingId === buildingCommand.buildingId && order.partId === buildingCommand.partId
+            && (!buildingCommand.segmentId || order.segmentId === buildingCommand.segmentId))
+          this.productionOrderFocus = `building:${order?.id ?? buildingOrderId(buildingCommand)}`
+        }
         this.survival = { ...this.survival, resting: false }
         this.navigation = constructionNavigation(this.world, this.construction)
         if (wasTravel) this.stopMovement()
@@ -286,7 +308,7 @@ export class GameRuntime {
     let survivalChanged = false
     if (this.production) {
       const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000,
-        this.progression.regionUnlock?.phase === 'unlocking')
+        this.progression.regionUnlock?.phase === 'unlocking', this.point)
       this.survival = result.state; this.production = result.production; this.construction = result.construction
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
@@ -298,7 +320,7 @@ export class GameRuntime {
     if (!timeJumped && !this.progression.witnessedDawn && !this.survival.failure && priorDay < Math.floor((this.gameMinutes() - 360) / 1440)) {
       this.progression = { ...this.progression, witnessedDawn: true }; survivalChanged = true
     }
-    this.sceneSnapshot = this.makeSceneSnapshot(previous)
+    this.sceneSnapshot = this.makeSceneSnapshot(previous, previousCompanion, previousEnemies)
     this.tick++
     if (pending.length || survivalChanged || this.constructionChanged || this.tick % 2 === 0) this.publish()
     const critical = this.constructionChanged || survivalChanged || results.some(result => result.accepted)
@@ -319,8 +341,8 @@ export class GameRuntime {
     if (!chunk?.unlocked) return { accepted: false, reason: chunk ? '这片区域还未开放' : '这里是营地地图的边界' }
     if (!this.world.isWalkable(cell)) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }
     // Keep precise taps, but move a tap too close to a solid edge safely inside its tile.
-    const destination = canWalkLine(this.navigation, target, target) ? { ...target }
-      : { x: cell.x + Math.max(-.34, Math.min(.34, target.x - cell.x)), y: cell.y + Math.max(-.34, Math.min(.34, target.y - cell.y)) }
+    const destination = moveTarget(this.navigation, target)
+    if (!destination) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }
     this.route = []
     this.destination = destination
     this.search = new SmoothPathSearch(this.navigation, this.point, destination)
@@ -398,8 +420,14 @@ export class GameRuntime {
       const current = this.construction.jobs[0]
       current.remaining = Math.max(0, current.remaining - FIXED_STEP_MS / 1000)
       if (current.remaining > 0.000001) return
-      const { part, config } = getOrderTarget(this.construction, order)
-      part.built = true; part.hp = config.hp
+      const { building, part, config } = getOrderTarget(this.construction, order)
+      ensureSegments(part, buildingSegments(blueprintById(building.blueprintId)!, config))
+      part.built = true
+      if (order.segmentId) setSegmentHp(part, order.segmentId, config.hp)
+      else {
+        part.hp = config.hp
+        if (part.segments) for (const id of Object.keys(part.segments)) part.segments[id] = config.hp
+      }
       const xp = part.xpGranted ? 0 : config.xp
       this.construction.xp += xp; part.xpGranted = true
       this.construction.jobs.shift()
@@ -482,7 +510,7 @@ export class GameRuntime {
   }
 
   /** Simulation event entry; there is intentionally no player-facing damage command. */
-  applyDamage(target: 'player' | { buildingId: string; partId: string }, amount: number) {
+  applyDamage(target: 'player' | BuildingTarget, amount: number) {
     if (!this.production || this.pauses.size || this.closed) return
     if (target === 'player' && (this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking')) return
     const result = constructionDamage(this.construction, this.production, target, amount)
@@ -543,7 +571,7 @@ export class GameRuntime {
       day: Math.floor(minutes / 1440) + 1, hour, minute: minutes % 60, isDay: hour >= 6 && hour < 19,
       player: { ...this.cell }, destination: this.destination ? { ...this.destination } : null,
       activity: this.progression.regionUnlock?.phase === 'unlocking' ? 'unlocking' : this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
-      feedback: this.feedback, pauseReasons: [...this.pauses],
+      feedback: this.feedback, pauseReasons: [...this.pauses], productionOrderFocus: this.productionOrderFocus,
       production: this.production, construction: this.construction, protected: this.construction.jobs[0]?.phase === 'building' || this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking', saveStatus: this.saveStatus,
       survival: this.survival, shelter: shelterAt(this.construction, this.cell),
       progression: this.progression,
@@ -551,8 +579,12 @@ export class GameRuntime {
     }
   }
 
-  private makeSceneSnapshot(previousPosition: Cell): SceneSnapshot {
-    return { position: this.position(), previousPosition, route: this.route.map(cell => ({ ...cell })),
+  private enemyPositions(): Record<string, Cell> {
+    return Object.fromEntries(this.survival.enemies.map(enemy => [enemy.id, { ...actorPosition(enemy) }]))
+  }
+
+  private makeSceneSnapshot(previousPosition: Cell, previousCompanionPosition = actorPosition(this.survival.companion), previousEnemyPositions = this.enemyPositions()): SceneSnapshot {
+    return { position: this.position(), previousPosition, previousCompanionPosition: { ...previousCompanionPosition }, previousEnemyPositions, route: this.route.map(cell => ({ ...cell })),
       destination: this.destination ? { ...this.destination } : null,
       elapsedSeconds: this.elapsedSeconds, gameMinutes: this.gameMinutes(), construction: this.construction, survival: this.survival, progression: this.progression }
   }
@@ -567,6 +599,7 @@ export class GameRuntime {
   }
 
   private restore(data: RuntimeData) {
+    this.productionOrderFocus = null
     const restored = structuredClone(data)
     const next = restored.route[0]
     this.point = restored.motion?.position ?? (next ? {
@@ -578,6 +611,10 @@ export class GameRuntime {
     this.production = restored.production
     this.survival = restored.survival
     this.survival.taming ??= { ordered: false, job: null }
+    this.survival.duel ??= null
+    if (String(this.survival.companion.mode) === 'rest') {
+      this.survival.companion.mode = 'guard'; this.survival.companion.guard = { ...this.survival.companion.cell }
+    }
     this.progression = restored.progression
     this.progression.regionUnlock ??= null
     this.progression.regionContent ??= createRegionContent()
@@ -587,6 +624,7 @@ export class GameRuntime {
     if (this.production.vitals.hp === 0) this.pauses.add('failure')
     else this.pauses.delete('failure')
     this.construction = restored.construction
+    upgradeConstruction(this.construction, this.production.inventory)
     populateRegionContent(this.world, this.construction, this.survival, this.progression)
     this.navigation = constructionNavigation(this.world, this.construction)
     this.production.stamina = syncStamina(this.production.stamina, this.now())

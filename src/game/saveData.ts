@@ -2,7 +2,7 @@ import type { ProductionState } from './inventory'
 import { fingerprint, type ProductionCatalog } from './productionConfig'
 import { STAMINA_INTERVAL_MS } from './stamina'
 import { cellKey, sameCell, type Cell, type WorldMap } from './world'
-import { createConstruction, getOrderTarget, orderSeconds, type ConstructionState } from './construction'
+import { createConstruction, getOrderTarget, orderSeconds, upgradeConstruction, type ConstructionState } from './construction'
 import { BUILDING_VERSION } from './buildingConfig'
 import { validateConstruction } from './constructionValidation'
 import { initialConstructionSeconds, M3_INITIAL_BUILDING_VERSION } from './migrations/constructionTiming'
@@ -16,6 +16,7 @@ import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
 import { releaseTaming } from './taming'
 import { createRegionContent } from './regionContentConfig'
 import { populateRegionContent } from './regionContent'
+import { migrateWallDurability, PRE_WALL_BUILDING_VERSION } from './migrations/wallDurability'
 
 export interface RuntimeData {
   elapsedSeconds: number
@@ -60,11 +61,14 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (![1, 2, 3, 4].includes(raw.schemaVersion)) throw new SaveError('存档版本不兼容，原文件已保留；请使用相应版本的游戏。', 'incompatible')
   const legacy = raw.schemaVersion === 1
   const oldTiming = raw.schemaVersion === 2 && raw.configVersion === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
-  const oldMapTab = raw.schemaVersion === 4 && raw.configVersion === `${m4ConfigVersion(world, catalog).replace(/^m4-/, 'm5-')}-${MAP_TAB_PROGRESSION_VERSION}`
+  const versionParts = raw.configVersion.split('-'), oldWalls = versionParts[3] === PRE_WALL_BUILDING_VERSION
+  if (oldWalls) versionParts[3] = BUILDING_VERSION
+  const compatibleVersion = versionParts.join('-')
+  const oldMapTab = raw.schemaVersion === 4 && compatibleVersion === `${m4ConfigVersion(world, catalog).replace(/^m4-/, 'm5-')}-${MAP_TAB_PROGRESSION_VERSION}`
   const preMealM4 = `${m3ConfigVersion(world, catalog).replace(/^m3-/, 'm4-')}-${PRE_MEAL_SURVIVAL_VERSION}`
-  const oldTamingFood = raw.schemaVersion === 3 ? raw.configVersion === preMealM4 : raw.schemaVersion === 4
-    && [MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION].some(version => raw.configVersion === `${preMealM4.replace(/^m4-/, 'm5-')}-${version}`)
-  if (!oldTiming && !oldMapTab && !oldTamingFood && raw.configVersion !== (legacy ? legacyConfigVersion(world, catalog) : raw.schemaVersion === 2 ? m3ConfigVersion(world, catalog) : raw.schemaVersion === 3 ? m4ConfigVersion(world, catalog) : configVersion(world, catalog))) throw new SaveError('存档与当前地图 / 物品 / 建筑 / 生存 / 剧情配置不匹配，未覆盖原存档。', 'incompatible')
+  const oldTamingFood = raw.schemaVersion === 3 ? compatibleVersion === preMealM4 : raw.schemaVersion === 4
+    && [MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION].some(version => compatibleVersion === `${preMealM4.replace(/^m4-/, 'm5-')}-${version}`)
+  if (!oldTiming && !oldMapTab && !oldTamingFood && compatibleVersion !== (legacy ? legacyConfigVersion(world, catalog) : raw.schemaVersion === 2 ? m3ConfigVersion(world, catalog) : raw.schemaVersion === 3 ? m4ConfigVersion(world, catalog) : configVersion(world, catalog))) throw new SaveError('存档与当前地图 / 物品 / 建筑 / 生存 / 剧情配置不匹配，未覆盖原存档。', 'incompatible')
   check(integer(raw.revision) && integer(raw.savedAt), '版本序号或保存时间')
   const data = raw.data
   check(record(data), '游戏数据')
@@ -151,6 +155,7 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (legacy) {
     migrated.data.construction = createConstruction()
   }
+  migrateWallDurability(migrated.data, oldWalls || oldTiming, check)
   validateConstruction(migrated.data.construction, migrated.data, world, check, oldTiming ? initialConstructionSeconds : orderSeconds)
   if (oldTiming) {
     for (const job of migrated.data.construction.jobs) {
@@ -162,12 +167,19 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
     migrated.configVersion = configVersion(world, catalog)
     validateConstruction(migrated.data.construction, migrated.data, world, check)
   }
+  upgradeConstruction(migrated.data.construction, migrated.data.production.inventory)
+  validateConstruction(migrated.data.construction, migrated.data, world, check)
   if (raw.schemaVersion < 3) {
     migrated.data.survival = createSurvival(world, migrated.data.elapsedSeconds)
     if (migrated.data.production.vitals.hp === 0) {
       const result = beginFailure(migrated.data.survival, migrated.data.production, migrated.data.construction, catalog, worldMinutes(world, migrated.data.elapsedSeconds), 'environment')
       migrated.data.survival = result.state; migrated.data.production = result.production; migrated.data.construction = result.construction
     }
+  }
+  if (record(migrated.data.survival) && migrated.data.survival.duel === undefined) migrated.data.survival.duel = null
+  if (record(migrated.data.survival) && record(migrated.data.survival.companion) && String(migrated.data.survival.companion.mode) === 'rest') {
+    migrated.data.survival.companion.mode = 'guard'
+    migrated.data.survival.companion.guard = { ...migrated.data.survival.companion.cell }
   }
   if (record(migrated.data.survival) && migrated.data.survival.taming === undefined) {
     migrated.data.survival.taming = { ordered: false, job: null }

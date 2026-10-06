@@ -60,6 +60,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const [buildingOpen, setBuildingOpen] = useState(false)
   const [careOpen, setCareOpen] = useState(false)
   const [wheelOpen, setWheelOpen] = useState(false)
+  const [companionControl, setCompanionControl] = useState(false)
   const openWheel = useCallback(() => setWheelOpen(true), [])
   const [journalOpen, setJournalOpen] = useState(false)
   const openJournal = useCallback(() => setJournalOpen(true), [])
@@ -74,13 +75,24 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
   const message = useCallback((text: string) => setToast({ text, id: performance.now() }), [])
+  const controlCompanion = useCallback(() => {
+    const current = runtime.getUiSnapshot()
+    if (current.pauseReasons.length || current.survival.duel || current.survival.companion.status !== 'active') {
+      message('伙伴暂时无法移动'); return
+    }
+    setWheelOpen(false); setCareOpen(false)
+    setCompanionControl(true); scene.current?.setCompanionControl(true)
+  }, [runtime, message])
+  const cancelCompanionControl = useCallback(() => {
+    setCompanionControl(false); scene.current?.setCompanionControl(false)
+  }, [])
   useEffect(() => attachBrowserLoop(runtime), [runtime])
   useEffect(() => { void runtime.checkpoint() }, [runtime])
   useEffect(() => { if (notice) message(notice) }, [notice, message])
   useEffect(() => {
     runtime.setPauseReason('renderer-loading', true)
     setError(null)
-    const renderer = new CampScene(host.current!, runtime, message, setError, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal)
+    const renderer = new CampScene(host.current!, runtime, message, setError, chooseOrigin, openMerge, openWheel, openJournal)
     scene.current = renderer
     void renderer.init()
     return () => { renderer.dispose(); scene.current = null }
@@ -93,6 +105,12 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   }, [state.survival.failure, state.progression.dialogue])
   useEffect(() => { scene.current?.setPlacement(placement) }, [placement, attempt])
   useEffect(() => { scene.current?.setDecorationPlacement(decorationPlacement) }, [decorationPlacement, attempt])
+  useEffect(() => { scene.current?.setCompanionControl(companionControl) }, [companionControl, attempt])
+  useEffect(() => {
+    if (state.survival.companion.status !== 'active' || state.survival.failure || state.progression.dialogue
+      || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || careOpen || wheelOpen) cancelCompanionControl()
+  }, [state.survival.companion.status, state.survival.failure, state.progression.dialogue,
+    placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, careOpen, wheelOpen, cancelCompanionControl])
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 4000)
@@ -114,7 +132,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const placementError = placement && runtime.placementError(placement.blueprintId, placement.origin, placement.rotation)
   const decorationError = decorationPlacement && decorError(decorationPlacement.kind, decorationPlacement.cell, state.progression, state.construction)
   const placing = !!placement || !!decorationPlacement
-  const bubblesHidden = placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || paused
+  const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || paused
   useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
   const chapter = currentChapter(state.progression)
   const navigate = (action: StoryChapter['action']) => {
@@ -142,6 +160,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     scene.current?.centerBuilding(existing?.buildingId ?? building.id)
   }
   return <main className={styles.shell} data-testid="survival-game" data-player={`${state.player.x},${state.player.y}`}
+    data-control={companionControl ? 'companion' : 'player'}
     data-activity={state.activity} data-destination={state.destination ? `${state.destination.x},${state.destination.y}` : ''}
     data-paused={String(paused)} data-save-state={state.saveStatus.state} data-save-revision={state.saveStatus.revision}
     data-protected={String(state.protected)} data-building-count={state.construction.buildings.length}
@@ -186,8 +205,11 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
         if (!result.accepted) message(result.reason)
         else { setDecorationPlacement(null); message(result.message ?? '已经摆好了') }
       }}>确认摆放</button></div>
+    </section> : companionControl ? <section className={styles.companionControl} data-testid="companion-control">
+      <div><strong>正在操控栗栗</strong><p>{state.survival.duel ? '战斗中，请稍候' : '点击地图指定移动位置'}</p></div>
+      <button onClick={cancelCompanionControl}>取消操控</button>
     </section> : <footer className={styles.footer}>
-      <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建</button>
+      <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建造</button>
       <div className={styles.activity} data-testid="activity"><span className={styles.activityDot} data-moving={state.activity !== 'idle'} />
         <span>{paused ? '营地已暂停' : state.activity === 'unlocking' ? `开放区域 · ${Math.ceil(state.progression.regionUnlock!.remaining)} 秒` : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
         <span className={styles.coordinates}>建设经验 <span data-testid="building-xp">{state.construction.xp}</span> · {state.saveStatus.state === 'saved' ? '已保存' : state.saveStatus.state === 'saving' ? '保存中…' : '待保存'}</span></div>
@@ -205,8 +227,8 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </div>}
     {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} />}
     {buildingOpen && !mergeOpen && <BuildingPanel runtime={runtime} select={selectBuilding} close={() => setBuildingOpen(false)} place={place} />}
-    {careOpen && <CampCare runtime={runtime} close={() => setCareOpen(false)} openMerge={() => setMergeOpen(true)} message={message} />}
-    {wheelOpen && <CompanionWheel runtime={runtime} close={() => setWheelOpen(false)} message={message} />}
+    {careOpen && <CampCare runtime={runtime} close={() => setCareOpen(false)} openMerge={() => setMergeOpen(true)} message={message} control={controlCompanion} />}
+    {wheelOpen && <CompanionWheel runtime={runtime} close={() => setWheelOpen(false)} message={message} control={controlCompanion} />}
     {journalOpen && <CampJournal runtime={runtime} close={() => setJournalOpen(false)} navigate={navigate} decorate={decorate} />}
     {state.progression.dialogue && <StoryDialogue runtime={runtime} />}
     {state.survival.failure && <FailurePanel runtime={runtime} message={message} />}

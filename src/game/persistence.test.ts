@@ -5,6 +5,7 @@ import { clearGameData, DATABASE_NAME, SaveRepository } from './persistence'
 import { dataFixture, tamingDataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 import { GameRuntime } from './GameRuntime'
 import { legacyConfigVersion, validateSave } from './saveData'
+import { createSurvival } from './survival'
 
 const world = worldFixture(), catalog = productionFixture()
 const repositories: SaveRepository[] = []
@@ -178,6 +179,29 @@ describe('versioned atomic IndexedDB saves', () => {
 })
 
 describe('runtime and durable production', () => {
+  it('retries a failed combat settlement save without applying HP loss or loot a second time', async () => {
+    const data = dataFixture(); data.elapsedSeconds = 650; data.survival = createSurvival(world, 650)
+    data.survival.companion.status = 'active'
+    data.survival.enemies = [{ id: 'e1', kind: 'prowler', hp: 32, cell: { ...data.survival.companion.cell }, route: [], progress: 0, target: null, cooldown: 0 }]
+    data.survival.nextEnemyId = 2; data.survival.spawnRemaining = 80
+    const repo = await repository(), saved = await repo.save(data)
+    const runtime = new GameRuntime(world, { catalog, saved, repository: repo, now: () => testNow })
+    runtime.advanceFrame(0); runtime.advanceFrame(50)
+    await vi.waitFor(async () => expect((await readRecord('current')).data.survival.duel.phase).toBe('fighting'))
+    vi.spyOn(repo, 'save').mockRejectedValueOnce(new Error('QuotaExceededError'))
+    for (let time = 100; time <= 2050; time += 50) runtime.advanceFrame(time)
+    await vi.waitFor(() => expect(runtime.getUiSnapshot().pauseReasons).toContain('save-error'))
+    expect(runtime.getSaveData().survival.duel?.phase).toBe('result')
+    expect(runtime.getSaveData().production.inventory.gold).toBe(2)
+    expect(await runtime.retrySave()).toBe(true)
+    const committed = validateSave(await readRecord('current'), world, catalog)
+    expect(committed.data.survival.companion.hp).toBe(174)
+    const restored = new GameRuntime(world, { catalog, saved: committed, now: () => testNow })
+    for (let time = 0; time <= 2000; time += 50) restored.advanceFrame(time)
+    expect(restored.getSaveData().production.inventory.gold).toBe(2)
+    expect(restored.getSaveData().survival.companion.hp).toBe(174)
+    expect(restored.getSaveData().survival.duel).toBeNull()
+  })
   it('persists defeat before rescue and retries a failed rescue save without applying loss twice', async () => {
     const repo = await repository(), runtime = new GameRuntime(world, { catalog, repository: repo, now: () => testNow })
     await runtime.checkpoint(); runtime.applyDamage('player', 100)

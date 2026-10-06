@@ -16,7 +16,8 @@ export function drawDecoration(g: Graphics, kind: DecorId, x: number, y: number,
   } else {
     g.circle(x, y - 12, 17).fill({ color: 0xffe8a4, alpha: .13 * alpha })
     g.roundRect(x - 6, y - 20, 12, 18, 3).fill({ color: 0xf3d98c, alpha }).stroke({ color: 0x987652, width: 2, alpha })
-    g.arc(x, y - 21, 4, Math.PI, 0).stroke({ color: 0x987652, width: 2, alpha })
+    // Start the handle at its own arc endpoint instead of connecting the previous graphics path.
+    g.moveTo(x - 4, y - 21).arc(x, y - 21, 4, Math.PI, 0).stroke({ color: 0x987652, width: 2, alpha })
   }
 }
 export class ProgressionViews {

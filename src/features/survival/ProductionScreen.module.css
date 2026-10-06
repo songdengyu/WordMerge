@@ -8,18 +8,25 @@
 .resources > small { margin-left: auto; }
 .vitals { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -2px 3px 5px; flex-shrink: 0; }
 .orders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; margin-bottom: 9px; }
-.order { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 3px; border: 1px solid #d8ddc5; border-radius: 11px; background: #faf7e9; }
+.orderSlot { min-width: 0; }
+.orderSlot > .order, .orderSlot > .supplyOrder { width: 100%; height: 100%; }
+.order { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 24px 3px 8px; border: 1px solid #d8ddc5; border-radius: 11px; background: #faf7e9; }
 .order strong { font-size: 11px; font-weight: 500; }
 .order small { font-size: 8px; color: #8a9279; white-space: nowrap; }
 .ready { border-color: #8ea575; background: #e5edcf; }
 .ready small { color: #5e794a; }
+.currentOrder { border-color: #359e55; box-shadow: inset 0 0 0 2px #359e55; }
+.orderType { position: absolute; top: 4px; left: 5px; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; background: #e5e9d7; color: #6b805b; pointer-events: none; }
+.orderType svg { width: 15px; height: 15px; }
+.currentOrder .orderType { background: #359e55; color: #fff; }
 .requirements { display: flex; justify-content: center; gap: 1px; }
 .requirements > span { width: 30px; height: 30px; position: relative; opacity: .55; }
 .requirements .owned { opacity: 1; }
 .requirements i { font-style: normal; position: absolute; right: -1px; bottom: -1px; color: #698855; font-size: 10px; }
 .orders > p { grid-column: 1 / -1; text-align: center; padding: 15px; font-size: 12px; }
 .withBuildingOrders { display: flex; overflow-x: auto; padding-bottom: 4px; }
-.withBuildingOrders .order { flex: 0 0 132px; min-height: 90px; }
+.withBuildingOrders .orderSlot { flex: 0 0 132px; }
+.withBuildingOrders .order { min-height: 90px; }
 .withBuildingOrders .order small { font-size: 8px; }
 .supplyOrder { position: relative; flex: 0 0 132px; }
 .supplyOrder > .order { width: 100%; height: 100%; }
@@ -76,4 +83,4 @@
 .saveControls small { font-size: 10px; display: block; color: #88937b; margin-top: 12px; line-height: 1.8; }
 .screen button:disabled, .saveControls button:disabled { opacity: .5; cursor: default; }
 .screen button:focus-visible { outline: 2px solid #b49769; outline-offset: 2px; }
-@media (max-height: 680px) { .order { padding: 5px 2px; gap: 2px; } .worldStatus { padding: 3px 0 6px; } .resources { padding: 5px 3px; } .vitals { margin-bottom: 0; } .orders { margin-bottom: 5px; } .info { height: 56px; flex-basis: 56px; padding-top: 7px; } .notice { padding: 3px 2px; min-height: 20px; } .screen > .notice { height: 21px; } }
+@media (max-height: 680px) { .order { padding: 24px 2px 5px; gap: 2px; } .worldStatus { padding: 3px 0 6px; } .resources { padding: 5px 3px; } .vitals { margin-bottom: 0; } .orders { margin-bottom: 5px; } .info { height: 56px; flex-basis: 56px; padding-top: 7px; } .notice { padding: 3px 2px; min-height: 20px; } .screen > .notice { height: 21px; } }

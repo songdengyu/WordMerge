@@ -18,11 +18,11 @@
 .wedge:disabled { background: #253c3b9c; color: #bec9be70; cursor: default; }
 .wedge span { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 5px; transform: translate(-50%, -50%); font-size: 16px; letter-spacing: 2px; }
 .wedge svg { width: 26px; height: 26px; }
-.rest { clip-path: polygon(0 0, 100% 0, 50% 50%); }
+.move { clip-path: polygon(0 0, 100% 0, 50% 50%); }
 .guard { clip-path: polygon(0 0, 50% 50%, 0 100%); }
 .follow { clip-path: polygon(100% 0, 100% 100%, 50% 50%); }
 .treat { clip-path: polygon(50% 50%, 100% 100%, 0 100%); }
-.rest span { left: 50%; top: 19%; }
+.move span { left: 50%; top: 19%; }
 .guard span { left: 19%; top: 50%; }
 .follow span { left: 81%; top: 50%; }
 .treat span { left: 50%; top: 81%; }

@@ -101,7 +101,9 @@ describe('atomic orders and construction', () => {
       expect(runtime.getUiSnapshot().protected).toBe(true)
       pump(50)
       expect(runtime.getSaveData().construction.jobs).toHaveLength(0)
-      expect(runtime.getSaveData().construction.buildings[0].parts.foundation.hp).toBe(100)
+      const foundation = runtime.getSaveData().construction.buildings[0].parts.foundation
+      expect(foundation.segments!['tile0-0']).toBe(100)
+      expect(foundation.segments!['tile1-0']).toBe(repair ? 50 : 100)
       expect(runtime.getSaveData().construction.xp).toBe(10)
     }
     expect(blueprint.parts.every(part => part.seconds === 2 && part.repairSeconds === 2)).toBe(true)
@@ -194,13 +196,13 @@ describe('atomic orders and construction', () => {
     data.cell = { x: 8, y: 11 }
     supply(data, [202, 201])
     const { runtime, send, pump, world } = harness(data)
-    await send({ type: 'building-order', buildingId: 'b1', partId: 'walls' })
-    await send({ type: 'building-claim', orderId: 'b1:walls' })
+    await send({ type: 'building-order', buildingId: 'b1', partId: 'walls', segmentId: 'edge1' })
+    await send({ type: 'building-claim', orderId: 'b1:walls:edge1' })
     expect(runtime.getUiSnapshot().protected).toBe(true)
     await send({ type: 'building-order', buildingId: 'b1', partId: 'door' })
     await send({ type: 'building-claim', orderId: 'b1:door' })
     expect(runtime.getSaveData().construction.jobs.map(job => job.phase)).toEqual(['building', 'queued'])
-    runtime.applyDamage({ buildingId: 'b1', partId: 'walls' }, 999)
+    runtime.applyDamage({ buildingId: 'b1', partId: 'walls', segmentId: 'edge1' }, 999)
     runtime.applyDamage({ buildingId: 'b1', partId: 'door' }, 5)
     expect(runtime.getSaveData().construction.buildings[0].parts.door.hp).toBe(15)
     expect(constructionNavigation(world, runtime.getSaveData().construction).canStep({ x: 8, y: 10 }, { x: 8, y: 9 })).toBe(true)
@@ -210,7 +212,8 @@ describe('atomic orders and construction', () => {
     pump(6000)
     expect(constructionNavigation(world, runtime.getSaveData().construction).canStep({ x: 8, y: 10 }, { x: 8, y: 9 })).toBe(false)
     expect(runtime.getSaveData().construction.xp).toBe(40)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(160)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge1).toBe(20)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(0)
   })
   it('completes a full house in dependency order and retains a usable door and exactly one XP award per part', async () => {
     const data = dataFixture(); building(data); supply(data, [202, 202, 202, 201, 201, 203, 202, 202])
@@ -247,19 +250,19 @@ describe('atomic orders and construction', () => {
   })
   it('protects a damaged component throughout its repair while other structures can still take damage', async () => {
     const data = dataFixture(); const b = building(data, ['foundation', 'walls', 'door'])
-    b.parts.walls.hp = 50; data.cell = { x: 8, y: 11 }; supply(data, [202])
+    b.parts.walls.hp = 10; data.cell = { x: 8, y: 11 }; supply(data, [202])
     const { runtime, send, pump } = harness(data)
     await send({ type: 'building-order', buildingId: 'b1', partId: 'walls' })
-    await send({ type: 'building-claim', orderId: 'b1:walls' })
-    runtime.applyDamage({ buildingId: 'b1', partId: 'walls' }, 99)
+    await send({ type: 'building-claim', orderId: 'b1:walls:edge0' })
+    runtime.applyDamage({ buildingId: 'b1', partId: 'walls', segmentId: 'edge0' }, 99)
     runtime.applyDamage({ buildingId: 'b1', partId: 'door' }, 25)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(50)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(10)
     expect(runtime.getSaveData().construction.buildings[0].parts.door.hp).toBe(75)
     pump(6000)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(160)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(20)
     expect(runtime.getSaveData().construction.xp).toBe(40)
     runtime.applyDamage({ buildingId: 'b1', partId: 'walls' }, 1)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(159)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(19)
   })
 })
 
@@ -267,18 +270,22 @@ describe('M2 migration and M3 validation', () => {
   it('migrates the exact previous M3 catalog, validates old timing, preserves work ratio and never changes inventory or XP', async () => {
     for (const repair of [false, true]) {
       const data = dataFixture(), b = building(data, repair ? ['foundation', 'walls'] : ['foundation'])
-      if (repair) b.parts.walls.hp = 50
+      if (repair) b.parts.walls.hp = 10
       data.cell = { x: 8, y: 11 }; supply(data, repair ? [202] : [202, 202])
       const { runtime, send, world, catalog } = harness(data)
       await send({ type: 'building-interact', buildingId: 'b1', partId: 'walls' })
       const old = JSON.parse(runtime.exportSave())
+      const currentBuildings = structuredClone(old.data.construction.buildings)
+      const walls = old.data.construction.buildings[0].parts.walls
+      walls.hp *= 8
+      for (const id of Object.keys(walls.segments)) walls.segments[id] *= 8
       old.schemaVersion = 2; delete old.data.survival
       old.configVersion = m3ConfigVersion(world, catalog).replace(/[^-]+$/, M3_INITIAL_BUILDING_VERSION)
       old.data.construction.jobs[0].remaining = repair ? 3 : 8
       const migrated = validateSave(old, world, catalog)
       expect(migrated.data.construction.jobs[0].remaining).toBeCloseTo(repair ? 1.2 : 1.6)
       expect(migrated.data.production).toEqual(old.data.production)
-      expect(migrated.data.construction.buildings).toEqual(old.data.construction.buildings)
+      expect(migrated.data.construction.buildings).toEqual(currentBuildings)
       expect(migrated.data.construction.xp).toBe(old.data.construction.xp)
       expect(validateSave(migrated, world, catalog)).toEqual(migrated)
       expect(old.data.construction.jobs[0].remaining).toBe(repair ? 3 : 8)

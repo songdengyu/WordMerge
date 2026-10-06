@@ -1,7 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js'
 import type { GameCommand, GameRuntime, UiSnapshot } from '../game/GameRuntime'
 import { BLUEPRINTS, blueprintById } from '../game/buildingConfig'
-import { buildingSummary, localToWorld } from '../game/construction'
+import { buildingOrderId, buildingSummary, localToWorld } from '../game/construction'
+import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { availableItems, matchRequirements } from '../game/inventory'
 import { actorPosition } from '../game/survival'
 import { SURVIVAL_RULES } from '../game/survivalConfig'
@@ -13,7 +14,7 @@ import { gridToWorld, type Camera, type Point } from './camera'
 type Material = { id: number; owned: number; needed: number }
 type Bubble = Point & {
   id: string; label: string; command: GameCommand; width: number; height: number
-  kind: 'materials' | 'close' | 'complete' | 'sign'; materials: Material[]; signText?: string
+  kind: 'materials' | 'close' | 'sign'; materials: Material[]; signText?: string
   ready: boolean; phase: string; progress: number; disabled: boolean
 }
 type Entry = { model: Bubble; view: Container; ring: Graphics; focus: Graphics; button: HTMLButtonElement }
@@ -67,12 +68,17 @@ export class BuildingBubbles {
       const blueprint = blueprintById(building.blueprintId)!, summary = buildingSummary(building)
       const anchor = gridToWorld(localToWorld(building, { x: (blueprint.width - 1) / 2, y: (blueprint.height - 1) / 2 }))
       const rise = building.parts.roof.built ? 54 : building.parts.walls.built ? 40 : 14
-      const parts = blueprint.parts.filter(config => {
+      const parts = blueprint.parts.flatMap(config => {
         const part = building.parts[config.id]
-        return (!part.built || part.hp < config.hp) && config.requires.every(id => building.parts[id].built)
+        if (!config.requires.every(id => building.parts[id].built)) return []
+        if (!part.built) return [{ config, segment: undefined }]
+        const segments = buildingSegments(blueprint, config)
+        return segments.filter(segment => segmentHp(part, segment.id) < config.hp)
+          .map(segment => ({ config, segment: segments.length > 1 ? segment : undefined }))
       })
-      const row: Bubble[] = parts.map(config => {
-        const part = building.parts[config.id], orderId = `${building.id}:${config.id}`
+      const row: Bubble[] = parts.map(({ config, segment }) => {
+        const part = building.parts[config.id], target = { buildingId: building.id, partId: config.id, ...(segment ? { segmentId: segment.id } : {}) }
+        const orderId = buildingOrderId(target)
         const job = state.construction.jobs.find(job => job.orderId === orderId)
         const requirements = part.built ? config.repairMaterials : config.materials
         const ready = !job && matchRequirements(inventory, requirements) !== null
@@ -81,23 +87,28 @@ export class BuildingBubbles {
         const materials = [...counts].map(([id, needed]) => ({ id, needed, owned: job ? needed : available.filter(item => item.itemId === id).length }))
         const action = job ? job.phase === 'building' ? '施工中，保护生效' : job.phase === 'travel' ? '正在前往' : '已排队'
           : ready ? `点击${part.built ? '修复' : '建造'}` : '缺少材料，点击去合成'
-        return { id: `build-bubble-${orderId}`, x: 0, y: anchor.y - rise - MATERIAL_HEIGHT - 5,
+        // Single-piece doors/beds also have a scene location, even without a segmented repair ID.
+        const visualSegment = segment ?? (part.built ? buildingSegments(blueprint, config)[0] : undefined)
+        const point = visualSegment ? gridToWorld(localToWorld(building, visualSegment.edge
+          ? { x: (visualSegment.edge.from.x + visualSegment.edge.to.x) / 2, y: (visualSegment.edge.from.y + visualSegment.edge.to.y) / 2 } : visualSegment.cell)) : anchor
+        const height = visualSegment ? { foundation: 4, wall: 28, door: 18, roof: 54, bed: 16 }[config.kind] : rise
+        return { id: `build-bubble-${orderId}`, x: point.x - (materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP) / 2, y: point.y - height - MATERIAL_HEIGHT - 5,
           width: materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP, height: MATERIAL_HEIGHT, kind: 'materials', materials,
           ready, phase: job?.phase ?? 'materials', disabled: !!job,
           progress: job?.phase === 'building' ? 1 - job.remaining / (part.built ? config.repairSeconds : config.seconds) : 0,
-          label: `${part.built ? '修复' : '建造'}${config.name}，${materials.map(m => `${this.runtime.catalog!.itemById.get(m.id)!.name} ${m.owned}/${m.needed}`).join('，')}，${action}`,
-          command: { type: 'building-interact', buildingId: building.id, partId: config.id } }
+          label: `${part.built ? '修复' : '建造'}${segment?.name ?? config.name}，${materials.map(m => `${this.runtime.catalog!.itemById.get(m.id)!.name} ${m.owned}/${m.needed}`).join('，')}，${action}`,
+          command: { type: 'building-interact', ...target } }
       })
-      if (!row.length) row.push({ id: `building-complete-${building.id}`, x: 0, y: anchor.y - rise - SIZE - 5, width: SIZE, height: SIZE,
-        kind: 'complete', materials: [], ready: false, phase: 'complete', disabled: false, progress: 0,
-        label: `木屋已建成，${summary.enclosed ? '围护封闭' : '围护有缺口'}，点击进入`, command: { type: 'move', target: localToWorld(building, { x: 1, y: 1 }) } })
-      const width = row.reduce((sum, b) => sum + b.width, 0) + (row.length - 1) * PART_GAP
+      const grouped = row.filter(bubble => bubble.command.type === 'building-interact' && !building.parts[bubble.command.partId].built)
+      const width = grouped.reduce((sum, b) => sum + b.width, 0) + (grouped.length - 1) * PART_GAP
       let x = anchor.x - width / 2
       for (const bubble of row) {
-        bubble.x = x; x += bubble.width + PART_GAP; result.push(bubble)
+        if (grouped.includes(bubble)) { bubble.x = x; x += bubble.width + PART_GAP }
+        // Repair bubbles stay anchored to their own parts; neighboring bubbles must not displace them.
+        result.push(bubble)
         if (bubble.phase === 'travel' || bubble.phase === 'queued') {
           const orderId = bubble.id.slice('build-bubble-'.length)
-          const config = blueprint.parts.find(part => orderId === `${building.id}:${part.id}`)!
+          const config = blueprint.parts.find(part => bubble.command.type === 'building-interact' && part.id === bubble.command.partId)!
           result.push(this.closeBubble(`cancel-${orderId}`, `取消工程 ${config.name} ${building.id}`,
             bubble.x + bubble.width - 6, bubble.y - 14, { type: 'building-cancel', orderId }))
         }
@@ -142,13 +153,13 @@ export class BuildingBubbles {
     return { id, label, x, y, command, width: 24, height: 24, kind: 'close', materials: [], ready: false, phase: '', progress: 0, disabled: false }
   }
 
-  private color(b: Bubble) { return b.kind === 'complete' ? 0xe4ecd3 : b.ready ? 0xd6ecc1 : ['building', 'taming'].includes(b.phase) ? 0xfae4b7 : 0xfaf3e4 }
+  private color(b: Bubble) { return b.ready ? 0xd6ecc1 : ['building', 'taming'].includes(b.phase) ? 0xfae4b7 : 0xfaf3e4 }
 
   private create(model: Bubble): Entry {
     const view = new Container(), g = new Graphics(), ring = new Graphics(), focus = new Graphics()
     view.position.set(model.x, model.y); view.addChild(g)
     const color = this.color(model), ink = model.ready ? 0x34592d : 0x806c4c
-    const border = model.ready ? 0x93b77c : ['building', 'taming'].includes(model.phase) ? 0xd0b274 : model.kind === 'complete' ? 0xaabc90 : 0xeee1c5
+    const border = model.ready ? 0x93b77c : ['building', 'taming'].includes(model.phase) ? 0xd0b274 : 0xeee1c5
     if (model.kind === 'sign') {
       g.ellipse(28, 47, 15, 4).fill({ color: 0x31432d, alpha: .18 })
       g.roundRect(25, 28, 6, 20, 2).fill(0x92724e)
@@ -176,11 +187,6 @@ export class BuildingBubbles {
           const count = new Text({ text: `${material.owned}/${material.needed}`, resolution: 3,
             style: { fontFamily: 'sans-serif', fontSize: 11, fontWeight: '600', fill: ink } })
           count.anchor.set(.5, 0); count.position.set(x + RADIUS, SIZE + 5); view.addChild(count)
-        } else {
-          g.moveTo(RADIUS - 12, RADIUS - 2).lineTo(RADIUS, RADIUS - 12).lineTo(RADIUS + 12, RADIUS - 2)
-            .moveTo(RADIUS - 9, RADIUS - 4).lineTo(RADIUS - 9, RADIUS + 12).lineTo(RADIUS + 9, RADIUS + 12).lineTo(RADIUS + 9, RADIUS - 4)
-            .moveTo(RADIUS - 3, RADIUS + 12).lineTo(RADIUS - 3, RADIUS + 3).lineTo(RADIUS + 3, RADIUS + 3).lineTo(RADIUS + 3, RADIUS + 12)
-            .stroke({ color: 0x627b4e, width: 1.8 })
         }
       }
     }

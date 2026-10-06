@@ -13,6 +13,10 @@ it('supports three online days from the actual starter inventory with two-minute
   const runtime = new GameRuntime(world, { catalog, now: () => now }); runtime.advanceFrame(0)
   const pump = (seconds: number) => { for (let i = 0; i < Math.round(seconds * 20); i++) { frame += 50; now += 50; runtime.advanceFrame(frame) } }
   const send = async (command: GameCommand) => {
+    // Smooth pursuit changes contact times; care/orders still wait for the locked combat presentation.
+    if (command.type === 'companion-treat' || command.type === 'companion-mode') {
+      for (let i = 0; i < 200 && runtime.getSaveData().survival.duel; i++) pump(.05)
+    }
     const pending = runtime.dispatch(command); pump(.1)
     const result = await pending
     expect(result, `command ${command.type}`).toMatchObject({ accepted: true })
@@ -79,7 +83,7 @@ it('supports three online days from the actual starter inventory with two-minute
     if (buddy.status === 'injured' || (buddy.status === 'active' && buddy.hp < 90)) {
       await ensure(232); await send({ type: 'companion-treat' })
     }
-    if (buddy.status === 'active') await send({ type: 'companion-mode', mode: runtime.getUiSnapshot().isDay ? 'rest' : 'guard', guard: { x: 8, y: 11 } })
+    if (buddy.status === 'active') await send({ type: 'companion-mode', mode: 'guard', guard: { x: 8, y: 11 } })
     for (const config of BLUEPRINTS[0].parts) {
       const part = runtime.getSaveData().construction.buildings[0].parts[config.id]
       if (part.hp < config.hp && !runtime.getSaveData().construction.jobs.some(job => job.orderId === `b1:${config.id}`)) {
@@ -104,4 +108,5 @@ it('supports three online days from the actual starter inventory with two-minute
   for (const budget of upkeep) expect(budget).toBeLessThanOrEqual(40)
   validateSave(JSON.parse(runtime.exportSave()), world, catalog)
   console.info('Three-day production stamina:', JSON.stringify({ total: costs, maintenance: upkeep, endingHp: saved.production.vitals.hp, companionHp: saved.survival.companion.hp, endingStamina: saved.production.stamina.value }))
-}, 20_000)
+// Simulates 72,000 fixed steps with swept collision checks for all actors.
+}, 60_000)

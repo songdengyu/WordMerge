@@ -1,5 +1,7 @@
 .line { display: flex; align-items: center; justify-content: flex-start; gap: 6px; height: 38px; }
 .slot { position: relative; display: inline-flex; flex-shrink: 0; }
+.damageFloat { position: absolute; left: 50%; top: 0; z-index: 3; pointer-events: none; color: #f24d5b; font-size: 19px; font-weight: 800; line-height: 1; white-space: nowrap; text-shadow: 0 1px 2px #462d30; animation: damageRise 1050ms ease-out forwards; }
+@keyframes damageRise { 0% { opacity: 0; transform: translate(-50%, -20%) scale(.85); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -200%) scale(1); } }
 .vital { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 38px; flex-shrink: 0; padding: 0; border: 0; background: none; cursor: pointer; touch-action: manipulation; }
 .vital svg { display: block; width: 32px; height: 34px; overflow: visible; filter: drop-shadow(0 1px 2px #253c3445); }
 .fill { transition: y 180ms linear, height 180ms linear; }
@@ -10,7 +12,9 @@
 .vital:focus-visible, .supply:focus-visible { outline: 2px solid #ac8450; outline-offset: 2px; }
 .compact { height: 18px; }
 .compact .vital { width: 24px; height: 18px; }
+.compact .damageFloat { font-size: 15px; }
 .compact .vital svg { width: 18px; height: 19px; filter: none; }
 .compact .supply { top: -6px; right: -7px; width: 18px; height: 18px; }
 .compact .supply > span { width: 18px; height: 18px; }
-@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } .damageFloat { animation-name: damageFade; } }
+@keyframes damageFade { 0%, 75% { opacity: 1; transform: translate(-50%, -100%); } 100% { opacity: 0; transform: translate(-50%, -100%); } }

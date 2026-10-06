@@ -29,14 +29,17 @@ async function seed(page: Page, edit: (save: any) => void) {
 function cabin(save: any) {
   save.data.construction = { unlockedBlueprints: ['cabin'], nextId: 2, xp: 70, orders: [], jobs: [], buildings: [{
     id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
-    parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 160, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])),
+    parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 20, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])),
   }] }
   save.data.cell = { x: 8, y: 11 }
 }
 
 test('a food rescue recruits a real companion, commands and supply consumption survive reload', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/?game=survival'); await ready(page)
+  await seed(page, save => {
+    const inventory = save.data.production.inventory
+    inventory.items[inventory.board[9].instanceId].itemId = 213
+  })
   await page.getByRole('button', { name: '伙伴与生存' }).click()
   await expect(page.getByTestId('companion-state')).toHaveText('待救助')
   await page.getByRole('button', { name: '前往驯服' }).click()

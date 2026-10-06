@@ -30,6 +30,10 @@
 .zoomButtons button { width: 42px; height: 42px; border: 0; background: none; color: inherit; font-size: 24px; cursor: pointer; }
 .zoomButtons > span { width: 16px; height: 1px; background: #d7d7bd; }
 .footer { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; pointer-events: none; }
+.companionControl { position: absolute; z-index: 3; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #fffbe899; border-radius: 16px; background: #f8f3e5f2; color: #4a6349; box-shadow: 0 5px 24px #29432a24; }
+.companionControl strong { font-size: 14px; font-weight: 600; }
+.companionControl p { margin-top: 5px; font-size: 11px; color: #798569; }
+.companionControl button { flex-shrink: 0; min-height: 44px; padding: 10px 14px; border: 1px solid #b8c4a5; border-radius: 10px; background: #e4ead4; color: #4f6b46; font: inherit; font-size: 13px; cursor: pointer; }
 .activity { display: flex; align-items: center; gap: 7px; color: #f8f5db; font-size: 11px; margin: 0 7px 12px; text-shadow: 0 1px 3px #24442da6; }
 .activityDot { width: 5px; height: 5px; background: #ead9a8; border-radius: 50%; }
 .activityDot[data-moving="true"] { background: #e0f5b3; }

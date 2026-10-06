@@ -63,7 +63,7 @@ test('native material bubble scales, tames over two seconds, then companion taps
   await expect(page.getByRole('heading', { name: '照护与守卫' })).toHaveCount(0)
   await expect(page.getByTestId('companion-wheel').getByRole('button', { name: '治疗', exact: true })).toBeDisabled()
   await page.screenshot({ path: 'test-results/companion-wheel.png' })
-  for (const [label, mode] of [['跟随', 'follow'], ['休养', 'rest'], ['驻守', 'guard']]) {
+  for (const [label, mode] of [['跟随', 'follow'], ['驻守', 'guard']]) {
     if (!await page.getByTestId('companion-wheel').isVisible()) await tapCompanion(page)
     await command(page, label)
     await expect(page.getByTestId('companion-wheel')).toHaveCount(0)
@@ -140,7 +140,7 @@ test('injured companion commands are disabled, radial treatment consumes medicin
     save.data.production.inventory.items[id].itemId = 232
   })
   await tapCompanion(page)
-  for (const name of ['休养', '驻守', '跟随']) await expect(page.getByTestId('companion-wheel').getByRole('button', { name, exact: true })).toBeDisabled()
+  for (const name of ['移动', '驻守', '跟随']) await expect(page.getByTestId('companion-wheel').getByRole('button', { name, exact: true })).toBeDisabled()
   await page.screenshot({ path: 'test-results/companion-wheel-small.png' })
   await command(page, '治疗')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-companion', 'recovering')
@@ -151,7 +151,7 @@ test('injured companion commands are disabled, radial treatment consumes medicin
   await page.clock.install(); await page.clock.runFor(3000)
   await ready(page)
   expect((await readSave(page)).data.survival.companion.recoveryRemaining).toBeLessThan(remaining - 1)
-  await expect(page.getByTestId('companion-wheel').getByRole('button', { name: '休养', exact: true })).toBeDisabled()
+  await expect(page.getByTestId('companion-wheel').getByRole('button', { name: '移动', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: '关闭指令盘' }).click()
   await page.reload(); await ready(page)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-companion', 'recovering')
