@@ -84,3 +84,4 @@
 .screen button:disabled, .saveControls button:disabled { opacity: .5; cursor: default; }
 .screen button:focus-visible { outline: 2px solid #b49769; outline-offset: 2px; }
 @media (max-height: 680px) { .order { padding: 24px 2px 5px; gap: 2px; } .worldStatus { padding: 3px 0 6px; } .resources { padding: 5px 3px; } .vitals { margin-bottom: 0; } .orders { margin-bottom: 5px; } .info { height: 56px; flex-basis: 56px; padding-top: 7px; } .notice { padding: 3px 2px; min-height: 20px; } .screen > .notice { height: 21px; } }
+.toolHint { align-self: center; padding: 5px 10px; border: 0; border-radius: 10px; background: #e5ecd7; color: #58764d; font: inherit; font-size: 11px; cursor: pointer; }

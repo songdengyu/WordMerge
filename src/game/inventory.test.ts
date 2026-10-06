@@ -169,7 +169,7 @@ describe('save integrity and compatibility', () => {
   it('does not trust a same-sized board, corrupt stamina anchors or impossible routes', () => {
     const data = dataFixture()
     data.production.stamina.remainderMs = 10000
-    expect(() => validateSave(envelopeFixture(data), worldFixture(), catalog)).toThrow('体力计时')
+    expect(() => validateSave(envelopeFixture(data), worldFixture(), catalog)).toThrow('精力计时')
     const path = dataFixture()
     path.route = [{ x: 9, y: 9 }]; path.destination = { x: 9, y: 9 }
     expect(() => validateSave(envelopeFixture(path), worldFixture(), catalog)).toThrow('路径')

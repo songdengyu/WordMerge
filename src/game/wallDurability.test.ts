@@ -10,7 +10,7 @@ import { ENEMIES } from './survivalConfig'
 const world = worldFixture(), catalog = productionFixture()
 function houses(lodge = false) {
   const data = dataFixture()
-  for (const blueprint of BLUEPRINTS.filter(b => lodge || b.id === 'cabin')) {
+  for (const blueprint of BLUEPRINTS.filter(b => b.id === 'cabin' || lodge && b.id === 'lodge')) {
     data.construction.buildings.push({ id: `b${data.construction.nextId++}`, blueprintId: blueprint.id,
       origin: blueprint.id === 'cabin' ? { x: 7, y: 10 } : { x: 25, y: 3 }, rotation: 0,
       parts: Object.fromEntries(blueprint.parts.map(config => [config.id, { hp: config.hp, built: true, xpGranted: true }])) })

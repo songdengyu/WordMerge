@@ -17,6 +17,8 @@ import { releaseTaming } from './taming'
 import { createRegionContent } from './regionContentConfig'
 import { populateRegionContent } from './regionContent'
 import { migrateWallDurability, PRE_WALL_BUILDING_VERSION } from './migrations/wallDurability'
+import type { EconomyState } from './economy'
+import { economyForWorld, validateEconomy } from './economyValidation'
 
 export interface RuntimeData {
   elapsedSeconds: number
@@ -31,6 +33,7 @@ export interface RuntimeData {
   construction: ConstructionState
   survival: SurvivalState
   progression: ProgressionState
+  economy?: EconomyState
 }
 export interface SaveEnvelope {
   schemaVersion: 4
@@ -60,8 +63,12 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   check(integer(raw.schemaVersion) && typeof raw.configVersion === 'string', '版本信息缺失或无效')
   if (![1, 2, 3, 4].includes(raw.schemaVersion)) throw new SaveError('存档版本不兼容，原文件已保留；请使用相应版本的游戏。', 'incompatible')
   const legacy = raw.schemaVersion === 1
-  const oldTiming = raw.schemaVersion === 2 && raw.configVersion === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
   const versionParts = raw.configVersion.split('-'), oldWalls = versionParts[3] === PRE_WALL_BUILDING_VERSION
+  // Explicit additive catalog migration: existing item IDs/recipes remain unchanged.
+  const economyCatalogVersions = ['6e361e33', '726dea98', '30008215'] // Equivalent LF / CRLF checkouts.
+  if (['e98b4c81', '9da8a62d', ...economyCatalogVersions].includes(versionParts[2])
+    && economyCatalogVersions.includes(catalog.fingerprint)) versionParts[2] = catalog.fingerprint
+  const oldTiming = raw.schemaVersion === 2 && versionParts.join('-') === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
   if (oldWalls) versionParts[3] = BUILDING_VERSION
   const compatibleVersion = versionParts.join('-')
   const oldMapTab = raw.schemaVersion === 4 && compatibleVersion === `${m4ConfigVersion(world, catalog).replace(/^m4-/, 'm5-')}-${MAP_TAB_PROGRESSION_VERSION}`
@@ -76,6 +83,8 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
     check(record(data.progression) && Array.isArray(data.progression.unlockedRegions) && data.progression.unlockedRegions.every(id => REGIONS.some(r => r.id === id)), '区域数据')
     world = progressedWorld(world, data.progression as unknown as ProgressionState)
   } else world = progressedWorld(world, createProgression())
+  const economy = economyForWorld(data.economy, world, check)
+  world = progressedWorld(world, raw.schemaVersion === 4 ? data.progression as unknown as ProgressionState : createProgression(), economy.removedObjects)
   check(record(data) && finite(data.elapsedSeconds) && cell(data.cell) && world.isWalkable(data.cell), '世界时间或角色位置')
   check(finite(data.progress) && data.progress < 1 && typeof data.searching === 'boolean', '移动进度')
   const continuous = data.motion !== undefined
@@ -99,7 +108,7 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   check(record(production) && record(production.stamina) && record(production.vitals) && record(production.inventory), '物品或角色数据')
   const stamina = production.stamina
   check(integer(stamina.value) && integer(stamina.anchorMs) && finite(stamina.remainderMs)
-    && stamina.remainderMs < STAMINA_INTERVAL_MS && (stamina.value < 100 || stamina.remainderMs === 0), '体力计时')
+    && stamina.remainderMs < STAMINA_INTERVAL_MS && (stamina.value < 100 || stamina.remainderMs === 0), '精力计时')
   for (const stat of ['hp', 'hunger', 'water', 'temperature']) check(finite(production.vitals[stat]) && production.vitals[stat] <= 100, `属性 ${stat}`)
   if (production.supplyOrders !== undefined) {
     check(Array.isArray(production.supplyOrders) && production.supplyOrders.length <= 3, '补给订单')
@@ -150,6 +159,7 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   }
   check(expectedChains.size === 0, '关键生成器来源丢失')
   const migrated = structuredClone(raw) as unknown as SaveEnvelope
+  migrated.data.economy = structuredClone(economy)
   // Additive UI-driven orders: older schema 4 saves have none, without changing existing progress.
   migrated.data.production.supplyOrders ??= []
   if (legacy) {
@@ -194,12 +204,13 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   }
   // Both job systems validate exact ownership before the shared orphan check.
   const reserved = new Set([...migrated.data.construction.jobs.flatMap(job => job.reservedIds),
-    ...(migrated.data.survival.taming.job?.reservedIds ?? [])])
+    ...(migrated.data.survival.taming.job?.reservedIds ?? []), ...(economy.clearing?.reservedIds ?? [])])
   for (const item of Object.values(migrated.data.production.inventory.items)) check(item.reservedBy === null || reserved.has(item.id), '孤立的物资预留')
   if (raw.schemaVersion < 4) migrated.data.progression = createProgression()
   if (record(migrated.data.progression) && migrated.data.progression.regionUnlock === undefined) migrated.data.progression.regionUnlock = null
   if (record(migrated.data.progression) && migrated.data.progression.regionContent === undefined) migrated.data.progression.regionContent = createRegionContent()
   validateProgression(migrated.data.progression, migrated.data, world, check)
+  validateEconomy(economy, migrated.data, world, check)
   if (populateRegionContent(world, migrated.data.construction, migrated.data.survival, migrated.data.progression)) {
     validateConstruction(migrated.data.construction, migrated.data, world, check)
     validateSurvival(migrated.data.survival, migrated.data, world, catalog, check)

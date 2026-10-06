@@ -75,6 +75,8 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
     check(typeof enemy.kind === 'string' && has(ENEMIES, enemy.kind), '敌人种类')
     check(finite(enemy.hp) && enemy.hp > 0 && enemy.hp <= ENEMIES[enemy.kind as keyof typeof ENEMIES].hp, '敌人生命')
     actor(enemy)
+    if (enemy.patrol !== undefined) check(enemy.residentId && record(enemy.patrol)
+      && integer(enemy.patrol.index) && enemy.patrol.index < 4 && finite(enemy.patrol.remaining) && enemy.patrol.remaining <= 2, '野生动物巡逻状态')
     if (enemy.residentId !== undefined) {
       const spawn = REGION_BOARS.find(s => s.id === enemy.residentId)
       check(spawn && !residents.has(spawn.id) && enemy.kind === 'boar' && world.chunkAt(enemy.cell as Cell)?.id === spawn.regionId

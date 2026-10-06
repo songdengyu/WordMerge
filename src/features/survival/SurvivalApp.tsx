@@ -13,6 +13,7 @@ import { CampJournal, StoryDialogue } from './CampJournal'
 import { DayCycle } from './DayCycle'
 import { TestControls } from './TestControls'
 import { CompanionWheel } from './CompanionWheel'
+import { CurrencyIcon, Shop } from './Shop'
 import { currentChapter, decorError } from '../../game/progression'
 import { reachableRegionGate } from '../../game/regionUnlock'
 import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
@@ -55,6 +56,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const scene = useRef<CampScene | null>(null)
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [shopOpen, setShopOpen] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const openMerge = useCallback(() => setMergeOpen(true), [])
   const [buildingOpen, setBuildingOpen] = useState(false)
@@ -90,6 +92,9 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => { void runtime.checkpoint() }, [runtime])
   useEffect(() => { if (notice) message(notice) }, [notice, message])
   useEffect(() => {
+    if (state.feedback.startsWith('清理完成：')) message(state.feedback)
+  }, [state.feedback, message])
+  useEffect(() => {
     runtime.setPauseReason('renderer-loading', true)
     setError(null)
     const renderer = new CampScene(host.current!, runtime, message, setError, chooseOrigin, openMerge, openWheel, openJournal)
@@ -99,6 +104,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   }, [runtime, message, attempt, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal])
   useEffect(() => {
     if (state.survival.failure || state.progression.dialogue) {
+      setShopOpen(false)
       setWheelOpen(false)
       setSettingsOpen(false); setCareOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
     }
@@ -108,9 +114,9 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => { scene.current?.setCompanionControl(companionControl) }, [companionControl, attempt])
   useEffect(() => {
     if (state.survival.companion.status !== 'active' || state.survival.failure || state.progression.dialogue
-      || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || careOpen || wheelOpen) cancelCompanionControl()
+      || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || careOpen || wheelOpen || shopOpen) cancelCompanionControl()
   }, [state.survival.companion.status, state.survival.failure, state.progression.dialogue,
-    placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, careOpen, wheelOpen, cancelCompanionControl])
+    placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, careOpen, wheelOpen, shopOpen, cancelCompanionControl])
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 4000)
@@ -132,7 +138,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const placementError = placement && runtime.placementError(placement.blueprintId, placement.origin, placement.rotation)
   const decorationError = decorationPlacement && decorError(decorationPlacement.kind, decorationPlacement.cell, state.progression, state.construction)
   const placing = !!placement || !!decorationPlacement
-  const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || paused
+  const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || shopOpen || paused
   useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
   const chapter = currentChapter(state.progression)
   const navigate = (action: StoryChapter['action']) => {
@@ -173,7 +179,11 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <DayCycle state={state} />
     </header>
     {placement && <div className={styles.chapter}><span className={styles.chapterDot} /><span>安放一个家</span><span className={styles.chapterLine} />从第一块木地基开始</div>}
-    <div className={styles.supplyBadge}>⚡ <strong data-testid="map-stamina">{state.production?.stamina.value ?? 100}</strong><span>体力</span></div>
+    <div className={styles.supplyBadge}>
+      <span className={styles.walletEntry} aria-label={`精力 ${state.production?.stamina.value ?? 100}`}>⚡ <strong data-testid="map-stamina">{state.production?.stamina.value ?? 100}</strong><small>精力</small></span>
+      <span className={styles.walletEntry} aria-label={`金币 ${state.production?.inventory.gold ?? 0}`}><CurrencyIcon kind="gold" /><strong data-testid="map-gold">{state.production?.inventory.gold ?? 0}</strong></span>
+      <span className={styles.walletEntry} aria-label={`钻石 ${state.production?.inventory.gems ?? 0}`}><CurrencyIcon kind="gems" /><strong data-testid="map-gems">{state.production?.inventory.gems ?? 0}</strong></span>
+    </div>
     {!saveFailed && !placing && !state.survival.failure && !state.progression.dialogue && <TestControls runtime={runtime} state={state} message={message} reset={reset} />}
     {!placing && <SurvivalHud state={state} runtime={runtime} open={openCare} openMerge={openMerge} message={message} />}
     <div className={styles.cameraControls}>
@@ -210,9 +220,9 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <button onClick={cancelCompanionControl}>取消操控</button>
     </section> : <footer className={styles.footer}>
       <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建造</button>
+      <button className={styles.shopButton} onClick={() => setShopOpen(true)}>商店</button>
       <div className={styles.activity} data-testid="activity"><span className={styles.activityDot} data-moving={state.activity !== 'idle'} />
-        <span>{paused ? '营地已暂停' : state.activity === 'unlocking' ? `开放区域 · ${Math.ceil(state.progression.regionUnlock!.remaining)} 秒` : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span>
-        <span className={styles.coordinates}>建设经验 <span data-testid="building-xp">{state.construction.xp}</span> · {state.saveStatus.state === 'saved' ? '已保存' : state.saveStatus.state === 'saving' ? '保存中…' : '待保存'}</span></div>
+        <span>{paused ? '营地已暂停' : state.activity === 'clearing' ? `清理中 · ${Math.ceil(state.economy.clearing!.remaining)} 秒` : state.activity === 'unlocking' ? `开放区域 · ${Math.ceil(state.progression.regionUnlock!.remaining)} 秒` : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span></div>
       <div className={styles.footerCard}>
         <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
           <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{chapter?.goal ?? '首章完成 · 继续建设与装扮'}</p></div></button>
@@ -225,7 +235,8 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <Icon kind="leaf" /><h2>{error ? '暂时无法进入营地' : '穿过林间小径…'}</h2>
       {error && <><p>{error}</p><button className={styles.primaryButton} onClick={() => setAttempt(value => value + 1)}>重新载入地图</button></>}
     </div>}
-    {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} />}
+    {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} openShop={() => { setMergeOpen(false); setShopOpen(true) }} />}
+    {shopOpen && <Shop runtime={runtime} close={() => setShopOpen(false)} place={place} decorate={decorate} merge={openMerge} />}
     {buildingOpen && !mergeOpen && <BuildingPanel runtime={runtime} select={selectBuilding} close={() => setBuildingOpen(false)} place={place} />}
     {careOpen && <CampCare runtime={runtime} close={() => setCareOpen(false)} openMerge={() => setMergeOpen(true)} message={message} control={controlCompanion} />}
     {wheelOpen && <CompanionWheel runtime={runtime} close={() => setWheelOpen(false)} message={message} control={controlCompanion} />}
@@ -248,7 +259,7 @@ export default function SurvivalApp() {
   const resetLock = useRef(false)
   const reset = async () => {
     if (resetLock.current || recovering) return
-    if (!window.confirm('清除本机此游戏的所有进度？\n包括合成棋盘、仓库、体力、货币、建筑、经验、委托及自动备份。清除后将从头开始，无法撤销。')) return
+    if (!window.confirm('清除本机此游戏的所有进度？\n包括合成棋盘、仓库、精力、货币、建筑、经验、委托及自动备份。清除后将从头开始，无法撤销。')) return
     resetLock.current = true
     setResetStatus('busy')
     try {

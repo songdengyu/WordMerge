@@ -18,7 +18,7 @@ export interface BuildingPartConfig {
 export interface Blueprint { id: string; name: string; width: number; height: number; parts: BuildingPartConfig[]; fixedRegion?: string }
 
 // Versioned with the build, like code: changing this catalog requires an explicit save migration.
-export const BLUEPRINTS: readonly Blueprint[] = [{
+const BASE_BLUEPRINTS: readonly Blueprint[] = [{
   id: 'cabin', name: '林间小木屋', width: 3, height: 2,
   parts: [
     { id: 'foundation', name: '木地基', kind: 'foundation', requires: [], materials: [202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 100, xp: 10, work: [{ x: 1, y: 1 }], edges: [] },
@@ -47,8 +47,14 @@ export const BLUEPRINTS: readonly Blueprint[] = [{
     { id: 'bed', name: '大屋木床', kind: 'bed', requires: ['roof'], materials: [202, 202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 80, xp: 15, work: [{ x: 0, y: 1 }], edges: [] },
   ],
 }]
-// Fixed regional discoveries have their own version in regionContentConfig; preserve the base M3 fingerprint.
-export const BUILDING_VERSION = fingerprint(JSON.stringify(BLUEPRINTS.filter(blueprint => !blueprint.fixedRegion)))
+// Shop additions are versioned by economyConfig; preserve the historical building/region fingerprints.
+export const BLUEPRINTS: readonly Blueprint[] = [...BASE_BLUEPRINTS,
+  ...[{ id: 'garden-cabin', name: '花园木屋' }, { id: 'guest-cabin', name: '林间客舍' }].map(variant => {
+    const source = BASE_BLUEPRINTS[variant.id === 'guest-cabin' ? 1 : 0]
+    return { ...source, ...variant, fixedRegion: undefined, parts: source.parts.map(part => ({ ...part })) }
+  }),
+]
+export const BUILDING_VERSION = fingerprint(JSON.stringify(BASE_BLUEPRINTS.filter(blueprint => !blueprint.fixedRegion)))
 export const blueprintById = (id: string) => BLUEPRINTS.find(blueprint => blueprint.id === id)
 
 export function validateBuildingCatalog(catalog: ProductionCatalog) {

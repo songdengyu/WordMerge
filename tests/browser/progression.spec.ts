@@ -205,7 +205,7 @@ test('M4 saves migrate without resetting simulation and existing buildings can s
     save.data.production.stamina.value = 140
   })
   await expect(page.getByTestId('map-stamina')).toHaveText('140')
-  await expect(page.getByTestId('building-xp')).toHaveText('70')
+  await expect.poll(async () => (await readSave(page)).data.construction.xp).toBe(70)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-chapter', 'letter')
   expect((await readSave(page)).schemaVersion).toBe(4)
   await page.getByRole('button', { name: '营地手记', exact: true }).click()

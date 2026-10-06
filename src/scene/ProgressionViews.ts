@@ -37,7 +37,7 @@ export class ProgressionViews {
       g.ellipse(p.x, p.y, 20, 10).fill({ color: 0xffedb6, alpha: .35 }).stroke({ color: 0xf9f1d1, width: 1 })
       g.roundRect(p.x - 9, p.y - 18, 18, 14, 3).fill(0xb58c63).stroke({ color: 0xf7e9c7, width: 1.5 })
       g.moveTo(p.x - 9, p.y - 13).lineTo(p.x + 9, p.y - 13).stroke({ color: 0xe7d0a3, width: 2 })
-      const text = new Text({ text: `${found ? '✓ ' : '✧ '}${region.landmark}`, style: { fontFamily: 'sans-serif', fontSize: 11, fill: 0xfff6dc, stroke: { color: 0x49644c, width: 3 } } })
+      const text = new Text({ text: found ? '✓' : '✧', style: { fontFamily: 'sans-serif', fontSize: 11, fill: 0xfff6dc, stroke: { color: 0x49644c, width: 3 } } })
       text.anchor.set(.5, 1); text.position.set(p.x, p.y - 24); this.view.addChild(text)
     }
   }

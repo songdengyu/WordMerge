@@ -14,6 +14,9 @@
 
 ## 实施要点
 
+- 经济扩展见 `docs/implementation/ECONOMY-RESOURCE-SHOP.md`。界面称“精力”，内部 `stamina` 不改；金币 / 钻石复用 `production.inventory.gold/gems`。`economy.ts` / Runtime 管理资源清理、商店购买、领取与移动消耗；schema 4 旧档补默认经济状态，新增工具 CSV 目录有显式指纹迁移，不能清档。
+- 资源点击显示场景工具气泡，斧头 / 石镐来自商店免费领取一次的工具箱合成链。预留工具、到达相邻工作位后扣料并保护 2 秒，和其他主角作业互斥；完工派生 WorldMap 移除物体。满仓材料保留领取权，商店领取；货币只发一次，不新增背包。商店蓝图归经济版本校验，原基础 / 区域建筑指纹不扩大。
+- 建造、修复、驯服、开地、清理开工扣 1 饱食度和水分；`walkPath.distance` 按主角实际距离每满 10 格扣各 1，经济状态保存余数。区域野猪无目标时在出生点 2 格范围巡逻、到点停 2 秒，优先原有索敌；保存可选 `patrol`。移除静态场景物体名称与地图建设经验保存文字，存档功能仍在设置。
 - React 18 + TypeScript + Vite 5，样式为 CSS Modules。旧 Demo 使用 Context / reducer；新模式由 `src/game/GameRuntime.ts` 管理权威状态，React 用 `useSyncExternalStore` 订阅，Pixi 仅负责地图表现。
 - 主角、伙伴与敌人移动已统一为 `smoothNavigation.ts` 连续坐标：直达优先，八向 A* 绕行，再做视线简化与安全拐角圆滑；沿路径按实际距离推进，途中改点立即从当前位置重规划。碰撞检查含地形、墙边与角色半径，不能仅检查端点。敌人仍用敌方墙门规则和自身速度，区域野猪的寻路 / 步进 / 存档共用区域边界；Runtime 按敌人 ID 保存上一模拟步位置供 Pixi 插值，交战只冻结双方。交互 / 建造仍用格坐标，工作位必须精确到达才扣料。保存 `motion.version = 1` 与精确位置，兼容旧 cell / progress 存档；细节见 `docs/implementation/SMOOTH-MOVEMENT.md`。
 - 伙伴指定移动 / 跟随 / 回位 / 追敌也复用 `SmoothPathSearch`、`moveTarget`、`walkPath`，速度仍由伙伴配置决定。伙伴保存可选 `motion.version = 1` 与精确位置，旧 cell / progress 从实际中途位置转换；路线按友方墙门验证，交战期间冻结路线恢复时重新检查。场景用 `previousCompanionPosition` 插值。主角不显示路径，只显示终点，伙伴手动移动显示绿色终点。

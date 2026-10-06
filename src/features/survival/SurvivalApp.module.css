@@ -37,7 +37,6 @@
 .activity { display: flex; align-items: center; gap: 7px; color: #f8f5db; font-size: 11px; margin: 0 7px 12px; text-shadow: 0 1px 3px #24442da6; }
 .activityDot { width: 5px; height: 5px; background: #ead9a8; border-radius: 50%; }
 .activityDot[data-moving="true"] { background: #e0f5b3; }
-.coordinates { margin-left: auto; font-size: 10px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 .footerCard { border-radius: 17px; background: #f8f3e5f7; border: 1px solid #fffbe899; box-shadow: 0 8px 30px #29432a24; pointer-events: auto; overflow: hidden; }
 .hint { display: flex; align-items: center; gap: 12px; padding: 18px 17px 16px; border: 0; background: none; color: inherit; font: inherit; width: 100%; text-align: left; cursor: pointer; }
 .hint > div { min-width: 0; }
@@ -48,8 +47,12 @@
 .footerActions button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 51px; border: 0; background: none; font: inherit; font-size: 12px; color: #4a6349; cursor: pointer; }
 .footerActions .craftButton { background: #e4ead4; color: #4f6b46; }
 .supplyBadge { position: absolute; top: calc(145px + env(safe-area-inset-top, 0px)); left: 22px; border: 1px solid #f3ecd87a; border-radius: 18px; padding: 7px 11px; display: flex; gap: 7px; font-size: 12px; background: #f5f0d6cc; color: #8e7747; pointer-events: none; }
-.supplyBadge span { font-size: 10px; color: #859172; }
-.buildButton { position: absolute; bottom: calc(100% + 8px); right: 6px; min-height: 42px; padding: 8px 13px; border: 1px solid #f8edce; border-radius: 12px; background: #f5efdbec; color: #61724e; pointer-events: auto; cursor: pointer; font: inherit; font-size: 12px; box-shadow: 0 3px 15px #37513322; }
+.supplyBadge { max-width: calc(100% - 44px); gap: 12px; }
+.walletEntry { display: flex; align-items: center; gap: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.walletEntry small { font-size: 10px; color: #859172; }
+.walletEntry svg { flex-shrink: 0; }
+.buildButton, .shopButton { position: absolute; bottom: calc(100% + 8px); right: 6px; width: 52px; height: 52px; padding: 0; border: 1px solid #f8edce; border-radius: 50%; background: #f5efdbec; color: #61724e; pointer-events: auto; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; box-shadow: 0 3px 15px #37513322; }
+.shopButton { right: 68px; }
 .dangerButton { min-height: 44px; padding: 10px 12px; border: 1px solid #c99c86; border-radius: 10px; background: #fbecde; color: #934d37; font: inherit; font-size: 12px; cursor: pointer; }
 .dangerButton:disabled { opacity: .5; cursor: default; }
 .placement { position: absolute; inset: auto 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: #faf3e4f5; padding: 16px; border-radius: 16px; box-shadow: 0 5px 30px #294b3444; }

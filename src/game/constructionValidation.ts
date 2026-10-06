@@ -4,6 +4,7 @@ import { buildingSegments } from './buildingSegments'
 import type { RuntimeData } from './saveData'
 import { sameCell, type WorldMap } from './world'
 import { canWalkLine } from './smoothNavigation'
+import { SHOP_PRODUCTS } from './economyConfig'
 
 type Check = (condition: unknown, message: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -12,10 +13,14 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 
 export function validateConstruction(raw: unknown, data: RuntimeData, world: WorldMap, check: Check,
   duration = orderSeconds): asserts raw is ConstructionState {
-  check(record(raw) && Array.isArray(raw.unlockedBlueprints) && raw.unlockedBlueprints.length === 1 && raw.unlockedBlueprints[0] === BLUEPRINTS[0].id, '蓝图来源')
+  const blueprints = [BLUEPRINTS[0].id, ...SHOP_PRODUCTS.filter(p => p.category === 'blueprint' && data.economy?.purchases.includes(p.id)).map(p => p.reward)]
+  check(record(raw) && Array.isArray(raw.unlockedBlueprints), '蓝图来源')
+  const unlocked = raw.unlockedBlueprints
+  check(unlocked.length === blueprints.length && new Set(unlocked).size === blueprints.length && blueprints.every(id => unlocked.includes(id)), '蓝图来源')
   check(Array.isArray(raw.buildings) && raw.buildings.length <= 16 + BLUEPRINTS.filter(b => b.fixedRegion).length && Array.isArray(raw.orders) && Array.isArray(raw.jobs), '建筑或工程列表')
   check(integer(raw.nextId) && raw.nextId > 0 && integer(raw.xp), '建筑序号或经验')
   const ids = new Set<string>(), prior = createConstruction()
+  prior.unlockedBlueprints = [...blueprints]
   let xp = 0
   for (const entry of raw.buildings) {
     check(record(entry) && typeof entry.id === 'string' && /^b[1-9]\d*$/.test(entry.id) && !ids.has(entry.id) && Number(entry.id.slice(1)) < raw.nextId, '建筑 ID')

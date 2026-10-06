@@ -29,7 +29,9 @@ describe('continuous path geometry', () => {
     expect(pointDistance(start, axial.position)).toBeCloseTo(pointDistance(start, diagonal.position))
     expect(diagonal.position.x).toBeGreaterThan(start.x)
     expect(diagonal.position.y).toBeGreaterThan(start.y)
-    expect(walkPath(start, route, 100)).toEqual({ position: goal, route: [] })
+    const arrived = walkPath(start, route, 100)
+    expect(arrived).toMatchObject({ position: goal, route: [] })
+    expect(arrived.distance).toBeCloseTo(pointDistance(start, goal))
     expect(fullPath(world, start, start)).toEqual([])
   })
 

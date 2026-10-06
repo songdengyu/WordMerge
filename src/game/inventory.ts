@@ -129,7 +129,7 @@ export function applyInventoryCommand(original: ProductionState, catalog: Produc
     if (inventory.warehouse.length !== command.expectedCapacity) return reject('仓库容量已更新，请重新查看')
     const cost = WAREHOUSE_EXPANSION_COSTS[(inventory.warehouse.length - 6) / 3]
     if (cost === undefined) return reject('仓库已达到最大容量')
-    if (inventory.gems < cost) return reject('晶石不足')
+    if (inventory.gems < cost) return reject('钻石不足')
     inventory.gems -= cost; inventory.warehouse.push(null, null, null)
     return success('仓库容量 +3')
   }
@@ -178,9 +178,9 @@ export function applyInventoryCommand(original: ProductionState, catalog: Produc
     if (config.itemType === 'generator') {
       if (!isActiveGenerator(inventory, catalog, item.id)) return reject('只有棋盘同链最高等级生成器可以使用')
       if (config.openCost === null || !config.drops.length) return reject('请先升级生成器')
-      if (!emptyLocation(inventory)) return reject('棋盘和仓库都已满，未消耗体力')
+      if (!emptyLocation(inventory)) return reject('棋盘和仓库都已满，未消耗精力')
       const stamina = spendStamina(state.stamina, config.openCost, now)
-      if (!stamina) return reject('体力不足，可先整理物品或使用补给')
+      if (!stamina) return reject('精力不足，可先整理物品或使用补给')
       const drop = weightedDrop(config, () => random(inventory))
       if (drop === null) return reject('生成器没有有效产物')
       const location = emptyLocation(inventory, true)!

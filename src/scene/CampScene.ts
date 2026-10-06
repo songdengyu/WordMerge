@@ -49,13 +49,6 @@ function makeObject(object: WorldObject): Container {
     g.moveTo(-11, -32).lineTo(11, -32).stroke({ color: 0x806647, width: 2 })
   }
   root.addChild(g)
-  if (object.name) {
-    const text = new Text({ text: object.name, style: { fontFamily: 'sans-serif', fontSize: 11, fill: 0xfaf5dc,
-      stroke: { color: 0x3c5445, width: 3 } } })
-    text.anchor.set(0.5, 1)
-    text.y = object.kind === 'sign' ? -46 : -20
-    root.addChild(text)
-  }
   const p = gridToWorld(object)
   root.position.set(p.x, p.y)
   root.zIndex = p.y
@@ -219,13 +212,16 @@ export class CampScene {
         if (!this.disposed) this.onMessage(result.accepted ? result.message ?? '已指派伙伴' : result.reason)
       }); return
     }
-    const object = this.runtime.world.objectAt(cell)
+    const object = this.runtime.world.objectAt(cell) ?? this.runtime.world.allObjects()
+      .filter(o => this.runtime.world.chunkAt(o)?.unlocked).sort((a, b) => gridToWorld(b).y - gridToWorld(a).y).find(o => {
+        const p = gridToWorld(o), height = o.kind === 'tree' ? 104 : o.kind === 'sign' ? 40 : o.kind === 'boulder' ? 32 : 12
+        return Math.abs(tapPoint.x - p.x) <= (o.kind === 'tree' ? 28 : 22) && tapPoint.y >= p.y - height && tapPoint.y <= p.y + 7
+      })
     if (object) {
-      this.onMessage(object.kind === 'campfire' ? '旧营火旁留着生活的痕迹，也许有人来过。'
-        : object.kind === 'sign' ? '褪色的路标指向森林深处，先熟悉这片营地吧。'
-        : '这片地面被挡住了，试试旁边的小径。')
+      this.buildingBubbles.selectResource(object.id)
       return
     }
+    this.buildingBubbles.selectResource(null)
     void this.runtime.dispatch({ type: 'move', target: point }).then(result => {
       if (!this.disposed && !result.accepted) this.onMessage(result.reason)
     })
@@ -313,7 +309,8 @@ export class CampScene {
   private buildMap() {
     this.ground.removeChildren().forEach(child => child.destroy({ children: true }))
     this.chunks.length = 0
-    this.regionSignature = this.runtime.getUiSnapshot().progression.unlockedRegions.join(',')
+    const state = this.runtime.getUiSnapshot()
+    this.regionSignature = `${state.progression.unlockedRegions.join(',')}|${state.economy.removedObjects.join(',')}`
     for (const config of this.runtime.world.config.chunks) {
       const chunk = this.runtime.world.chunkAt({ x: config.x * CHUNK_SIZE, y: config.y * CHUNK_SIZE })!
       const view = new Container()
@@ -363,7 +360,7 @@ export class CampScene {
   private render = () => {
     if (this.disposed || this.contextLost) return
     const snapshot = this.runtime.getSceneSnapshot()
-    if (this.regionSignature !== snapshot.progression.unlockedRegions.join(',')) this.buildMap()
+    if (this.regionSignature !== `${snapshot.progression.unlockedRegions.join(',')}|${snapshot.economy.removedObjects.join(',')}`) this.buildMap()
     this.progressionViews.draw(snapshot.progression)
     if (snapshot.progression.outfit !== this.outfit) {
       this.outfit = snapshot.progression.outfit; this.player.destroy({ children: true })
@@ -385,7 +382,7 @@ export class CampScene {
     this.drawBuildings(snapshot)
     this.survivalActors.draw(snapshot, this.runtime.getInterpolation())
     const lights = [
-      ...this.runtime.world.config.objects.filter(o => o.kind === 'campfire'),
+      ...this.runtime.world.allObjects().filter(o => o.kind === 'campfire'),
       ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
     ].map(cell => this.camera.toScreen(gridToWorld(cell)))
     const light = this.atmosphere.draw(snapshot, this.lastWidth, this.lastHeight, lights)

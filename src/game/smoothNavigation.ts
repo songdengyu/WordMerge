@@ -117,6 +117,7 @@ export class SmoothPathSearch {
 
 /** Consume real distance, carrying unused movement across waypoints instead of stopping at each one. */
 export function walkPath(start: Cell, path: readonly Cell[], distance: number) {
+  const budget = distance
   let position = start, index = 0
   while (index < path.length && distance > EPSILON) {
     const target = path[index], length = pointDistance(position, target)
@@ -126,5 +127,5 @@ export function walkPath(start: Cell, path: readonly Cell[], distance: number) {
       position = { x: position.x + (target.x - position.x) * t, y: position.y + (target.y - position.y) * t }; distance = 0
     }
   }
-  return { position: { ...position }, route: path.slice(index) }
+  return { position: { ...position }, route: path.slice(index), distance: Math.max(0, budget - distance) }
 }

@@ -23,10 +23,13 @@ import { REGION_UNLOCK_SECONDS, requestRegionUnlock, type RegionUnlockCommand } 
 import { REGIONS } from './progressionConfig'
 import { createRegionContent } from './regionContentConfig'
 import { populateRegionContent } from './regionContent'
+import { applyEconomyCommand, createEconomy, releaseClearing, resourceOrderId, spendActionNeeds, spendMovementNeeds, type EconomyCommand, type EconomyState } from './economy'
+import { CLEAR_SECONDS, RESOURCE_RULES } from './economyConfig'
+import { exchangeItems } from './inventory'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand | EconomyCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -35,7 +38,7 @@ export interface UiSnapshot {
   readonly hour: number
   readonly minute: number
   readonly isDay: boolean
-  readonly activity: 'idle' | 'searching' | 'walking' | 'building' | 'taming' | 'unlocking'
+  readonly activity: 'idle' | 'searching' | 'walking' | 'building' | 'taming' | 'unlocking' | 'clearing'
   readonly player: Cell
   readonly destination: Cell | null
   readonly feedback: string
@@ -49,6 +52,7 @@ export interface UiSnapshot {
   readonly shelter: ReturnType<typeof shelterAt>
   readonly warning: string
   readonly progression: ProgressionState
+  readonly economy: EconomyState
 }
 export interface SceneSnapshot {
   readonly position: Cell
@@ -62,6 +66,7 @@ export interface SceneSnapshot {
   readonly construction: ConstructionState
   readonly survival: SurvivalState
   readonly progression: ProgressionState
+  readonly economy: EconomyState
 }
 
 /** Sole owner of world simulation. React/Pixi own no gameplay state or clocks. */
@@ -86,6 +91,7 @@ export class GameRuntime {
   private construction = createConstruction()
   private survival: SurvivalState
   private progression = createProgression()
+  private economy = createEconomy()
   private storyBusy = false
   world: WorldMap
   private navigation: NavigationGrid
@@ -178,6 +184,10 @@ export class GameRuntime {
     const pending = this.commands.splice(0)
     this.constructionChanged = false
     const results = pending.map(({ command }) => {
+      if (this.economy.clearing && (command.type === 'move' || command.type.startsWith('building-') || command.type.startsWith('region-')
+        || command.type.startsWith('taming-') || command.type === 'companion-rescue' || command.type === 'player-rest')) {
+        return { accepted: false, reason: '请先完成或取消当前清理任务' } as CommandResult
+      }
       if (command.type === 'move') {
         if (this.progression.regionUnlock) return { accepted: false, reason: '已安排开放区域，请先完成或取消前往' } as CommandResult
         if (this.survival.taming.job) return { accepted: false, reason: '已安排驯服，请先完成或取消前往' } as CommandResult
@@ -187,6 +197,20 @@ export class GameRuntime {
         return this.move(command.target)
       }
       if (!this.catalog || !this.production) return { accepted: false, reason: '物品配置尚未就绪' } as CommandResult
+      if (command.type === 'resource-interact' || command.type === 'resource-cancel' || command.type === 'shop-buy' || command.type === 'loot-claim') {
+        const wasTravel = this.economy.clearing?.phase === 'travel' && command.type === 'resource-cancel' && command.objectId === this.economy.clearing.objectId
+        const result = applyEconomyCommand(this.economy, this.production, this.construction, this.progression, this.world, this.point, this.catalog,
+          !!this.construction.jobs.length || !!this.survival.taming.job || !!this.progression.regionUnlock, command)
+        if (!result.accepted) return result
+        this.economy = result.state; this.production = result.production; this.construction = result.construction; this.progression = result.progression
+        this.feedback = result.message
+        if (command.type === 'resource-interact') {
+          this.productionOrderFocus = resourceOrderId(command.objectId)
+          if (this.economy.clearing) { this.survival = { ...this.survival, resting: false }; this.move(this.economy.clearing.workCell) }
+        }
+        if (wasTravel) this.stopMovement()
+        return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
+      }
       if (command.type === 'test-vital') {
         if (!Object.prototype.hasOwnProperty.call(TEST_VITAL_NAMES, command.stat) || (command.delta !== -10 && command.delta !== 10)) {
           return { accepted: false, reason: '无效的状态测试参数' } as CommandResult
@@ -289,6 +313,7 @@ export class GameRuntime {
           if (this.construction.jobs[0]?.phase === 'travel') this.abandonTravel('无法到达工作位，物资已释放')
           if (this.survival.taming.job?.phase === 'travel') this.abandonTaming('无法到达动物身边，物资已释放')
           if (this.progression.regionUnlock?.phase === 'travel') this.abandonRegionUnlock('无法到达指示牌，已取消前往')
+          if (this.economy.clearing?.phase === 'travel') this.abandonClearing('无法到达清理位置，工具已释放')
         }
       }
     }
@@ -299,16 +324,21 @@ export class GameRuntime {
     }
     if (this.route.length) {
       const moved = walkPath(this.point, this.route, PLAYER_SPEED * FIXED_STEP_MS / 1000)
+      if (this.production) {
+        this.economy = { ...this.economy }; this.production = { ...this.production }
+        spendMovementNeeds(this.economy, this.production, moved.distance)
+      }
       this.point = moved.position; this.route = moved.route
       if (!this.route.length && !this.search) this.feedback = '已到达目的地，看看附近吧'
     }
     this.advanceConstruction()
     this.advanceTaming()
     this.advanceRegionUnlock()
+    this.advanceClearing()
     let survivalChanged = false
     if (this.production) {
       const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000,
-        this.progression.regionUnlock?.phase === 'unlocking', this.point)
+        this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing', this.point)
       this.survival = result.state; this.production = result.production; this.construction = result.construction
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
@@ -412,6 +442,7 @@ export class GameRuntime {
       }
       const { config } = getOrderTarget(this.construction, order)
       Object.assign(this.construction.jobs[0], { phase: 'building', reservedIds: [], remaining: orderSeconds(config, order) })
+      spendActionNeeds(this.production)
       this.destination = null
       this.feedback = `${config.name}施工中，主角与当前部件受到保护`
       this.constructionChanged = true
@@ -468,6 +499,7 @@ export class GameRuntime {
         delete this.production.inventory.items[id]
       }
       Object.assign(this.survival.taming.job!, { phase: 'taming', remaining: TAMING_SECONDS, reservedIds: [] })
+      spendActionNeeds(this.production)
       this.stopMovement(); this.feedback = '正在驯服栗栗，主角受到保护'; this.constructionChanged = true
     } else {
       this.survival = structuredClone(this.survival)
@@ -495,13 +527,14 @@ export class GameRuntime {
         this.abandonRegionUnlock('暂时无法开放区域，请重新点击指示牌'); return
       }
       this.progression = { ...this.progression, regionUnlock: { ...job, phase: 'unlocking', remaining: REGION_UNLOCK_SECONDS } }
+      if (this.production) { this.production = { ...this.production }; spendActionNeeds(this.production) }
       this.stopMovement(); this.feedback = `正在开放${region.name}，主角受到保护`; this.constructionChanged = true
     } else {
       const remaining = Math.max(0, job.remaining - FIXED_STEP_MS / 1000)
       this.progression = { ...this.progression, regionUnlock: { ...job, remaining } }
       if (remaining > .000001) return
       this.progression = { ...this.progression, regionUnlock: null, unlockedRegions: [...this.progression.unlockedRegions, region.id], regionContent: structuredClone(this.progression.regionContent) }
-      this.world = progressedWorld(this.world, this.progression)
+      this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
       this.construction = structuredClone(this.construction); this.survival = structuredClone(this.survival)
       populateRegionContent(this.world, this.construction, this.survival, this.progression)
       this.navigation = constructionNavigation(this.world, this.construction)
@@ -509,10 +542,57 @@ export class GameRuntime {
     }
   }
 
+  private abandonClearing(message: string) {
+    if (!this.production) return
+    this.economy = structuredClone(this.economy); this.production = structuredClone(this.production)
+    releaseClearing(this.economy, this.production)
+    this.stopMovement(); this.feedback = message; this.constructionChanged = true
+  }
+
+  private advanceClearing() {
+    const job = this.economy.clearing
+    if (!job || !this.production || !this.catalog) return
+    const object = this.world.allObjects().find(o => o.id === job.objectId)
+    if (!object) { this.abandonClearing('物体已发生变化，请重新选择'); return }
+    const rule = RESOURCE_RULES[object.kind]
+    if (job.phase === 'travel') {
+      if (this.route.length || this.search) return
+      if (!sameCell(this.point, job.workCell) || job.reservedIds.length !== 1 || job.reservedIds.some(id => {
+        const item = this.production!.inventory.items[id]
+        return !item || item.itemId !== rule.tool || item.reservedBy !== resourceOrderId(object.id)
+      })) { this.abandonClearing('清理条件发生变化，工具已释放'); return }
+      this.production = structuredClone(this.production); this.economy = structuredClone(this.economy)
+      for (const id of job.reservedIds) {
+        const item = this.production.inventory.items[id]
+        if (item.location.kind === 'board') this.production.inventory.board[item.location.index].instanceId = null
+        else this.production.inventory.warehouse[item.location.index] = null
+        delete this.production.inventory.items[id]
+      }
+      spendActionNeeds(this.production)
+      Object.assign(this.economy.clearing!, { phase: 'clearing', remaining: CLEAR_SECONDS, reservedIds: [] })
+      this.stopMovement(); this.feedback = `正在清理${rule.name}，主角受到保护`; this.constructionChanged = true
+      return
+    }
+    this.economy = structuredClone(this.economy)
+    this.economy.clearing!.remaining = Math.max(0, job.remaining - FIXED_STEP_MS / 1000)
+    if (this.economy.clearing!.remaining > 1e-6) return
+    this.production = structuredClone(this.production)
+    this.economy.removedObjects.push(object.id)
+    this.economy.clearingOrders = this.economy.clearingOrders.filter(id => id !== object.id)
+    this.economy.clearing = null
+    this.production.inventory.gold += rule.gold; this.production.inventory.gems += rule.gems
+    const delivered = exchangeItems(this.production.inventory, this.catalog, [], rule.items)
+    if (!delivered) this.economy.pendingLoot.push(object.id)
+    this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
+    this.navigation = constructionNavigation(this.world, this.construction)
+    this.feedback = `清理完成：金币 +${rule.gold}，钻石 +${rule.gems}，${delivered ? rule.items.map(id => this.catalog!.itemById.get(id)!.name).join('、') : '物资已保留，请到商店领取'}`
+    this.constructionChanged = true
+  }
+
   /** Simulation event entry; there is intentionally no player-facing damage command. */
   applyDamage(target: 'player' | BuildingTarget, amount: number) {
     if (!this.production || this.pauses.size || this.closed) return
-    if (target === 'player' && (this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking')) return
+    if (target === 'player' && (this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing')) return
     const result = constructionDamage(this.construction, this.production, target, amount)
     this.construction = result.state; this.production = result.production
     this.navigation = constructionNavigation(this.world, this.construction)
@@ -523,6 +603,9 @@ export class GameRuntime {
 
   private enterFailure(cause: Failure['cause']) {
     if (!this.production || !this.catalog || this.survival.failure) return
+    this.economy = structuredClone(this.economy); this.production = structuredClone(this.production)
+    releaseClearing(this.economy, this.production)
+    this.economy.clearing = null
     this.progression = { ...this.progression, regionUnlock: null }
     const result = beginFailure(this.survival, this.production, this.construction, this.catalog, this.gameMinutes(), cause)
     this.survival = result.state; this.production = result.production; this.construction = result.construction
@@ -570,11 +653,11 @@ export class GameRuntime {
     return {
       day: Math.floor(minutes / 1440) + 1, hour, minute: minutes % 60, isDay: hour >= 6 && hour < 19,
       player: { ...this.cell }, destination: this.destination ? { ...this.destination } : null,
-      activity: this.progression.regionUnlock?.phase === 'unlocking' ? 'unlocking' : this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
+      activity: this.economy.clearing?.phase === 'clearing' ? 'clearing' : this.progression.regionUnlock?.phase === 'unlocking' ? 'unlocking' : this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
       feedback: this.feedback, pauseReasons: [...this.pauses], productionOrderFocus: this.productionOrderFocus,
-      production: this.production, construction: this.construction, protected: this.construction.jobs[0]?.phase === 'building' || this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking', saveStatus: this.saveStatus,
+      production: this.production, construction: this.construction, protected: this.construction.jobs[0]?.phase === 'building' || this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing', saveStatus: this.saveStatus,
       survival: this.survival, shelter: shelterAt(this.construction, this.cell),
-      progression: this.progression,
+      progression: this.progression, economy: this.economy,
       warning: this.production ? survivalWarning(this.survival, this.production, this.construction, this.cell, this.gameMinutes()) : '',
     }
   }
@@ -586,7 +669,7 @@ export class GameRuntime {
   private makeSceneSnapshot(previousPosition: Cell, previousCompanionPosition = actorPosition(this.survival.companion), previousEnemyPositions = this.enemyPositions()): SceneSnapshot {
     return { position: this.position(), previousPosition, previousCompanionPosition: { ...previousCompanionPosition }, previousEnemyPositions, route: this.route.map(cell => ({ ...cell })),
       destination: this.destination ? { ...this.destination } : null,
-      elapsedSeconds: this.elapsedSeconds, gameMinutes: this.gameMinutes(), construction: this.construction, survival: this.survival, progression: this.progression }
+      elapsedSeconds: this.elapsedSeconds, gameMinutes: this.gameMinutes(), construction: this.construction, survival: this.survival, progression: this.progression, economy: this.economy }
   }
 
   private publish() { this.uiSnapshot = this.makeUiSnapshot(); this.listeners.forEach(listener => listener()) }
@@ -601,6 +684,7 @@ export class GameRuntime {
   private restore(data: RuntimeData) {
     this.productionOrderFocus = null
     const restored = structuredClone(data)
+    this.economy = restored.economy ?? createEconomy()
     const next = restored.route[0]
     this.point = restored.motion?.position ?? (next ? {
       x: restored.cell.x + (next.x - restored.cell.x) * restored.progress,
@@ -618,7 +702,7 @@ export class GameRuntime {
     this.progression = restored.progression
     this.progression.regionUnlock ??= null
     this.progression.regionContent ??= createRegionContent()
-    this.world = progressedWorld(this.world, this.progression)
+    this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
     if (this.progression.dialogue) this.pauses.add('story')
     else this.pauses.delete('story')
     if (this.production.vitals.hp === 0) this.pauses.add('failure')
@@ -640,7 +724,7 @@ export class GameRuntime {
   getSaveData(): RuntimeData {
     if (!this.production) throw new Error('物品尚未初始化')
     return structuredClone({ cell: this.cell, progress: 0, motion: { version: 1 as const, position: this.point }, route: this.route, destination: this.destination,
-      searching: this.search !== null, elapsedSeconds: this.elapsedSeconds, production: this.production, construction: this.construction, survival: this.survival, progression: this.progression })
+      searching: this.search !== null, elapsedSeconds: this.elapsedSeconds, production: this.production, construction: this.construction, survival: this.survival, progression: this.progression, economy: this.economy })
   }
 
   exportSave(): string {

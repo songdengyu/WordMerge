@@ -18,7 +18,7 @@ export interface Actor {
   /** Continuous world position; absent on legacy cell/progress saves. */
   motion?: { version: 1; position: Cell }
 }
-export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string }
+export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string; patrol?: { index: number; remaining: number } }
 export interface Companion extends Actor {
   status: 'wild' | 'active' | 'injured' | 'recovering'
   hp: number; mode: 'guard' | 'follow' | 'move'; guard: Cell; orderedEnemy: string | null; recoveryRemaining: number
@@ -164,6 +164,26 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
       const destination = moveTarget(grid, candidate.cell)
       if (destination && distance(enemy.cell, pointCell(candidate.cell)) <= BOAR_AGGRO_RANGE
         && setRoute(enemy, candidate.target, destination, grid, world)) return
+    }
+    enemy.patrol ??= { index: 0, remaining: 0 }
+    if (enemy.patrol.remaining > 0) { stop(enemy); return }
+    if (enemy.target?.kind === 'point' && sameCell(actorPosition(enemy), enemy.target.cell)) {
+      enemy.patrol.index = (enemy.patrol.index + 1) % 4; enemy.patrol.remaining = 2
+      stop(enemy); return
+    }
+    // Patrol within two cells of the home point; pursuit still uses the existing regional aggro rules.
+    const offsets = [[2, 0], [0, 2], [-2, 0], [0, -2]]
+    const nearHome = (cell: Cell) => Math.max(Math.abs(cell.x - spawn.cell.x), Math.abs(cell.y - spawn.cell.y)) <= 2
+    const patrolGrid: NavigationGrid = { isWalkable: cell => nearHome(cell) && grid.isWalkable(cell),
+      canStep: (a, b) => nearHome(a) && nearHome(b) && grid.canStep(a, b) }
+    if (!nearHome(enemy.cell)) {
+      if (!setRoute(enemy, { kind: 'point', cell: spawn.cell }, spawn.cell, grid, world)) stop(enemy)
+      return
+    }
+    for (let i = 0; i < offsets.length; i++) {
+      const index = (enemy.patrol.index + i) % offsets.length, [x, y] = offsets[index]
+      const destination = { x: spawn.cell.x + x, y: spawn.cell.y + y }
+      if (setRoute(enemy, { kind: 'point', cell: destination }, destination, patrolGrid, world)) { enemy.patrol.index = index; return }
     }
     if (!setRoute(enemy, { kind: 'point', cell: spawn.cell }, spawn.cell, grid, world)) stop(enemy)
     return
@@ -327,6 +347,7 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     buddy.cooldown = Math.max(0, buddy.cooldown - dt)
   }
   for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id) {
+    if (enemy.patrol) enemy.patrol.remaining = Math.max(0, enemy.patrol.remaining - dt)
     moveActor(enemy, enemyGrids.get(enemy.id)!, world, ENEMIES[enemy.kind].speed, dt); enemy.cooldown = Math.max(0, enemy.cooldown - dt)
   }
   if (!state.duel && buddy.status === 'active') {

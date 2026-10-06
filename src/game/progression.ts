@@ -21,7 +21,7 @@ export type ProgressionCommand = { type: 'outfit-equip'; outfitId: string }
   | { type: 'decor-place'; kind: DecorId; cell: Cell } | { type: 'decor-remove'; kind: DecorId }
 export const createProgression = (): ProgressionState => ({ completed: [], choices: {}, dialogue: null, unlockedRegions: [], discoveries: [],
   witnessedDawn: false, ownedDecor: [], decorations: [], ownedOutfits: ['clay'], outfit: 'clay', regionUnlock: null, regionContent: createRegionContent() })
-export const progressedWorld = (world: WorldMap, progress: ProgressionState) => new WorldMap(world.config, progress.unlockedRegions, REGION_EXTENSIONS)
+export const progressedWorld = (world: WorldMap, progress: ProgressionState, removed: readonly string[] = []) => new WorldMap(world.config, progress.unlockedRegions, REGION_EXTENSIONS, removed)
 export const currentChapter = (progress: ProgressionState) => CHAPTERS[progress.completed.length] as StoryChapter | undefined
 export function chapterReady(chapter: StoryChapter, progress: ProgressionState, construction: ConstructionState, survival: SurvivalState, production: ProductionState) {
   const conditions = { always: true, foundation: construction.buildings.some(b => b.parts.foundation.built), companion: survival.companion.status !== 'wild',
@@ -89,8 +89,8 @@ export function applyStoryCommand(original: ProgressionState, source: Production
   if (!chapterReady(chapter, state, construction, survival, production)) return reject('所需物资或目标已变化，请整理后再来')
   if (!exchangeItems(production.inventory, catalog, chapter.requirements, chapter.rewardItems)) return reject('请先在棋盘留出奖励空位，物资尚未扣除；可稍后再读')
   state.completed.push(chapter.id); state.choices[chapter.id] = choice.id; state.dialogue = null
-  if (chapter.decor) state.ownedDecor.push(chapter.decor)
-  if (chapter.outfit) state.ownedOutfits.push(chapter.outfit)
+  if (chapter.decor && !state.ownedDecor.includes(chapter.decor)) state.ownedDecor.push(chapter.decor)
+  if (chapter.outfit && !state.ownedOutfits.includes(chapter.outfit)) state.ownedOutfits.push(chapter.outfit)
   return accept(choice.reply)
 }
 

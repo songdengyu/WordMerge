@@ -6,6 +6,8 @@
 
 ## 1. 技术路线与范围
 
+2026-10-06 经济扩展已接入现有 Runtime：`economy.ts` / `economyConfig.ts` / `economyValidation.ts` 管理资源清理、商店与额外行动消耗；沿用 `inventory.gold/gems`，精力仍用内部 `stamina` 字段。schema 4 增补经济状态并显式迁移工具目录指纹，派生 WorldMap 移除已清理物体；无独立背包或 React 发奖。细节与当前可调值见 [经济、资源清理与商店](implementation/ECONOMY-RESOURCE-SHOP.md)。
+
 | 层 | 选择 | 原因 |
 |---|---|---|
 | 项目与 UI | 保留 React 18、TypeScript、Vite 5、CSS Modules | 复用二合、仓库、订单、对话和移动端交互 |

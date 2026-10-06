@@ -9,18 +9,22 @@ import { DayCycle } from './DayCycle'
 import { SUPPLY_NAMES, type QuickSupplyCommand } from '../../game/quickSupply'
 import { SURVIVAL_RULES } from '../../game/survivalConfig'
 import { TAMING_ORDER, type TamingCommand } from '../../game/taming'
+import { resourceOrderId, type EconomyCommand } from '../../game/economy'
+import { RESOURCE_RULES } from '../../game/economyConfig'
+import { CurrencyIcon } from './Shop'
 import styles from './ProductionScreen.module.css'
 
 type Gesture = { id: string; pointerId: number; originX: number; originY: number; startX: number; startY: number; fromWarehouse: boolean; dragging: boolean }
 type Ghost = { itemId: number; id: string; x: number; y: number; returning: boolean }
 
-type OrderKind = 'build' | 'repair' | 'supply' | 'taming' | 'commission'
-const ORDER_NAMES = { build: '建造', repair: '修复', supply: '补给', taming: '驯服', commission: '委托' }
+type OrderKind = 'build' | 'repair' | 'supply' | 'taming' | 'commission' | 'clearing'
+const ORDER_NAMES = { build: '建造', repair: '修复', supply: '补给', taming: '驯服', commission: '委托', clearing: '清理' }
 function OrderTypeIcon({ kind }: { kind: OrderKind }) {
   return <span className={styles.orderType} title={ORDER_NAMES[kind]} aria-label={`${ORDER_NAMES[kind]}任务`}>
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {kind === 'build' && <path d="m2 9 8-6 8 6M4 8v9h12V8M8 17v-6h4v6" />}
       {kind === 'repair' && <path d="m3 17 7-7a5 5 0 0 1 6-7l-3 3 1 3 3 1a5 5 0 0 1-6 2l-6 6Z" />}
+      {kind === 'clearing' && <path d="m5 18 8-14m-3-2 3 2 5-1-1 7-5-2-3-2Z" />}
       {kind === 'supply' && <><rect x="3" y="5" width="14" height="12" rx="2" /><path d="M7 5V3h6v2M10 8v6m-3-3h6" /></>}
       {kind === 'taming' && <g fill="currentColor" stroke="none"><ellipse cx="4" cy="8" rx="2" ry="2.5" /><ellipse cx="8" cy="4.5" rx="2" ry="2.5" /><ellipse cx="13" cy="4.5" rx="2" ry="2.5" /><ellipse cx="17" cy="8" rx="2" ry="2.5" /><path d="M10 9c-3 0-3 3-5 5-2 3 0 5 3 4l2-1 3 1c3 1 5-2 3-4-2-2-3-5-6-5Z" /></g>}
       {kind === 'commission' && <><rect x="4" y="3" width="12" height="15" rx="2" /><path d="M8 2h4v3H8ZM7 10l2 2 4-4m-6 7h6" /></>}
@@ -28,7 +32,7 @@ function OrderTypeIcon({ kind }: { kind: OrderKind }) {
   </span>
 }
 
-export function ProductionScreen({ runtime, close, message }: { runtime: GameRuntime; close: () => void; message: (text: string) => void }) {
+export function ProductionScreen({ runtime, close, message, openShop }: { runtime: GameRuntime; close: () => void; message: (text: string) => void; openShop?: () => void }) {
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot)
   const catalog = runtime.catalog!
   const production = state.production!
@@ -38,6 +42,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const orderList = useRef<HTMLElement>(null)
   const commissions = activeOrders(inventory, catalog)
   const orderIds = [
+    ...state.economy.clearingOrders.map(resourceOrderId),
     ...(state.survival.taming.ordered ? [TAMING_ORDER] : []),
     ...production.supplyOrders.map(order => `supply:${order.stat}`),
     ...state.construction.orders.map(order => `building:${order.id}`),
@@ -61,7 +66,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const item = selected ? inventory.items[selected] : null
   const config = item ? catalog.itemById.get(item.itemId) : null
   const selectedLocked = item?.location.kind === 'board' && inventory.board[item.location.index].lock !== 0
-  const send = useCallback(async (command: InventoryCommand | QuickSupplyCommand | TamingCommand) => {
+  const send = useCallback(async (command: InventoryCommand | QuickSupplyCommand | TamingCommand | EconomyCommand) => {
     const result = await runtime.dispatch(command)
     const text = result.accepted ? `${result.message ?? '操作完成'}${result.persisted === false ? '（尚未保存）' : ''}` : result.reason
     setNotice(text)
@@ -191,14 +196,29 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
 
   return <div ref={root} className={styles.screen} data-testid="production-screen">
     <div className={styles.worldStatus}><DayCycle state={state} compact /></div>
-    <div className={styles.resources}><span>⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> / 100</small></span>
-      <span>◇ {inventory.gems}</span><span>● {inventory.gold}</span>
+    <div className={styles.resources}><span aria-label="精力">⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> 精力</small></span>
+      <span aria-label={`钻石 ${inventory.gems}`}><CurrencyIcon kind="gems" /> {inventory.gems}</span><span aria-label={`金币 ${inventory.gold}`}><CurrencyIcon kind="gold" /> {inventory.gold}</span>
       <small>{production.stamina.value >= 100 ? '自然恢复已满' : `每 10 秒恢复 1 点`}</small></div>
     <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
       message={text => { setNotice(text); message(text) }} />
       <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button></div>
-    <section ref={orderList} className={`${styles.orders} ${state.construction.orders.length || production.supplyOrders.length || state.survival.taming.ordered ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
+    <section ref={orderList} className={`${styles.orders} ${state.construction.orders.length || production.supplyOrders.length || state.survival.taming.ordered || state.economy.clearingOrders.length ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
       {[
+      ...state.economy.clearingOrders.map(objectId => {
+        const object = runtime.world.allObjects().find(o => o.id === objectId)!, rule = RESOURCE_RULES[object.kind], id = resourceOrderId(objectId)
+        const job = state.economy.clearing?.objectId === objectId ? state.economy.clearing : null
+        const owned = job ? 1 : availableItems(inventory).filter(i => i.itemId === rule.tool).length, ready = !job && owned > 0
+        return { id, content: <div className={styles.supplyOrder}>
+          <button {...orderProps(id, ready)} data-testid={`resource-order-${objectId}`} data-ready={String(ready)} disabled={!!job || !!state.pauseReasons.length}
+            onClick={async () => { runtime.focusProductionOrder(id); const result = await send({ type: 'resource-interact', objectId }); if (result.accepted && !result.openProduction) close() }}>
+            <OrderTypeIcon kind="clearing" /><strong>清理{rule.name}</strong>
+            <div className={styles.requirements}><span className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(rule.tool)!} compact /></span></div>
+            <small>{catalog.itemById.get(rule.tool)!.name} {owned}/1</small><small>{job ? job.phase === 'clearing' ? '清理中' : '已预留 · 正在前往' : ready ? '点击清理 · 自动前往' : '工具箱生产零件后合成'}</small>
+          </button>
+          <button className={styles.cancelSupply} aria-label={`取消清理${rule.name}订单`} disabled={job?.phase === 'clearing' || !!state.pauseReasons.length}
+            onClick={() => void send({ type: 'resource-cancel', objectId })}>×</button>
+        </div> }
+      }),
       ...(state.survival.taming.ordered ? [(() => {
         const job = state.survival.taming.job, requirements = SURVIVAL_RULES.companion.rescueItems
         const ready = !job && matchRequirements(inventory, requirements) !== null
@@ -272,6 +292,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
         .map(order => <div key={order.id} className={styles.orderSlot} data-order-id={order.id}>{order.content}</div>)}
       {!orderIds.length && <p>这批营地委托已全部完成，继续储备物资吧。</p>}
     </section>
+    {!!state.economy.clearingOrders.length && !state.economy.purchases.includes('starter-tools') && <button className={styles.toolHint} onClick={openShop}>到商店免费领取工具箱 →</button>}
     <div ref={boardArea} className={styles.boardArea} data-testid="board-scroll"><div className={styles.board}
       style={{ width: boardWidth, height: (boardWidth - 32) * 9 / 7 + 38 }}>
       {inventory.board.map((slot, index) => {

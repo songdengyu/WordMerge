@@ -39,10 +39,10 @@ export function CampJournal({ runtime, close, navigate, decorate }: { runtime: G
       <h3 className={styles.sectionTitle}>衣裳</h3><div className={styles.outfits}>{OUTFITS.map(outfit => <button key={outfit.id} disabled={!progress.ownedOutfits.includes(outfit.id) || !!state.pauseReasons.length}
         aria-pressed={progress.outfit === outfit.id} onClick={() => void send({ type: 'outfit-equip', outfitId: outfit.id })}>
         <svg viewBox="0 0 50 55" aria-hidden="true"><path d="M15 4 4 14l6 12 7-3-5 27h26l-5-27 7 3 6-12L35 4q-10 10-20 0" fill={`#${outfit.color.toString(16)}`} /><path d="M17 22h16M20 10l12 33" stroke="#f4e2bd" fill="none" /></svg>
-        <span>{outfit.name}</span><small>{progress.outfit === outfit.id ? '穿着中' : progress.ownedOutfits.includes(outfit.id) ? '换上' : '随故事获得'}</small>
+        <span>{outfit.name}</span><small>{progress.outfit === outfit.id ? '穿着中' : progress.ownedOutfits.includes(outfit.id) ? '换上' : '商店或故事获得'}</small>
       </button>)}</div>
       <h3 className={styles.sectionTitle}>给家添一点喜欢</h3>{DECORATIONS.map(decor => <div key={decor.id} className={styles.decor}>
-        <span style={{ color: decor.color }}>{decor.symbol}</span><div><strong>{decor.name}</strong><small>{progress.ownedDecor.includes(decor.id) ? progress.decorations.some(d => d.kind === decor.id) ? '已在营地摆放' : '收藏中 · 1 件' : '随故事获得'}</small></div>
+        <span style={{ color: decor.color }}>{decor.symbol}</span><div><strong>{decor.name}</strong><small>{progress.ownedDecor.includes(decor.id) ? progress.decorations.some(d => d.kind === decor.id) ? '已在营地摆放' : '收藏中 · 1 件' : '商店或故事获得'}</small></div>
         <button disabled={!progress.ownedDecor.includes(decor.id) || !!state.pauseReasons.length} onClick={() => decorate(decor.id)}>{progress.decorations.some(d => d.kind === decor.id) ? '移动' : '摆放'}</button>
         {progress.decorations.some(d => d.kind === decor.id) && <button onClick={() => void send({ type: 'decor-remove', kind: decor.id })}>收回</button>}
       </div>)}<p className={styles.muted}>衣裳与摆件仅改变外观，不增加温度或战力，也不会堵住通路。收回后仍在收藏中。</p>

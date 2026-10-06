@@ -5,6 +5,7 @@ import type { RuntimeData } from './saveData'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { REGION_UNLOCK_SECONDS, regionGates } from './regionUnlock'
 import { REGION_CONTENT_VERSION, REGION_BOARS, REGION_LODGE } from './regionContentConfig'
+import { SHOP_PRODUCTS } from './economyConfig'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -40,8 +41,9 @@ export function validateProgression(raw: unknown, data: RuntimeData, world: Worl
       && data.destination === null && data.progress === 0 && sameCell(data.motion?.position ?? data.cell, gate.workCell), '区域开放位置或计时')
   }
   const completed = raw.completed
-  const expectedDecor = CHAPTERS.filter(c => completed.includes(c.id)).flatMap(c => c.decor ? [c.decor] : [])
-  const expectedOutfits = ['clay', ...CHAPTERS.filter(c => completed.includes(c.id)).flatMap(c => c.outfit ? [c.outfit] : [])]
+  const bought = SHOP_PRODUCTS.filter(p => data.economy?.purchases.includes(p.id))
+  const expectedDecor = [...new Set([...CHAPTERS.filter(c => completed.includes(c.id)).flatMap(c => c.decor ? [c.decor] : []), ...bought.filter(p => p.category === 'decor').map(p => p.reward)])]
+  const expectedOutfits = [...new Set(['clay', ...CHAPTERS.filter(c => completed.includes(c.id)).flatMap(c => c.outfit ? [c.outfit] : []), ...bought.filter(p => p.category === 'outfit').map(p => p.reward)])]
   check(list(raw.ownedDecor, DECORATIONS.map(d => d.id)), '摆件来源')
   const ownedDecor = raw.ownedDecor
   check(ownedDecor.length === expectedDecor.length && expectedDecor.every(id => ownedDecor.includes(id)), '摆件来源')

@@ -34,14 +34,15 @@ export class WorldMap {
   readonly config: WorldConfig
   private readonly chunks = new Map<string, WorldChunk>()
   private readonly objects = new Map<string, WorldObject>()
+  private readonly configuredObjects: WorldObject[] = []
   private readonly blockedEdges = new Set<string>()
 
-  constructor(config: WorldConfig, unlocked: readonly string[] = [], extensions: readonly RegionExtension[] = []) {
+  constructor(config: WorldConfig, unlocked: readonly string[] = [], extensions: readonly RegionExtension[] = [], removed: readonly string[] = []) {
     this.config = config
     config.chunks.forEach(chunk => this.chunks.set(cellKey(chunk), { ...chunk, patches: extensions.find(e => e.id === chunk.id)?.patches ?? chunk.patches,
       unlocked: chunk.unlocked || unlocked.includes(chunk.id) }))
-    config.objects.forEach(object => this.objects.set(cellKey(object), object))
-    extensions.forEach(extension => extension.objects.forEach(object => this.objects.set(cellKey(object), object)))
+    this.configuredObjects = [...config.objects, ...extensions.flatMap(extension => extension.objects)]
+    this.configuredObjects.filter(object => !removed.includes(object.id)).forEach(object => this.objects.set(cellKey(object), object))
     config.blockedEdges.forEach(edge => this.blockedEdges.add(edgeKey(edge.from, edge.to)))
   }
 
@@ -51,6 +52,7 @@ export class WorldMap {
 
   objectAt(cell: Cell) { return this.objects.get(cellKey(cell)) }
   allObjects() { return [...this.objects.values()] }
+  allConfiguredObjects() { return this.configuredObjects }
 
   terrainAt(cell: Cell): Terrain | undefined {
     const chunk = this.chunkAt(cell)

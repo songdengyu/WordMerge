@@ -10,6 +10,7 @@ import { TAMING_SECONDS } from '../game/taming'
 import { REGIONS } from '../game/progressionConfig'
 import { REGION_UNLOCK_SECONDS, regionGates } from '../game/regionUnlock'
 import { gridToWorld, type Camera, type Point } from './camera'
+import { CLEAR_SECONDS, RESOURCE_RULES } from '../game/economyConfig'
 
 type Material = { id: number; owned: number; needed: number }
 type Bubble = Point & {
@@ -29,6 +30,9 @@ export class BuildingBubbles {
   private snapshot?: UiSnapshot
   private signature = ''
   private disposed = false
+  private selectedResource: string | null = null
+
+  selectResource(id: string | null) { this.selectedResource = id; this.snapshot = undefined }
 
   constructor(private readonly runtime: GameRuntime, host: HTMLDivElement,
     private readonly message: (text: string) => void, private readonly openMerge: () => void) {
@@ -45,6 +49,7 @@ export class BuildingBubbles {
     // Read the same configured SVG symbols as the merge board, without a separate art catalog.
     BLUEPRINTS.forEach(b => b.parts.forEach(p => [...p.materials, ...p.repairMaterials].forEach(id => ids.add(id))))
     SURVIVAL_RULES.companion.rescueItems.forEach(id => ids.add(id))
+    Object.values(RESOURCE_RULES).forEach(rule => ids.add(rule.tool))
     const sheets = new Map<string, Document>()
     for (const id of ids) {
       const item = this.runtime.catalog!.itemById.get(id)!
@@ -64,6 +69,18 @@ export class BuildingBubbles {
 
   private models(state: UiSnapshot): Bubble[] {
     const inventory = state.production!.inventory, available = availableItems(inventory), result: Bubble[] = []
+    const resourceIds = new Set([this.selectedResource, state.economy.clearing?.objectId, ...state.economy.clearingOrders])
+    for (const object of this.runtime.world.allObjects().filter(o => resourceIds.has(o.id) && this.runtime.world.chunkAt(o)?.unlocked)) {
+      const rule = RESOURCE_RULES[object.kind], job = state.economy.clearing?.objectId === object.id ? state.economy.clearing : null
+      const owned = job ? 1 : available.filter(i => i.itemId === rule.tool).length, ready = !job && owned > 0
+      const anchor = gridToWorld(object), x = anchor.x - RADIUS, y = anchor.y - (object.kind === 'tree' ? 112 : 48) - MATERIAL_HEIGHT
+      result.push({ id: `resource-bubble-${object.id}`, x, y, width: SIZE, height: MATERIAL_HEIGHT, kind: 'materials',
+        materials: [{ id: rule.tool, owned, needed: 1 }], ready, phase: job?.phase ?? 'materials', disabled: !!job,
+        progress: job?.phase === 'clearing' ? 1 - job.remaining / CLEAR_SECONDS : 0,
+        label: `清理${rule.name}，${this.runtime.catalog!.itemById.get(rule.tool)!.name} ${owned}/1，${job ? job.phase === 'clearing' ? '清理中' : '正在前往' : ready ? '点击清理' : '缺少工具，点击去合成'}`,
+        command: { type: 'resource-interact', objectId: object.id } })
+      if (job?.phase === 'travel' || !job && state.economy.clearingOrders.includes(object.id)) result.push(this.closeBubble(`cancel-resource-${object.id}`, '取消清理订单', x + SIZE - 6, y - 14, { type: 'resource-cancel', objectId: object.id }))
+    }
     for (const building of state.construction.buildings) {
       const blueprint = blueprintById(building.blueprintId)!, summary = buildingSummary(building)
       const anchor = gridToWorld(localToWorld(building, { x: (blueprint.width - 1) / 2, y: (blueprint.height - 1) / 2 }))
@@ -153,13 +170,13 @@ export class BuildingBubbles {
     return { id, label, x, y, command, width: 24, height: 24, kind: 'close', materials: [], ready: false, phase: '', progress: 0, disabled: false }
   }
 
-  private color(b: Bubble) { return b.ready ? 0xd6ecc1 : ['building', 'taming'].includes(b.phase) ? 0xfae4b7 : 0xfaf3e4 }
+  private color(b: Bubble) { return b.ready ? 0xd6ecc1 : ['building', 'taming', 'clearing'].includes(b.phase) ? 0xfae4b7 : 0xfaf3e4 }
 
   private create(model: Bubble): Entry {
     const view = new Container(), g = new Graphics(), ring = new Graphics(), focus = new Graphics()
     view.position.set(model.x, model.y); view.addChild(g)
     const color = this.color(model), ink = model.ready ? 0x34592d : 0x806c4c
-    const border = model.ready ? 0x93b77c : ['building', 'taming'].includes(model.phase) ? 0xd0b274 : 0xeee1c5
+    const border = model.ready ? 0x93b77c : ['building', 'taming', 'clearing'].includes(model.phase) ? 0xd0b274 : 0xeee1c5
     if (model.kind === 'sign') {
       g.ellipse(28, 47, 15, 4).fill({ color: 0x31432d, alpha: .18 })
       g.roundRect(25, 28, 6, 20, 2).fill(0x92724e)
@@ -223,7 +240,7 @@ export class BuildingBubbles {
           entry.ring.roundRect(4, 37, 48, 4, 2).fill({ color: 0x344d2e, alpha: .3 })
           if (model.progress > 0) entry.ring.roundRect(4, 37, Math.max(1, model.progress * 48), 4, 2).fill(0xe2efb3)
         }
-        if (['building', 'taming'].includes(model.phase) && model.progress > 0) for (let i = 0; i < model.materials.length; i++) {
+        if (['building', 'taming', 'clearing'].includes(model.phase) && model.progress > 0) for (let i = 0; i < model.materials.length; i++) {
           entry.ring.arc(i * (SIZE + MATERIAL_GAP) + RADIUS, RADIUS, RADIUS - 2, -Math.PI / 2, -Math.PI / 2 + Math.min(1, model.progress) * Math.PI * 2)
             .stroke({ color: 0x9c7d3a, width: 2, cap: 'round' })
         }

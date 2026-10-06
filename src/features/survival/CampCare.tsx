@@ -28,7 +28,7 @@ export function CampThreat({ state }: { state: UiSnapshot }) {
     <div><span>{dayCycle(state.hour * 60 + state.minute).label}
       {' · '}附近敌人 <b data-testid="enemy-count">{threats.length}</b></span>
       <span>伙伴 {state.survival.companion.status === 'active' ? Math.ceil(state.survival.companion.hp) : buddyStatus[state.survival.companion.status]}</span>
-      <span>{state.protected ? state.activity === 'unlocking' ? '开放区域保护' : state.activity === 'taming' ? '驯服保护' : '施工保护' : state.shelter.enclosed ? '门墙封闭' : '室外 / 缺口'}</span></div>
+      <span>{state.protected ? state.activity === 'clearing' ? '清理保护' : state.activity === 'unlocking' ? '开放区域保护' : state.activity === 'taming' ? '驯服保护' : '施工保护' : state.shelter.enclosed ? '门墙封闭' : '室外 / 缺口'}</span></div>
     <p>{damaged.length ? damaged.join(' · ') : state.warning}</p>
   </div>
 }
