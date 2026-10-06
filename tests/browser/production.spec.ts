@@ -163,7 +163,7 @@ test('a damaged current snapshot falls back to backup and preserves the recovery
   await page.getByTestId('board-cell-0').click()
   await expect(page.getByTestId('stamina-value')).toHaveText('149')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open('wordmerge-survival', 1); request.onsuccess = () => resolve(request.result) })
     const tx = db.transaction('snapshots', 'readwrite'), store = tx.objectStore('snapshots')

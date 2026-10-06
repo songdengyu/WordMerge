@@ -10,7 +10,7 @@
 
 先读 `docs/NEW-GAME.md` 了解当前阶段。新游戏策划共识以 `docs/design/CORE-RULES.md` 为入口；标注“讨论稿”的内容不视为已获用户确认。涉及游戏改造、配置或 UI 时，读取 `.agents/skills/wordmerge-development/SKILL.md`，再按需查看 `docs/GAME-BASELINE.md`、`docs/DEVELOPMENT.md`、`docs/LESSONS.md`。
 
-新游戏技术实现方案在 `docs/TECHNICAL-PLAN.md`。用户已确认 H5 优先；M1 地图、M2 合成 / 体力 / 本机保存、M3 建造、M4 生存 / 伙伴 / 夜袭 / 失败救援、M5 首章剧情 / 探索 / 装扮原型已实现，入口为 `?game=survival`，阶段记录在 `docs/implementation/`。三天供需脚本已验证，真机性能尚未验收；不要将方案中的全部目标写成运行现状。
+新游戏技术实现方案在 `docs/TECHNICAL-PLAN.md`。用户已确认 H5 优先；M1 地图、M2 合成 / 体力 / 本机保存、M3 建造、M4 生存 / 伙伴 / 夜袭 / 失败救援、M5 首章剧情 / 探索 / 装扮原型已实现，默认入口为 `/`（兼容 `?game=survival`），旧 Demo 仅通过 `?game=legacy` 进入，阶段记录在 `docs/implementation/`。三天供需脚本已验证，真机性能尚未验收；不要将方案中的全部目标写成运行现状。
 
 ## 实施要点
 

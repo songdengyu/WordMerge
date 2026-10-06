@@ -2,7 +2,7 @@
 
 ## 新游戏模块（M1–M3）
 
-入口 `/?game=survival`，与默认旧 Demo 互斥启动。新游戏使用独立规则状态，不能从旧 store 向新 Runtime 双向同步。
+默认入口 `/` 启动新游戏，兼容 `/?game=survival`；旧 Demo 仅通过 `/?game=legacy` 互斥启动。新游戏使用独立规则状态，不能从旧 store 向新 Runtime 双向同步。
 
 | 入口 | 职责 |
 |---|---|
@@ -107,7 +107,7 @@ unlock_level,upgrade_cost,per_level_increase,effect_stat,shape,color,accent
 
 ### Cloudflare Pages
 
-Git 集成使用 Vite 预设，构建命令 `npm run build`，输出目录 `dist`，根目录为本工程 `package.json` 所在目录，Node.js 使用 22。新游戏访问 `https://项目名.pages.dev/?game=survival`，不带查询参数仍为旧 Demo。存档按浏览器及站点分别保存，需要迁移进度时在设置导出、导入。
+Git 集成使用 Vite 预设，构建命令 `npm run build`，输出目录 `dist`，根目录为本工程 `package.json` 所在目录，Node.js 使用 22。新游戏直接访问 `https://项目名.pages.dev/`，原 `?game=survival` 链接仍有效；旧 Demo 改为显式 `?game=legacy`。存档按浏览器及站点分别保存，需要迁移进度时在设置导出、导入。
 
 2026-10-06 的 Cloudflare 日志使用 Node 22.16.0 / npm 10.9.2，安装时报 `Missing: esbuild@0.28.2 from lock file`。本地 npm 11.11.0 的 `npm ci` 能通过，但 npm 10.9.2 可复现缺项；修复用 `npx --yes npm@10.9.2 install --package-lock-only --ignore-scripts --no-audit --no-fund` 补齐 Vitest 嵌套 Vite 的可选 peer 依赖及 esbuild 平台包，再用 `npx --yes npm@10.9.2 ci --no-audit --no-fund` 验证。既有依赖版本未升级。提交并推送更新后的 `package-lock.json` 才能让远端部署获得修复；直接重试旧提交无效。后续更新依赖时同时检查云端使用的 npm 版本。
 

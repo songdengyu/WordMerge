@@ -18,7 +18,7 @@ async function pauseAndSave(page: Page) {
 async function seed(page: Page, hp: number, thirdEnemy = false) {
   await page.goto('/?game=survival'); await ready(page)
   const save = await pauseAndSave(page)
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
   save.data.elapsedSeconds = 650; save.data.cell = { x: 10, y: 8 }
   save.data.motion = { version: 1, position: { ...save.data.cell } }

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 async function enterCamp(page: Page) {
-  await page.goto('/?game=survival')
+  await page.goto('/')
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-paused', 'false')
 }
@@ -145,10 +145,10 @@ test('a real WebGL context loss pauses the world and restoration resumes it', as
   expect(errors).toEqual([])
 })
 
-test('legacy remains the default entry with its merge screen', async ({ page }) => {
+test('legacy remains available through an explicit query with its merge screen', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   await expect(page.locator('.app')).toBeVisible()
   await expect(page.getByTestId('survival-game')).toHaveCount(0)
   await expect(page.locator('canvas')).toHaveCount(0)

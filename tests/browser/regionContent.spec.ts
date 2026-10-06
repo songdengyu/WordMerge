@@ -15,7 +15,7 @@ async function readSave(page: Page) {
 async function seed(page: Page, edit: (save: any) => void) {
   await page.goto('/?game=survival'); await ready(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
-  const save = await readSave(page); await page.goto('/')
+  const save = await readSave(page); await page.goto('/?game=legacy')
   save.data.construction = { unlockedBlueprints: ['cabin'], nextId: 2, xp: 70, orders: [], jobs: [], buildings: [{ id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
     parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 20, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])) }] }
   save.data.progression.unlockedRegions = ['brook', 'grove']

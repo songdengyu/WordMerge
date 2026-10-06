@@ -15,7 +15,7 @@ async function seed(page: Page, edit: (save: any) => void) {
   await page.goto('/?game=survival'); await ready(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await ready(page); const save = await readSave(page)
-  await page.goto('/'); edit(save)
+  await page.goto('/?game=legacy'); edit(save)
   save.data.motion = { version: 1, position: { ...save.data.cell } }
   await page.evaluate(async value => {
     const db = await new Promise<IDBDatabase>(resolve => { const req = indexedDB.open('wordmerge-survival', 1); req.onsuccess = () => resolve(req.result) })

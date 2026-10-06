@@ -122,7 +122,7 @@ test('placement rejects occupied ground, can rotate and cancel, and fits a small
 test('an existing M2 save migrates without losing overflow, inventory or progress', async ({ page }) => {
   await enter(page)
   const current = await readSave(page)
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   const legacy = structuredClone(current)
   legacy.schemaVersion = 1
   legacy.configVersion = ['m2', ...current.configVersion.split('-').slice(1, 3)].join('-')
@@ -155,7 +155,7 @@ test('an existing completed M3 building upgrades to the new timing without losin
   await page.getByTestId('building-order-b1:foundation').click()
   await expect.poll(async () => (await readSave(page)).data.construction.xp).toBe(10)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   const previous = await readSave(page)
   previous.schemaVersion = 2; delete previous.data.survival
   previous.configVersion = ['m3', ...previous.configVersion.split('-').slice(1, 3), '6f54c437'].join('-')
@@ -261,7 +261,7 @@ test('scene repair bubbles keep cancellation, material refunds, keyboard access 
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
   const save = await readSave(page)
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   const data = save.data
   data.cell = { x: 12, y: 9 }
   data.motion = { version: 1, position: { ...data.cell } }
@@ -304,7 +304,7 @@ test('separate wall repair bubbles restore one segment and persist the neighbori
   await enter(page); await place(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
-  const save = await readSave(page); await page.goto('/')
+  const save = await readSave(page); await page.goto('/?game=legacy')
   const data = save.data
   data.cell = { x: 8, y: 11 }; data.motion = { version: 1, position: data.cell }
   data.construction.buildings[0].parts = Object.fromEntries(Object.entries({ foundation: 100, walls: 0, door: 100, roof: 120, bed: 80 })

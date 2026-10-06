@@ -16,7 +16,7 @@ async function seed(page: Page, axe: boolean) {
   await page.goto('/?game=survival'); await ready(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
   const save = await readSave(page)
-  await page.goto('/')
+  await page.goto('/?game=legacy')
   save.data.cell = { x: 5, y: 6 }; save.data.motion = { version: 1, position: { x: 5, y: 6 } }
   save.data.production.inventory.gold = 300
   if (axe) { const inv = save.data.production.inventory; inv.items[inv.board[9].instanceId].itemId = 252 }
