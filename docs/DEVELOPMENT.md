@@ -105,6 +105,14 @@ unlock_level,upgrade_cost,per_level_increase,effect_stat,shape,color,accent
 
 在 WordMerge 根目录执行 `npm ci`、`npm run dev`、`npm run build`；从 dev 终端实际地址访问，避免误连仍在运行的 TitanDemo 服务。构建产物是 `dist/`。
 
+### Cloudflare Pages
+
+Git 集成使用 Vite 预设，构建命令 `npm run build`，输出目录 `dist`，根目录为本工程 `package.json` 所在目录，Node.js 使用 22。新游戏访问 `https://项目名.pages.dev/?game=survival`，不带查询参数仍为旧 Demo。存档按浏览器及站点分别保存，需要迁移进度时在设置导出、导入。
+
+2026-10-06 的 Cloudflare 日志使用 Node 22.16.0 / npm 10.9.2，安装时报 `Missing: esbuild@0.28.2 from lock file`。本地 npm 11.11.0 的 `npm ci` 能通过，但 npm 10.9.2 可复现缺项；修复用 `npx --yes npm@10.9.2 install --package-lock-only --ignore-scripts --no-audit --no-fund` 补齐 Vitest 嵌套 Vite 的可选 peer 依赖及 esbuild 平台包，再用 `npx --yes npm@10.9.2 ci --no-audit --no-fund` 验证。既有依赖版本未升级。提交并推送更新后的 `package-lock.json` 才能让远端部署获得修复；直接重试旧提交无效。后续更新依赖时同时检查云端使用的 npm 版本。
+
+Windows 安装若报 `EPERM unlink ...esbuild.exe`，先停止本工程正在运行的 Vite / 测试服务，再重试安装；不要直接终止其他工程的所有 Node 进程。
+
 根据实际改动挑选相关流程：
 
 | 改动 | 建议核验 |
