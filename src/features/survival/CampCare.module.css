@@ -1,4 +1,5 @@
-.hud { position: absolute; z-index: 3; top: calc(88px + env(safe-area-inset-top, 0px)); left: 22px; display: flex; align-items: center; gap: 6px; height: 44px; }
+.hud { position: absolute; z-index: 3; top: calc(76px + env(safe-area-inset-top, 0px)); left: 22px; display: flex; align-items: center; gap: 6px; height: 44px; }
+@media (max-width: 420px) { .hud { top: calc(120px + env(safe-area-inset-top, 0px)); } }
 .hud > div { flex: 0 0 auto; }
 .companion { position: relative; display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 5px; border: 0; background: none; color: #637c58; cursor: pointer; }
 .companion svg { width: 27px; height: 27px; }

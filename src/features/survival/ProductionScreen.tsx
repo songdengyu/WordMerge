@@ -62,7 +62,12 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
   const [warehouseOpen, setWarehouseOpen] = useState(false)
   const [ghost, setGhost] = useState<Ghost | null>(null)
   const [target, setTarget] = useState<number | null>(null)
-  const [notice, setNotice] = useState('单击生成器生产，拖动相同物品合成')
+  const [notice, setNotice] = useState('')
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 4000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
   const item = selected ? inventory.items[selected] : null
   const config = item ? catalog.itemById.get(item.itemId) : null
   const selectedLocked = item?.location.kind === 'board' && inventory.board[item.location.index].lock !== 0
@@ -195,13 +200,15 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
   </div>
 
   return <div ref={root} className={styles.screen} data-testid="production-screen">
-    <div className={styles.worldStatus}><DayCycle state={state} compact /></div>
-    <div className={styles.resources}><span aria-label="精力">⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> 精力</small></span>
+    <header className={styles.topBar}>
+      <div className={styles.worldStatus}><DayCycle state={state} compact /></div>
+      <div className={styles.resources}><span aria-label="精力" title={production.stamina.value >= 100 ? '自然恢复已满' : '每 10 秒恢复 1 点'}>⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> 精力</small></span>
       <span aria-label={`钻石 ${inventory.gems}`}><CurrencyIcon kind="gems" /> {inventory.gems}</span><span aria-label={`金币 ${inventory.gold}`}><CurrencyIcon kind="gold" /> {inventory.gold}</span>
-      <small>{production.stamina.value >= 100 ? '自然恢复已满' : `每 10 秒恢复 1 点`}</small></div>
-    <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
-      message={text => { setNotice(text); message(text) }} />
-      <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button></div>
+      </div>
+      <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
+        message={text => { setNotice(text); message(text) }} /></div>
+      <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button>
+    </header>
     <section ref={orderList} className={`${styles.orders} ${state.construction.orders.length || production.supplyOrders.length || state.survival.taming.ordered || state.economy.clearingOrders.length ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
       {[
       ...state.economy.clearingOrders.map(objectId => {
@@ -315,7 +322,7 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
     </div></div>
     <section className={styles.info}><div><strong>{config ? `${config.name} · Lv.${config.level}` : '准备好下一份物资'}</strong>
       <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}</section>
-    <p className={styles.notice} role="status">{notice}</p>
+    {!!notice && <p className={styles.feedback} role="status">{notice}</p>}
     <nav className={styles.footer}><button onClick={() => setWarehouseOpen(true)}>▦ 仓库 {usedWarehouse}/{inventory.warehouse.length}</button>
       <button onClick={close}>返回营地</button></nav>
     {warehouseOpen && <div className={styles.warehouseBackdrop} onClick={() => setWarehouseOpen(false)}>

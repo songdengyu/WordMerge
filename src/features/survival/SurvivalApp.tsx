@@ -174,8 +174,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     <div ref={host} className={styles.map} data-testid="camp-scene" />
     <div className={styles.topVeil} />
     <header className={styles.header}>
-      <div className={styles.brand}><button type="button" className={styles.brandIcon} aria-label="设置" title="设置" onClick={() => setSettingsOpen(true)}><Icon kind="leaf" /></button>
-        <div><span className={styles.eyebrow}>一段新的生活</span><h1>林间营地</h1></div></div>
+      <button type="button" className={styles.brandIcon} aria-label="设置" title="设置" onClick={() => setSettingsOpen(true)}><Icon kind="leaf" /></button>
       <DayCycle state={state} />
     </header>
     {placement && <div className={styles.chapter}><span className={styles.chapterDot} /><span>安放一个家</span><span className={styles.chapterLine} />从第一块木地基开始</div>}
