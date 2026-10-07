@@ -3,7 +3,7 @@ import { BLUEPRINTS } from './buildingConfig'
 import { GameRuntime, type GameCommand } from './GameRuntime'
 import { exchangeItems } from './inventory'
 import { CHAPTERS } from './progressionConfig'
-import { createProgression, validateProgressionCatalog } from './progression'
+import { createProgression, grantDecoration, validateProgressionCatalog } from './progression'
 import { m4ConfigVersion, validateSave, type RuntimeData } from './saveData'
 import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 
@@ -24,7 +24,7 @@ function cabin(data: RuntimeData) {
 function completePrefix(data: RuntimeData, count: number) {
   for (const chapter of CHAPTERS.slice(0, count)) {
     data.progression.completed.push(chapter.id); data.progression.choices[chapter.id] = chapter.choices[0].id
-    if (chapter.decor) data.progression.ownedDecor.push(chapter.decor)
+    if (chapter.decor) grantDecoration(data.progression, chapter.decor)
     if (chapter.outfit) data.progression.ownedOutfits.push(chapter.outfit)
   }
   if (count > 3) { data.progression.unlockedRegions.push('brook'); data.progression.discoveries.push('brook') }
@@ -127,7 +127,7 @@ describe('M5 persistent first chapter', () => {
     expect(await send({ type: 'decor-place', kind: 'rug', cell: { x: 6, y: 8 } })).toMatchObject({ accepted: false })
     expect(await send({ type: 'decor-place', kind: 'rug', cell: { x: 7, y: 11 } })).toMatchObject({ accepted: false })
     expect(await send({ type: 'decor-place', kind: 'rug', cell: { x: 8, y: 10 } })).toMatchObject({ accepted: true })
-    expect(await send({ type: 'decor-place', kind: 'rug', cell: { x: 9, y: 10 } })).toMatchObject({ accepted: true })
+    expect(await send({ type: 'decor-place', kind: 'rug', cell: { x: 9, y: 10 }, decorationId: runtime.getSaveData().progression.decorations[0].id })).toMatchObject({ accepted: true })
     const before = runtime.getSaveData().progression
     expect(before.decorations).toHaveLength(1)
     runtime.applyDamage('player', 100); await runtime.dispatch({ type: 'rescue' })
@@ -138,7 +138,7 @@ describe('M5 persistent first chapter', () => {
     expect(resumed.runtime.getSaveData().progression.ownedDecor).toEqual(['rug'])
   })
   it('counts natural dawn but not rescue, and migrates exact M4 saves without changing simulation state', async () => {
-    const old = envelopeFixture(); old.data.elapsedSeconds = 1199.95
+    const old = envelopeFixture(); old.data.elapsedSeconds = (30 - world.config.initialHour) / 24 * world.config.dayDurationSeconds - .05
     const legacy = { ...old, schemaVersion: 3, configVersion: m4ConfigVersion(world, catalog), data: { ...old.data } as Partial<RuntimeData> }
     delete legacy.data.progression
     const migrated = validateSave(legacy, world, catalog)

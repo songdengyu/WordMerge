@@ -1,5 +1,5 @@
 import { GameRuntime } from './GameRuntime'
-import { SaveRepository } from './persistence'
+import { clearMorningStartSave, SaveRepository } from './persistence'
 import { loadProductionConfig } from './productionConfig'
 import { parseSaveFile } from './saveData'
 import { syncStamina } from './stamina'
@@ -11,6 +11,8 @@ export async function loadGameSession(signal: AbortSignal) {
   const [world, catalog] = await Promise.all([loadWorld(signal), loadProductionConfig(signal)])
   validateBuildingCatalog(catalog)
   validateProgressionCatalog(world, catalog)
+  signal.throwIfAborted()
+  await clearMorningStartSave(world)
   signal.throwIfAborted()
   const repository = await SaveRepository.open(world, catalog)
   try {

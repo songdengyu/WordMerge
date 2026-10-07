@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
 import { currentChapter, chapterReady } from '../../game/progression'
-import { CHAPTERS, DECORATIONS, OUTFITS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
+import { CHAPTERS, DECORATIONS, OUTFITS, type StoryChapter } from '../../game/progressionConfig'
 import { availableItems } from '../../game/inventory'
 import { MergePiece } from '../../components/MergePiece'
 import styles from './CampJournal.module.css'
 
-export function CampJournal({ runtime, close, navigate, decorate }: { runtime: GameRuntime; close: () => void;
-  navigate: (action: StoryChapter['action']) => void; decorate: (kind: DecorId) => void }) {
+export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime; close: () => void;
+  navigate: (action: StoryChapter['action']) => void }) {
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot), progress = state.progression
   const dialog = useRef<HTMLDialogElement>(null)
-  const [tab, setTab] = useState<'story' | 'dress' | 'memories'>('story'), [notice, setNotice] = useState('')
+  const [tab, setTab] = useState<'story' | 'memories'>('story'), [notice, setNotice] = useState('')
   useEffect(() => { dialog.current?.showModal() }, [])
   const chapter = currentChapter(progress), catalog = runtime.catalog!
   const ready = chapter && chapterReady(chapter, progress, state.construction, state.survival, state.production!)
   const send = async (command: GameCommand) => { const result = await runtime.dispatch(command); setNotice(result.accepted ? result.message ?? '已保存' : result.reason) }
   return <dialog ref={dialog} className={styles.journal} onCancel={close} aria-labelledby="journal-title" onClick={e => { if (e.target === e.currentTarget) close() }}>
     <header><div><small>第一章 · 有人等你回来</small><h2 id="journal-title">营地手记</h2></div><button className={styles.close} onClick={close} aria-label="关闭手记">×</button></header>
-    <nav aria-label="手记分页">{([['story', '今日目标'], ['dress', '装扮'], ['memories', '回忆']] as const).map(([id, name]) =>
+    <nav aria-label="手记分页">{([['story', '今日目标'], ['memories', '回忆']] as const).map(([id, name]) =>
       <button key={id} aria-pressed={tab === id} onClick={() => { setTab(id); setNotice('') }}>{name}</button>)}</nav>
     {tab === 'story' && <>
       <div className={styles.chapter} data-testid="chapter-card"><small>{progress.completed.length} / {CHAPTERS.length} 段回忆</small>
@@ -29,23 +29,11 @@ export function CampJournal({ runtime, close, navigate, decorate }: { runtime: G
           <p className={styles.reward}>留下的心意：{[chapter.decor && DECORATIONS.find(d => d.id === chapter.decor)?.name, chapter.outfit && OUTFITS.find(o => o.id === chapter.outfit)?.name,
             ...chapter.rewardItems.map(id => catalog.itemById.get(id)!.name)].filter(Boolean).join(' · ') || '一段营地往事'}</p>
           <button className={styles.primary} disabled={!ready || !!state.pauseReasons.length} onClick={() => void send({ type: 'story-open', chapterId: chapter.id })}>继续故事</button>
-          {!ready && <button className={styles.secondary} onClick={() => chapter.action === 'dress' ? setTab('dress') : navigate(chapter.action)}>前往完成目标</button>}
+          {!ready && <button className={styles.secondary} onClick={() => navigate(chapter.action)}>前往完成目标</button>}
         </>}
       </div>
       {chapter?.requirements.length ? <p className={styles.muted}>在最后回应时交付物资。工作台奖励需要棋盘空格；满仓时可稍后再读，奖励不会丢失。</p> : null}
       <p className={styles.muted}>手记与装扮不暂停世界；进入剧情对话后暂停，离开对话继续。</p>
-    </>}
-    {tab === 'dress' && <>
-      <h3 className={styles.sectionTitle}>衣裳</h3><div className={styles.outfits}>{OUTFITS.map(outfit => <button key={outfit.id} disabled={!progress.ownedOutfits.includes(outfit.id) || !!state.pauseReasons.length}
-        aria-pressed={progress.outfit === outfit.id} onClick={() => void send({ type: 'outfit-equip', outfitId: outfit.id })}>
-        <svg viewBox="0 0 50 55" aria-hidden="true"><path d="M15 4 4 14l6 12 7-3-5 27h26l-5-27 7 3 6-12L35 4q-10 10-20 0" fill={`#${outfit.color.toString(16)}`} /><path d="M17 22h16M20 10l12 33" stroke="#f4e2bd" fill="none" /></svg>
-        <span>{outfit.name}</span><small>{progress.outfit === outfit.id ? '穿着中' : progress.ownedOutfits.includes(outfit.id) ? '换上' : '商店或故事获得'}</small>
-      </button>)}</div>
-      <h3 className={styles.sectionTitle}>给家添一点喜欢</h3>{DECORATIONS.map(decor => <div key={decor.id} className={styles.decor}>
-        <span style={{ color: decor.color }}>{decor.symbol}</span><div><strong>{decor.name}</strong><small>{progress.ownedDecor.includes(decor.id) ? progress.decorations.some(d => d.kind === decor.id) ? '已在营地摆放' : '收藏中 · 1 件' : '商店或故事获得'}</small></div>
-        <button disabled={!progress.ownedDecor.includes(decor.id) || !!state.pauseReasons.length} onClick={() => decorate(decor.id)}>{progress.decorations.some(d => d.kind === decor.id) ? '移动' : '摆放'}</button>
-        {progress.decorations.some(d => d.kind === decor.id) && <button onClick={() => void send({ type: 'decor-remove', kind: decor.id })}>收回</button>}
-      </div>)}<p className={styles.muted}>衣裳与摆件仅改变外观，不增加温度或战力，也不会堵住通路。收回后仍在收藏中。</p>
     </>}
     {tab === 'memories' && <>
       {progress.completed.includes('visitor') && <div className={styles.resident}><b>林岚 · 暂住营地</b><p>{progress.choices.visitor === 'welcome' ? '她愿意慢慢说起那些旧事，也开始把这里当作歇脚的家。' : '她答应陪你寻找寄信的人。你们都还保留着一些疑问。'}</p></div>}

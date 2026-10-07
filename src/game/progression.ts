@@ -7,20 +7,37 @@ import { sameCell, type Cell, WorldMap } from './world'
 import type { RegionUnlockJob } from './regionUnlock'
 import { createRegionContent, type RegionContentState } from './regionContentConfig'
 
-export interface Decoration { kind: DecorId; buildingId: string; cell: Cell }
+export interface Decoration { id?: string; kind: DecorId; buildingId: string; cell: Cell }
 export interface ProgressionState {
   completed: string[]; choices: Record<string, string>; dialogue: { chapterId: string; line: number } | null
   unlockedRegions: string[]; discoveries: string[]; witnessedDawn: boolean
   ownedDecor: string[]; decorations: Decoration[]; ownedOutfits: string[]; outfit: string
+  decorStock?: Record<string, number>; nextDecorationId?: number
   regionUnlock: RegionUnlockJob | null
   regionContent: RegionContentState
 }
 export type StoryCommand = { type: 'story-open'; chapterId: string } | { type: 'story-next'; chapterId: string; line: number }
   | { type: 'story-choice'; chapterId: string; choiceId: string } | { type: 'story-close' }
 export type ProgressionCommand = { type: 'outfit-equip'; outfitId: string }
-  | { type: 'decor-place'; kind: DecorId; cell: Cell } | { type: 'decor-remove'; kind: DecorId }
+  | { type: 'decor-place'; kind: DecorId; cell: Cell; decorationId?: string }
+  | { type: 'decor-remove'; kind: DecorId; decorationId?: string }
 export const createProgression = (): ProgressionState => ({ completed: [], choices: {}, dialogue: null, unlockedRegions: [], discoveries: [],
-  witnessedDawn: false, ownedDecor: [], decorations: [], ownedOutfits: ['clay'], outfit: 'clay', regionUnlock: null, regionContent: createRegionContent() })
+  witnessedDawn: false, ownedDecor: [], decorations: [], decorStock: {}, nextDecorationId: 1,
+  ownedOutfits: ['clay'], outfit: 'clay', regionUnlock: null, regionContent: createRegionContent() })
+export const decorAvailable = (state: ProgressionState, kind: string) => state.decorStock !== undefined ? state.decorStock[kind] ?? 0
+  : state.ownedDecor.includes(kind) && !state.decorations.some(d => d.kind === kind) ? 1 : 0
+/** Only call for validated legacy collections or Runtime-owned state. */
+export function upgradeDecorInventory(state: ProgressionState) {
+  if (state.decorStock !== undefined) return
+  state.decorStock = Object.fromEntries(state.ownedDecor.map(kind => [kind, decorAvailable(state, kind)]))
+  state.decorations.forEach((decor, i) => { decor.id = `d${i + 1}` })
+  state.nextDecorationId = state.decorations.length + 1
+}
+export function grantDecoration(state: ProgressionState, kind: string) {
+  upgradeDecorInventory(state)
+  if (!state.ownedDecor.includes(kind)) state.ownedDecor.push(kind)
+  state.decorStock![kind] = (state.decorStock![kind] ?? 0) + 1
+}
 export const progressedWorld = (world: WorldMap, progress: ProgressionState, removed: readonly string[] = []) => new WorldMap(world.config, progress.unlockedRegions, REGION_EXTENSIONS, removed)
 export const currentChapter = (progress: ProgressionState) => CHAPTERS[progress.completed.length] as StoryChapter | undefined
 export function chapterReady(chapter: StoryChapter, progress: ProgressionState, construction: ConstructionState, survival: SurvivalState, production: ProductionState) {
@@ -36,13 +53,14 @@ export function regionError(regionId: string, progress: ProgressionState, constr
   if (construction.xp < region.xp) return `建筑经验 ${construction.xp}/${region.xp}，继续建设营地`
   return null
 }
-export function decorError(kind: string, cell: Cell, progress: ProgressionState, construction: ConstructionState) {
+export function decorError(kind: string, cell: Cell, progress: ProgressionState, construction: ConstructionState, decorationId?: string) {
   if (!DECORATIONS.some(d => d.id === kind) || !progress.ownedDecor.includes(kind)) return '尚未获得这件摆件'
+  if (decorationId ? !progress.decorations.some(d => d.id === decorationId && d.kind === kind) : decorAvailable(progress, kind) <= 0) return '这件摆件没有可用库存'
   if (!Number.isSafeInteger(cell.x) || !Number.isSafeInteger(cell.y)) return '请选择木屋地板'
   const building = buildingAt(construction, cell)
   if (!building?.parts.foundation.built) return '请放在已建成的木屋地板上'
   if (sameCell(cell, localToWorld(building, { x: 0, y: 1 }))) return '这里留给床铺，试试旁边的地板'
-  if (progress.decorations.some(d => d.kind !== kind && sameCell(d.cell, cell))) return '这块地板已有摆件'
+  if (progress.decorations.some(d => d.id !== decorationId && sameCell(d.cell, cell))) return '这块地板已有摆件'
   return null
 }
 export function discoverRegions(progress: ProgressionState, player: Cell) {
@@ -51,17 +69,26 @@ export function discoverRegions(progress: ProgressionState, player: Cell) {
 }
 export function applyProgressionCommand(original: ProgressionState, construction: ConstructionState, command: ProgressionCommand) {
   const state = structuredClone(original)
+  upgradeDecorInventory(state)
   const reject = (reason: string) => ({ accepted: false as const, reason })
   if (command.type === 'outfit-equip') {
     if (!state.ownedOutfits.includes(command.outfitId)) return reject('尚未获得这套衣裳')
     state.outfit = command.outfitId
   } else if (command.type === 'decor-remove') {
-    if (!state.decorations.some(d => d.kind === command.kind)) return reject('这件摆件还在收藏中')
-    state.decorations = state.decorations.filter(d => d.kind !== command.kind)
+    const matches = state.decorations.filter(d => d.kind === command.kind && (!command.decorationId || d.id === command.decorationId))
+    if (matches.length !== 1) return reject('请选择要收回的那件摆件')
+    state.decorations = state.decorations.filter(d => d.id !== matches[0].id)
+    state.decorStock![command.kind] = (state.decorStock![command.kind] ?? 0) + 1
   } else {
-    const error = decorError(command.kind, command.cell, state, construction)
+    const error = decorError(command.kind, command.cell, state, construction, command.decorationId)
     if (error) return reject(error)
-    state.decorations = [...state.decorations.filter(d => d.kind !== command.kind), { kind: command.kind, cell: { ...command.cell }, buildingId: buildingAt(construction, command.cell)!.id }]
+    if (command.decorationId) {
+      const placed = state.decorations.find(d => d.id === command.decorationId)!
+      placed.cell = { ...command.cell }; placed.buildingId = buildingAt(construction, command.cell)!.id
+    } else {
+      state.decorStock![command.kind]--
+      state.decorations.push({ id: `d${state.nextDecorationId!++}`, kind: command.kind, cell: { ...command.cell }, buildingId: buildingAt(construction, command.cell)!.id })
+    }
   }
   return { accepted: true as const, state, message: command.type === 'decor-remove' ? '已收回收藏，可以再次摆放' : '营地有了新的样子' }
 }
@@ -89,7 +116,7 @@ export function applyStoryCommand(original: ProgressionState, source: Production
   if (!chapterReady(chapter, state, construction, survival, production)) return reject('所需物资或目标已变化，请整理后再来')
   if (!exchangeItems(production.inventory, catalog, chapter.requirements, chapter.rewardItems)) return reject('请先在棋盘留出奖励空位，物资尚未扣除；可稍后再读')
   state.completed.push(chapter.id); state.choices[chapter.id] = choice.id; state.dialogue = null
-  if (chapter.decor && !state.ownedDecor.includes(chapter.decor)) state.ownedDecor.push(chapter.decor)
+  if (chapter.decor) grantDecoration(state, chapter.decor)
   if (chapter.outfit && !state.ownedOutfits.includes(chapter.outfit)) state.ownedOutfits.push(chapter.outfit)
   return accept(choice.reply)
 }

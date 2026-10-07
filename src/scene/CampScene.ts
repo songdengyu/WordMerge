@@ -85,7 +85,7 @@ export class CampScene {
   private readonly protection = new Graphics()
   private readonly progressionViews = new ProgressionViews()
   private readonly decorPreview = new Graphics()
-  private decorationPlacement: { kind: DecorId; cell: Cell } | null = null
+  private decorationPlacement: { kind: DecorId; cell: Cell; decorationId?: string } | null = null
   private regionSignature = ''
   private outfit = 'clay'
   private resident: Container | null = null
@@ -375,7 +375,7 @@ export class CampScene {
     this.decorPreview.clear()
     if (this.decorationPlacement) {
       const { cell, kind } = this.decorationPlacement, p = gridToWorld(cell)
-      const valid = !decorError(kind, cell, snapshot.progression, snapshot.construction)
+      const valid = !decorError(kind, cell, snapshot.progression, snapshot.construction, this.decorationPlacement.decorationId)
       diamond(this.decorPreview, p.x, p.y, valid ? 0xf6edb4 : 0xce8878, .65)
       drawDecoration(this.decorPreview, kind, p.x, p.y, .8)
     }

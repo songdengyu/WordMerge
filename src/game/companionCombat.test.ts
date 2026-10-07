@@ -91,7 +91,7 @@ describe('persistent two-second companion encounters', () => {
     expect(pose.valid().production.inventory.gold).toBe(2)
   })
   it('keeps an engaged pair across natural dawn and test jumps without skipping the fight timer', async () => {
-    const data = encounter(); data.elapsedSeconds = 1199.5
+    const data = encounter(); data.elapsedSeconds = (30 - world.config.initialHour) / 24 * world.config.dayDurationSeconds - .5
     const h = harness(data); h.pump(1)
     expect(h.valid().survival.duel?.phase).toBe('fighting')
     expect(h.valid().survival.enemies).toHaveLength(1)

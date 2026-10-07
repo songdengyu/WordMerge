@@ -35,3 +35,4 @@
 .claim button { padding: 6px 10px; flex-shrink: 0; }
 .shop footer { border-top: 1px solid #e6e0cd; min-height: 44px; padding: 13px 18px calc(13px + env(safe-area-inset-bottom, 0px)); font-size: 11px; line-height: 1.6; color: #8d7850; background: #f3efdf; }
 .shop button:focus-visible { outline: 2px solid #9b7d40; outline-offset: 2px; }
+.collection { width: 100%; margin-top: 12px; min-height: 40px; border: 1px solid #bbc9a9; border-radius: 9px; background: #e4ead4; color: #4c6946; font: inherit; font-size: 12px; cursor: pointer; }

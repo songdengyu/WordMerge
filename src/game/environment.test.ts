@@ -64,7 +64,7 @@ describe('day cycle and environment testing', () => {
     const saved = validateSave(JSON.parse(runtime.exportSave()), world, catalog)
     expect(new GameRuntime(world, { catalog, saved, now: () => testNow }).getUiSnapshot().survival.weather).toBe('rain')
     // Start just before dawn with no danger, and let the real simulation cross the boundary.
-    const data = runtime.getSaveData(); data.elapsedSeconds = 1199.9
+    const data = runtime.getSaveData(); data.elapsedSeconds = (30 - world.config.initialHour) / 24 * world.config.dayDurationSeconds - .1
     const natural = new GameRuntime(world, { catalog, saved: envelopeFixture(data), now: () => testNow })
     natural.advanceFrame(0); natural.advanceFrame(200)
     expect(natural.getUiSnapshot().survival.weather).toBe('cloudy')

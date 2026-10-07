@@ -95,7 +95,7 @@ it('supports three online days from the actual starter inventory with two-minute
   }
   const saved = runtime.getSaveData()
   expect(saved.survival.failure).toBeNull()
-  expect(runtime.getUiSnapshot()).toMatchObject({ day: 4, hour: 6 })
+  expect(runtime.getUiSnapshot()).toMatchObject({ day: 4, hour: world.config.initialHour })
   expect(saved.survival.nextEnemyId).toBeGreaterThan(15)
   expect(saved.survival.enemies.filter(enemy => !enemy.residentId)).toHaveLength(0)
   expect(saved.survival.enemies.filter(enemy => enemy.residentId)).toHaveLength(3)

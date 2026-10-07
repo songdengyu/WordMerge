@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
 import { deleteDB, openDB } from 'idb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearGameData, DATABASE_NAME, SaveRepository } from './persistence'
+import { clearGameData, clearMorningStartSave, DATABASE_NAME, SaveRepository } from './persistence'
+import { fingerprint } from './productionConfig'
 import { dataFixture, tamingDataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 import { GameRuntime } from './GameRuntime'
 import { legacyConfigVersion, validateSave } from './saveData'
@@ -27,6 +28,22 @@ beforeEach(async () => { await deleteDB(DATABASE_NAME) })
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(repositories.splice(0).map(repo => repo.close())) })
 
 describe('versioned atomic IndexedDB saves', () => {
+  it('clears the old morning start once, invalidates open writers, and preserves new noon progress', async () => {
+    const repo = await repository(), old = await repo.save(dataFixture())
+    old.configVersion = old.configVersion.replace(fingerprint(JSON.stringify(world.config)),
+      fingerprint(JSON.stringify({ ...world.config, initialHour: 6 })))
+    await writeRecord('current', old); await writeRecord('previous', old)
+    expect(await clearMorningStartSave(world)).toBe(true)
+    expect(await readRecord('current')).toBeUndefined()
+    expect(await readRecord('previous')).toBeUndefined()
+    await expect(repo.save(dataFixture())).rejects.toThrow('另一页面')
+    const fresh = await repository()
+    const runtime = new GameRuntime(world, { catalog, now: () => testNow })
+    expect(runtime.getUiSnapshot()).toMatchObject({ hour: 12, minute: 0, isDay: true })
+    const saved = await fresh.save(runtime.getSaveData())
+    expect(await clearMorningStartSave(world)).toBe(false)
+    expect(await readRecord('current')).toEqual(saved)
+  })
   it('retries a failed taming start save and resumes its timer without consuming another food', async () => {
     const repo = await repository(), saved = await repo.save(tamingDataFixture())
     const runtime = new GameRuntime(world, { catalog, saved, repository: repo, now: () => testNow })

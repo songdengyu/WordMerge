@@ -15,7 +15,7 @@ import { buildingSegments, ensureSegments, setSegmentHp } from './buildingSegmen
 import { blueprintById } from './buildingConfig'
 import { acceptRescue, actorPosition, advanceSurvival, applySurvivalCommand, beginFailure, createSurvival, dayTime, shelterAt, survivalWarning, worldMinutes,
   type Failure, type SurvivalCommand, type SurvivalState } from './survival'
-import { applyProgressionCommand, applyStoryCommand, createProgression, discoverRegions, progressedWorld, type ProgressionCommand, type ProgressionState, type StoryCommand } from './progression'
+import { applyProgressionCommand, applyStoryCommand, createProgression, discoverRegions, progressedWorld, upgradeDecorInventory, type ProgressionCommand, type ProgressionState, type StoryCommand } from './progression'
 import { testEnvironment, type EnvironmentCommand } from './environment'
 import { applyQuickSupply, type QuickSupplyCommand } from './quickSupply'
 import { TEST_VITAL_NAMES, type TestVitalCommand } from './testControls'
@@ -700,6 +700,7 @@ export class GameRuntime {
       this.survival.companion.mode = 'guard'; this.survival.companion.guard = { ...this.survival.companion.cell }
     }
     this.progression = restored.progression
+    upgradeDecorInventory(this.progression)
     this.progression.regionUnlock ??= null
     this.progression.regionContent ??= createRegionContent()
     this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)

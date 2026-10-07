@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
 import { SHOP_PRODUCTS, RESOURCE_RULES, type ShopProduct } from '../../game/economyConfig'
 import { ownsProduct } from '../../game/economy'
-import { DECORATIONS, OUTFITS, type DecorId } from '../../game/progressionConfig'
+import { DECORATIONS, OUTFITS } from '../../game/progressionConfig'
+import { decorAvailable } from '../../game/progression'
 import { MergePiece } from '../../components/MergePiece'
 import styles from './Shop.module.css'
 
@@ -12,8 +13,8 @@ export function CurrencyIcon({ kind }: { kind: 'gold' | 'gems' }) {
     : <><path d="m6 4-4 6 10 12 10-12-4-6Z" fill="#8ac7cb" stroke="#4c979f" strokeWidth="1.5" /><path d="M2 10h20M6 4l6 18 6-18M6 4l6 6 6-6" fill="none" stroke="#d9f0e5" strokeWidth="1.2" /></>}</svg>
 }
 
-export function Shop({ runtime, close, place, decorate, merge }: { runtime: GameRuntime; close: () => void;
-  place: (id: string) => void; decorate: (id: DecorId) => void; merge: () => void }) {
+export function Shop({ runtime, close, place, collection, merge }: { runtime: GameRuntime; close: () => void;
+  place: (id: string) => void; collection: () => void; merge: () => void }) {
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot), inventory = state.production!.inventory
   const dialog = useRef<HTMLDialogElement>(null), [category, setCategory] = useState<'all' | ShopProduct['category']>('all')
   const [notice, setNotice] = useState(''), [busy, setBusy] = useState(false)
@@ -24,9 +25,9 @@ export function Shop({ runtime, close, place, decorate, merge }: { runtime: Game
     finally { setBusy(false) }
   }
   const use = (product: ShopProduct) => {
-    if (product.category === 'outfit') void send({ type: 'outfit-equip', outfitId: product.reward })
+    if (product.category === 'outfit') collection()
     else if (product.category === 'blueprint') { close(); place(product.reward) }
-    else if (product.category === 'decor') { close(); decorate(product.reward as DecorId) }
+    else if (product.category === 'decor') collection()
     else { close(); merge() }
   }
   return <dialog ref={dialog} className={styles.shop} aria-labelledby="shop-title" data-testid="shop" onCancel={close}
@@ -46,25 +47,26 @@ export function Shop({ runtime, close, place, decorate, merge }: { runtime: Game
       <div className={styles.grid}>{SHOP_PRODUCTS.filter(p => category === 'all' || p.category === category).map(product => {
         const owned = ownsProduct(product, state.economy, state.construction, state.progression), affordable = inventory[product.currency] >= product.price
         const outfit = OUTFITS.find(o => o.id === product.reward), decor = DECORATIONS.find(d => d.id === product.reward)
-        const equipped = product.category === 'outfit' && state.progression.outfit === product.reward
+        const repeatable = product.category === 'decor'
         return <article key={product.id} className={styles.product} data-testid={`product-${product.id}`} data-owned={String(owned)}>
           <div className={`${styles.art} ${styles[product.category]}`}>
             {product.category === 'tools' ? <MergePiece item={runtime.catalog!.itemById.get(Number(product.reward))!} />
               : product.category === 'outfit' ? <svg viewBox="0 0 50 55" aria-hidden="true"><path d="M15 4 4 14l6 12 7-3-5 27h26l-5-27 7 3 6-12L35 4q-10 10-20 0" fill={`#${outfit!.color.toString(16)}`} /><path d="M17 22h16M20 10l12 33" stroke="#f4e2bd" fill="none" /></svg>
               : product.category === 'decor' ? <span style={{ color: decor!.color }}>{decor!.symbol}</span>
               : <svg viewBox="0 0 60 60" fill="none" stroke="#68866f" strokeWidth="2" aria-hidden="true"><rect x="6" y="6" width="48" height="48" rx="4" fill="#e0eadc" /><path d="m14 30 16-14 16 14M18 27v20h24V27M26 47V34h8v13M13 51h34" /></svg>}
-            {owned && <small>已拥有</small>}
+            {(owned || repeatable) && <small>{repeatable ? `库存 ${decorAvailable(state.progression, product.reward)}` : '已拥有'}</small>}
           </div>
-          <h3>{product.name}</h3><p>{product.description}</p>
-          <button data-testid={`buy-${product.id}`} disabled={busy || !!state.pauseReasons.length || equipped || !owned && !affordable}
-            onClick={() => owned ? use(product) : void send({ type: 'shop-buy', productId: product.id })}>
-            {owned ? equipped ? '穿着中' : product.category === 'blueprint' ? '放置图纸' : product.category === 'decor' ? '摆放' : product.category === 'outfit' ? '换上' : '去合成'
+          <h3>{product.name}</h3><p>{product.category === 'outfit' ? '购买后存入装饰系统，可随时换装。' : product.description}</p>
+          <button data-testid={`buy-${product.id}`} disabled={busy || !!state.pauseReasons.length || (repeatable || !owned) && !affordable}
+            onClick={() => owned && !repeatable ? use(product) : void send({ type: 'shop-buy', productId: product.id })}>
+            {owned && !repeatable ? product.category === 'blueprint' ? '放置图纸' : product.category === 'outfit' ? '前往装饰' : '去合成'
               : !affordable ? `${product.currency === 'gold' ? '金币' : '钻石'}不足 · ${product.price}` : product.price === 0 ? '免费领取' : <><CurrencyIcon kind={product.currency} />{product.price} · 购买</>}
           </button>
         </article>
       })}</div>
-      <p className={styles.hint}>清理树木和石头可获得金币、钻石与合成材料。已拥有的收藏不会重复收费。</p>
+      <p className={styles.hint}>摆件可重复购买，每次获得 1 件。人物皮肤永久解锁；购买后在装饰系统中管理。</p>
+      <button className={styles.collection} onClick={collection}>打开装饰收藏</button>
     </div>
-    <footer role="status">{notice || '图纸、衣裳与装饰购买后永久拥有'}</footer>
+    <footer role="status">{notice || '图纸和皮肤永久解锁，摆件按件入库'}</footer>
   </dialog>
 }

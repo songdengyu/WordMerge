@@ -1,7 +1,7 @@
 import { constructionNavigation, type ConstructionState } from './construction'
 import { availableItems, exchangeItems, matchRequirements, type ProductionState } from './inventory'
 import type { ProductionCatalog } from './productionConfig'
-import type { ProgressionState } from './progression'
+import { grantDecoration, type ProgressionState } from './progression'
 import { CLEAR_SECONDS, ECONOMY_VERSION, RESOURCE_RULES, SHOP_PRODUCTS, type ShopProduct } from './economyConfig'
 import { pointDistance, SmoothPathSearch } from './smoothNavigation'
 import type { Cell, WorldMap } from './world'
@@ -46,13 +46,14 @@ export function applyEconomyCommand(original: EconomyState, source: ProductionSt
   if (command.type === 'shop-buy') {
     const product = SHOP_PRODUCTS.find(p => p.id === command.productId)
     if (!product) return reject('商品不存在')
-    if (ownsProduct(product, state, construction, progression)) return reject('已经拥有，无需重复购买')
+    if (product.category !== 'decor' && ownsProduct(product, state, construction, progression)) return reject('已经拥有，无需重复购买')
     if (production.inventory[product.currency] < product.price) return reject(`${product.currency === 'gold' ? '金币' : '钻石'}不足`)
     if (product.category === 'tools' && !exchangeItems(production.inventory, catalog, [], [Number(product.reward)])) return reject('请先在棋盘留出一个空格领取工具箱')
     if (product.category === 'blueprint') construction.unlockedBlueprints.push(product.reward)
-    if (product.category === 'decor') progression.ownedDecor.push(product.reward)
+    if (product.category === 'decor') grantDecoration(progression, product.reward)
     if (product.category === 'outfit') progression.ownedOutfits.push(product.reward)
-    production.inventory[product.currency] -= product.price; state.purchases.push(product.id)
+    production.inventory[product.currency] -= product.price
+    if (!state.purchases.includes(product.id)) state.purchases.push(product.id)
     return accept(`已获得${product.name}`)
   }
   if (command.type === 'loot-claim') {

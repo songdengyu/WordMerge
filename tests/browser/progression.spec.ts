@@ -32,6 +32,7 @@ function prepared(save: any, count: number) {
   const ids = ['letter', 'foundation', 'friend', 'visitor', 'shelter', 'grove'], choices = ['truth', 'keep', 'together', 'welcome', 'light', 'promise']
   const progress = data.progression
   progress.completed = ids.slice(0, count); progress.choices = Object.fromEntries(ids.slice(0, count).map((id, i) => [id, choices[i]]))
+  delete progress.decorStock; delete progress.nextDecorationId
   progress.ownedDecor = count > 4 ? ['rug', 'planter', 'lantern'] : count > 3 ? ['rug', 'planter'] : ['rug']
   progress.ownedOutfits = count > 5 ? ['clay', 'sage', 'rose'] : ['clay', 'sage']
   if (count > 3) { progress.unlockedRegions = ['brook']; progress.discoveries = ['brook'] }
@@ -176,11 +177,12 @@ test('small-phone wardrobe and floor decorations visibly persist and the final c
   await page.setViewportSize({ width: 320, height: 568 })
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await seed(page, save => { prepared(save, 6); save.data.progression.witnessedDawn = true })
-  await page.getByRole('button', { name: '营地手记', exact: true }).click()
-  await page.getByRole('button', { name: '装扮', exact: true }).click()
+  await page.getByRole('button', { name: '装饰', exact: true }).click()
+  await page.getByRole('button', { name: '人物皮肤', exact: true }).click()
   await page.getByRole('button', { name: /蔷薇旧衫/ }).click()
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-outfit', 'rose')
   await page.screenshot({ path: 'test-results/m5-wardrobe-small.png' })
+  await page.getByRole('button', { name: '摆件', exact: true }).click()
   await page.getByRole('button', { name: '摆放', exact: true }).first().click()
   await expect(page.getByTestId('decoration-placement')).toContainText('这里可以摆放')
   await page.getByRole('button', { name: '确认摆放', exact: true }).click()

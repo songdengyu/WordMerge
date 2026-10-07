@@ -1,6 +1,6 @@
 import { buildingAt, localToWorld } from './construction'
 import { CHAPTERS, DECORATIONS, OUTFITS, REGIONS } from './progressionConfig'
-import type { ProgressionState } from './progression'
+import { upgradeDecorInventory, type ProgressionState } from './progression'
 import type { RuntimeData } from './saveData'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { REGION_UNLOCK_SECONDS, regionGates } from './regionUnlock'
@@ -51,16 +51,24 @@ export function validateProgression(raw: unknown, data: RuntimeData, world: Worl
   const ownedOutfits = raw.ownedOutfits
   check(ownedOutfits.length === expectedOutfits.length && expectedOutfits.every(id => ownedOutfits.includes(id))
     && typeof raw.outfit === 'string' && raw.ownedOutfits.includes(raw.outfit), '衣裳来源')
-  check(Array.isArray(raw.decorations) && raw.decorations.length <= raw.ownedDecor.length, '摆件数量')
-  const kinds = new Set(), cells = new Set()
+  check(Array.isArray(raw.decorations), '摆件数量')
+  const legacyDecor = raw.decorStock === undefined
+  if (legacyDecor) check(raw.nextDecorationId === undefined && raw.decorations.length <= ownedDecor.length, '旧摆件数量')
+  else check(record(raw.decorStock) && Object.keys(raw.decorStock).length === ownedDecor.length
+    && ownedDecor.every(kind => Number.isSafeInteger((raw.decorStock as Record<string, unknown>)[kind]) && Number((raw.decorStock as Record<string, unknown>)[kind]) >= 0)
+    && Number.isSafeInteger(raw.nextDecorationId) && Number(raw.nextDecorationId) > 0, '摆件库存')
+  const kinds = new Set(), cells = new Set(), ids = new Set()
   for (const decor of raw.decorations) {
-    check(record(decor) && typeof decor.kind === 'string' && raw.ownedDecor.includes(decor.kind) && !kinds.has(decor.kind)
+    check(record(decor) && typeof decor.kind === 'string' && raw.ownedDecor.includes(decor.kind)
+      && (legacyDecor ? !kinds.has(decor.kind) && decor.id === undefined
+        : typeof decor.id === 'string' && /^d[1-9]\d*$/.test(decor.id) && !ids.has(decor.id) && Number(decor.id.slice(1)) < Number(raw.nextDecorationId))
       && record(decor.cell) && Number.isSafeInteger(decor.cell.x) && Number.isSafeInteger(decor.cell.y), '摆件实例')
     const cell = decor.cell as unknown as Cell, building = buildingAt(data.construction, cell), key = `${cell.x},${cell.y}`
     check(world.isWalkable(cell) && building?.id === decor.buildingId && building?.parts.foundation.built
       && !sameCell(cell, localToWorld(building, { x: 0, y: 1 })) && !cells.has(key), '摆件位置')
-    kinds.add(decor.kind); cells.add(key)
+    kinds.add(decor.kind); cells.add(key); ids.add(decor.id)
   }
+  if (legacyDecor) upgradeDecorInventory(raw as unknown as ProgressionState)
   if (raw.dialogue !== null) {
     const chapter = CHAPTERS[raw.completed.length]
     check(record(raw.dialogue) && chapter && raw.dialogue.chapterId === chapter.id && Number.isSafeInteger(raw.dialogue.line)

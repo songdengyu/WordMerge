@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { ProductionCatalog } from './productionConfig'
+import { fingerprint, type ProductionCatalog } from './productionConfig'
 import { configVersion, SaveError, validateSave, type RuntimeData, type SaveEnvelope } from './saveData'
 import type { WorldMap } from './world'
 
@@ -24,6 +24,31 @@ export async function clearGameData() {
       // This contains no progress. Revisions alone can repeat after starting a new game.
       await tx.store.put(Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-'), 'generation')
       await tx.done
+    } catch (error) {
+      try { tx.abort() } catch { /* Already aborted. */ }
+      await tx.done.catch(() => {})
+      throw error
+    }
+  } finally { db.close() }
+}
+
+/** User-authorized reset for the noon-start release; never erase a new noon save on reload. */
+export async function clearMorningStartSave(world: WorldMap) {
+  if (world.config.initialHour !== 12) return false
+  const morningVersion = fingerprint(JSON.stringify({ ...world.config, initialHour: 6 }))
+  const db = await openSaveDatabase()
+  try {
+    const tx = db.transaction('snapshots', 'readwrite')
+    try {
+      const current = await tx.store.get('current') ?? await tx.store.get('previous')
+      const version = current && typeof current === 'object' && 'configVersion' in current ? current.configVersion : null
+      const reset = typeof version === 'string' && version.split('-')[1] === morningVersion
+      if (reset) {
+        await tx.store.clear()
+        await tx.store.put(Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-'), 'generation')
+      }
+      await tx.done
+      return reset
     } catch (error) {
       try { tx.abort() } catch { /* Already aborted. */ }
       await tx.done.catch(() => {})

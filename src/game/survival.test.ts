@@ -83,7 +83,7 @@ describe('night pressure and companion commands', () => {
     const data = dataFixture(); cabin(data); data.cell = { x: 8, y: 11 }
     data.production.vitals.hunger = 100; data.production.vitals.water = 100
     data.survival.companion.status = 'active'; data.survival.companion.guard = { x: 8, y: 11 }
-    const { runtime, pump } = harness(data); pump(1200.05)
+    const { runtime, pump } = harness(data); pump((30 - world.config.initialHour) / 24 * world.config.dayDurationSeconds + .05)
     const saved = runtime.getSaveData()
     expect(saved.survival.failure).toBeNull()
     expect(saved.production.vitals.hp).toBeGreaterThan(0)
@@ -201,7 +201,7 @@ describe('failure recovery and compatible migration', () => {
     expect(await restored.runtime.dispatch({ type: 'rescue' })).toMatchObject({ accepted: false })
     const saved = restored.runtime.getSaveData()
     expect(saved.survival.rescuedCount).toBe(1)
-    expect(saved.elapsedSeconds).toBe(1200)
+    expect(saved.elapsedSeconds).toBe((30 - world.config.initialHour) / 24 * world.config.dayDurationSeconds)
     expect(saved.production.inventory.items[plank]).toBeTruthy()
     expect(saved.production.vitals).toEqual({ hp: 70, hunger: 60, water: 60, temperature: 50 })
     expect(Object.keys(saved.production.inventory.items)).toHaveLength(Object.keys(failure.production.inventory.items).length - 2)
