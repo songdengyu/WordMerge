@@ -147,7 +147,7 @@ describe('day/night encounters and recruited companions', () => {
 
   it('tames at night for two seconds exactly once across reload, keeps Lili, and controls the chosen new companion', async () => {
     const data = tamingDataFixture(), animal = enemy(data)
-    data.survival.companion.status = 'active'; data.elapsedSeconds = 650
+    data.survival.companion.status = 'active'; data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds
     const h = harness(data), count = Object.keys(data.production.inventory.items).length
     expect(await h.send({ type: 'taming-interact', targetId: animal.id })).toMatchObject({ accepted: true })
     expect(h.valid().survival.taming.job?.phase).toBe('taming')

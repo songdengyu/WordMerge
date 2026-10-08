@@ -25,7 +25,7 @@ import { REGIONS } from './progressionConfig'
 import { createRegionContent } from './regionContentConfig'
 import { populateRegionContent } from './regionContent'
 import { applyEconomyCommand, createEconomy, releaseClearing, resourceOrderId, spendActionNeeds, spendMovementNeeds, type EconomyCommand, type EconomyState } from './economy'
-import { CLEAR_SECONDS, RESOURCE_RULES } from './economyConfig'
+import { CLEAR_SECONDS, RESOURCE_RULES, toolMeets } from './economyConfig'
 import { exchangeItems } from './inventory'
 
 export const FIXED_STEP_MS = 50
@@ -35,6 +35,7 @@ export type CommandResult = { accepted: true; persisted?: boolean; message?: str
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
 export type ResourceFeedback = { id: number; stat: 'hp' | 'hunger' | 'water' | 'stamina'; amount: number; itemId?: number }
+export type LootFeedback = { id: number; cell: Cell; at: number; gold: number; gems: number; items: readonly number[]; pending: boolean }
 export interface UiSnapshot {
   readonly resourceFeedback: readonly ResourceFeedback[]
   readonly day: number
@@ -58,6 +59,7 @@ export interface UiSnapshot {
   readonly economy: EconomyState
 }
 export interface SceneSnapshot {
+  readonly lootFeedback: readonly LootFeedback[]
   readonly position: Cell
   readonly previousPosition: Cell
   readonly previousCompanionPosition: Cell
@@ -95,6 +97,8 @@ export class GameRuntime {
   private productionOrderFocus: string | null = null
   private resourceFeedback: ResourceFeedback[] = []
   private resourceFeedbackId = 0
+  private lootFeedback: LootFeedback[] = []
+  private lootFeedbackId = 0
   private construction = createConstruction()
   private survival: SurvivalState
   private progression = createProgression()
@@ -211,6 +215,10 @@ export class GameRuntime {
         if (!result.accepted) return result
         this.economy = result.state; this.production = result.production; this.construction = result.construction; this.progression = result.progression
         this.feedback = result.message
+        if (command.type === 'loot-claim') {
+          const object = this.world.allConfiguredObjects().find(o => o.id === command.objectId)!
+          this.recordLoot(this.point, 0, 0, RESOURCE_RULES[object.kind].items, false)
+        }
         if (command.type === 'resource-interact') {
           this.productionOrderFocus = resourceOrderId(command.objectId)
           if (this.economy.clearing) { this.survival = { ...this.survival, resting: false }; this.move(this.economy.clearing.workCell) }
@@ -557,7 +565,8 @@ export class GameRuntime {
       this.progression = { ...this.progression, regionUnlock: null, unlockedRegions: [...this.progression.unlockedRegions, region.id], regionContent: structuredClone(this.progression.regionContent) }
       this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
       this.construction = structuredClone(this.construction); this.survival = structuredClone(this.survival)
-      populateRegionContent(this.world, this.construction, this.survival, this.progression)
+      populateRegionContent(this.world, this.construction, this.survival, this.progression, [this.point])
+      this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
       this.navigation = constructionNavigation(this.world, this.construction)
       this.feedback = `${region.name}已开放`; this.constructionChanged = true
     }
@@ -580,7 +589,7 @@ export class GameRuntime {
       if (this.route.length || this.search) return
       if (!sameCell(this.point, job.workCell) || job.reservedIds.length !== 1 || job.reservedIds.some(id => {
         const item = this.production!.inventory.items[id]
-        return !item || item.itemId !== rule.tool || item.reservedBy !== resourceOrderId(object.id)
+        return !item || !toolMeets(item.itemId, rule.tool) || item.reservedBy !== resourceOrderId(object.id)
       })) { this.abandonClearing('清理条件发生变化，工具已释放'); return }
       this.production = structuredClone(this.production); this.economy = structuredClone(this.economy)
       for (const id of job.reservedIds) {
@@ -604,9 +613,10 @@ export class GameRuntime {
     this.production.inventory.gold += rule.gold; this.production.inventory.gems += rule.gems
     const delivered = exchangeItems(this.production.inventory, this.catalog, [], rule.items)
     if (!delivered) this.economy.pendingLoot.push(object.id)
+    this.recordLoot(object, rule.gold, rule.gems, rule.items, !delivered)
     this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
     this.navigation = constructionNavigation(this.world, this.construction)
-    this.feedback = `清理完成：金币 +${rule.gold}，钻石 +${rule.gems}，${delivered ? rule.items.map(id => this.catalog!.itemById.get(id)!.name).join('、') : '物资已保留，请到商店领取'}`
+    this.feedback = `清理完成：${[rule.gold ? `金币 +${rule.gold}` : '', rule.gems ? `钻石 +${rule.gems}` : '', delivered ? rule.items.map(id => this.catalog!.itemById.get(id)!.name).join('、') : '物资已保留，请到商店领取'].filter(Boolean).join('，')}`
     this.constructionChanged = true
   }
 
@@ -707,11 +717,17 @@ export class GameRuntime {
 
   private makeSceneSnapshot(previousPosition: Cell, previousCompanionPosition = actorPosition(this.survival.companion), previousEnemyPositions = this.enemyPositions()): SceneSnapshot {
     return { position: this.position(), previousPosition, previousCompanionPosition: { ...previousCompanionPosition }, previousEnemyPositions, route: this.route.map(cell => ({ ...cell })),
-      destination: this.destination ? { ...this.destination } : null,
+      destination: this.destination ? { ...this.destination } : null, lootFeedback: this.lootFeedback,
       elapsedSeconds: this.elapsedSeconds, gameMinutes: this.gameMinutes(), construction: this.construction, survival: this.survival, progression: this.progression, economy: this.economy }
   }
 
   private publish() { this.uiSnapshot = this.makeUiSnapshot(); this.listeners.forEach(listener => listener()) }
+
+  /** Presentation receipt, emitted only after settlement. Never saved or used to grant inventory. */
+  private recordLoot(cell: Cell, gold: number, gems: number, items: readonly number[], pending: boolean) {
+    this.lootFeedback = [...this.lootFeedback.filter(event => this.elapsedSeconds - event.at < 3).slice(-7),
+      { id: ++this.lootFeedbackId, cell: { x: cell.x, y: cell.y }, at: this.elapsedSeconds, gold, gems, items: [...items], pending }]
+  }
 
   syncRealTime() {
     if (!this.production) return
@@ -721,6 +737,7 @@ export class GameRuntime {
   }
 
   private restore(data: RuntimeData) {
+    this.lootFeedback = []
     this.productionOrderFocus = null
     const restored = structuredClone(data)
     this.economy = restored.economy ?? createEconomy()
@@ -750,7 +767,8 @@ export class GameRuntime {
     else this.pauses.delete('failure')
     this.construction = restored.construction
     upgradeConstruction(this.construction, this.production.inventory)
-    populateRegionContent(this.world, this.construction, this.survival, this.progression)
+    populateRegionContent(this.world, this.construction, this.survival, this.progression, [this.point, ...this.route, ...(this.destination ? [this.destination] : []), ...(this.economy.clearing ? [this.economy.clearing.workCell] : [])])
+    this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
     this.navigation = constructionNavigation(this.world, this.construction)
     this.production.stamina = syncStamina(this.production.stamina, this.now())
     this.lastAutomaticSave = this.elapsedSeconds

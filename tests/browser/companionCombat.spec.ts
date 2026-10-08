@@ -22,7 +22,7 @@ async function seed(page: Page, hp: number, thirdEnemy = false, approach = false
   const save = await pauseAndSave(page)
   await page.goto('/?game=legacy')
   await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000))
-  save.data.elapsedSeconds = 650; save.data.cell = { x: 10, y: 8 }
+  save.data.elapsedSeconds = 325; save.data.cell = { x: 10, y: 8 }
   save.data.motion = { version: 1, position: { ...save.data.cell } }
   const state = save.data.survival
   state.raidNight = 1; state.spawnRemaining = 80; state.decisionRemaining = 0

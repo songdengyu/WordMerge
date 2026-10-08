@@ -27,7 +27,7 @@ function cabin(data: RuntimeData) {
   return data.construction.buildings[0]
 }
 function night(data = dataFixture()) {
-  data.elapsedSeconds = 650; data.survival = createSurvival(world, data.elapsedSeconds)
+  data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds; data.survival = createSurvival(world, data.elapsedSeconds)
   return data
 }
 function enemy(data: RuntimeData, cell = data.cell, hp = 32): Enemy {
@@ -40,8 +40,8 @@ describe('M4 survival and shelter', () => {
     const data = dataFixture(); data.survival.weather = 'rain'
     const { runtime, pump } = harness(data)
     pump(10)
-    expect(runtime.getSaveData().production.vitals.hunger).toBeCloseTo(59.5)
-    expect(runtime.getSaveData().production.vitals.water).toBeCloseTo(60 - 80 / 120)
+    expect(runtime.getSaveData().production.vitals.hunger).toBeCloseTo(60 - 10 * 60 / world.config.dayDurationSeconds)
+    expect(runtime.getSaveData().production.vitals.water).toBeCloseTo(60 - 10 * 80 / world.config.dayDurationSeconds)
     expect(runtime.getSaveData().production.vitals.temperature).toBeCloseTo(48.8)
     runtime.setPauseReason('background', true)
     const before = runtime.getSaveData(); pump(120)

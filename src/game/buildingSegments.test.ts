@@ -121,7 +121,7 @@ describe('group construction, individual damage and repair', () => {
   })
 
   it('enemy hits the reachable wall beside its stand, leaving the other segments intact', () => {
-    const data = home(); data.elapsedSeconds = 650; data.survival = createSurvival(world, 650)
+    const data = home(); data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds; data.survival = createSurvival(world, data.elapsedSeconds)
     data.survival.enemies = [{ id: 'e1', kind: 'prowler', hp: 32, cell: { x: 9, y: 9 }, route: [], progress: 0, target: null, cooldown: 0 }]
     data.survival.nextEnemyId = 2
     const h = run(data); h.pump(.05)

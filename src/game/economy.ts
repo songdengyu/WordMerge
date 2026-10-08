@@ -1,8 +1,8 @@
 import { constructionNavigation, type ConstructionState } from './construction'
-import { availableItems, exchangeItems, matchRequirements, type ProductionState } from './inventory'
+import { availableItems, exchangeItems, type ProductionState } from './inventory'
 import type { ProductionCatalog } from './productionConfig'
 import { grantDecoration, type ProgressionState } from './progression'
-import { CLEAR_SECONDS, ECONOMY_VERSION, RESOURCE_RULES, SHOP_PRODUCTS, type ShopProduct } from './economyConfig'
+import { CLEAR_SECONDS, ECONOMY_VERSION, RESOURCE_RULES, SHOP_PRODUCTS, toolMeets, type ShopProduct } from './economyConfig'
 import { pointDistance, SmoothPathSearch } from './smoothNavigation'
 import type { Cell, WorldMap } from './world'
 
@@ -16,6 +16,8 @@ export type EconomyCommand = { type: 'resource-interact'; objectId: string } | {
 export const createEconomy = (): EconomyState => ({ version: ECONOMY_VERSION, removedObjects: [], clearingOrders: [], clearing: null,
   purchases: [], pendingLoot: [], distanceRemainder: 0 })
 export const resourceOrderId = (id: string) => `resource:${id}`
+export const resourceTool = (production: ProductionState, required: number) => availableItems(production.inventory)
+  .filter(item => toolMeets(item.itemId, required)).sort((a, b) => a.itemId - b.itemId)[0]
 /** A resource itself blocks movement; approach a reachable neighboring cell without starting work. */
 export function resourceApproach(world: WorldMap, construction: ConstructionState, player: Cell, object: Cell) {
   const grid = constructionNavigation(world, construction)
@@ -80,7 +82,7 @@ export function applyEconomyCommand(original: EconomyState, source: ProductionSt
   const object = world.allObjects().find(o => o.id === command.objectId)
   if (!object || !world.chunkAt(object)?.unlocked) return reject('这个物体已被清理或尚未开放')
   const rule = RESOURCE_RULES[object.kind]
-  const picked = matchRequirements(production.inventory, [rule.tool])
+  const tool = resourceTool(production, rule.tool), picked = tool ? [tool.id] : null
   if (!state.clearingOrders.includes(object.id)) state.clearingOrders.push(object.id)
   if (!picked) return accept(`需要${catalog.itemById.get(rule.tool)!.name}，在工具箱中生产零件并合成`, true)
   const work = resourceApproach(world, construction, player, object)
@@ -92,6 +94,6 @@ export function applyEconomyCommand(original: EconomyState, source: ProductionSt
 
 export function clearingReady(state: EconomyState, production: ProductionState, objectId: string, world: WorldMap) {
   const object = world.allObjects().find(o => o.id === objectId)
-  return !!object && !state.clearing && availableItems(production.inventory).some(i => i.itemId === RESOURCE_RULES[object.kind].tool)
+  return !!object && !state.clearing && !!resourceTool(production, RESOURCE_RULES[object.kind].tool)
 }
 export { CLEAR_SECONDS }

@@ -64,7 +64,7 @@ test('a food rescue recruits a real companion, commands and supply consumption s
 test('night attacks and companion defense continue behind merge, pause in background and persist damage', async ({ page }) => {
   test.setTimeout(60_000)
   await seed(page, save => {
-    cabin(save); save.data.elapsedSeconds = 650; save.data.survival.raidNight = 1
+    cabin(save); save.data.elapsedSeconds = 325; save.data.survival.raidNight = 1
     const state = save.data.survival
     Object.assign(state.companion, { status: 'active', cell: { x: 8, y: 11 }, guard: { x: 8, y: 11 } })
     state.enemies = [{ id: 'e1', kind: 'boar', hp: 70, cell: { x: 8, y: 12 }, route: [], progress: 0, target: null, cooldown: 0 }]

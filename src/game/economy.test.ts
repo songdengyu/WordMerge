@@ -42,7 +42,7 @@ it('supports three online days from the actual starter inventory with two-minute
         const sourceChain: Record<number, number> = { 5: 1, 6: 2, 7: 3, 8: 4 }
         const generator = availableItems(runtime.getSaveData().production.inventory).filter(i => catalog.itemById.get(i.itemId)?.chain === sourceChain[chain])
           .sort((a, b) => catalog.itemById.get(b.itemId)!.level - catalog.itemById.get(a.itemId)!.level)[0]
-        const day = Math.min(2, Math.floor(runtime.getSaveData().elapsedSeconds / 1200)), cost = catalog.itemById.get(generator.itemId)!.openCost!
+        const day = Math.min(2, Math.floor(runtime.getSaveData().elapsedSeconds / world.config.dayDurationSeconds)), cost = catalog.itemById.get(generator.itemId)!.openCost!
         costs[day] += cost; if (maintenance) upkeep[day] += cost
         await send({ type: 'item-use', instanceId: generator.id })
       }
@@ -73,7 +73,7 @@ it('supports three online days from the actual starter inventory with two-minute
   await send({ type: 'outfit-equip', outfitId: 'rose' })
   await send({ type: 'move', target: { x: 8, y: 11 } }); pump(15)
   maintenance = true
-  for (let cycle = 0; runtime.getSaveData().elapsedSeconds < 3600; cycle++) {
+  for (let cycle = 0; runtime.getSaveData().elapsedSeconds < 3 * world.config.dayDurationSeconds; cycle++) {
     expect(cycle, JSON.stringify(runtime.getUiSnapshot().pauseReasons)).toBeLessThan(40)
     const state = runtime.getSaveData()
     expect(state.survival.failure, `failed on day ${runtime.getUiSnapshot().day}`).toBeNull()
@@ -92,7 +92,7 @@ it('supports three online days from the actual starter inventory with two-minute
         await send({ type: 'building-interact', buildingId: 'b1', partId: config.id })
       }
     }
-    pump(Math.min(120, 3600.05 - runtime.getSaveData().elapsedSeconds))
+    pump(Math.min(120, 3 * world.config.dayDurationSeconds + .05 - runtime.getSaveData().elapsedSeconds))
   }
   const saved = runtime.getSaveData()
   expect(saved.survival.failure).toBeNull()

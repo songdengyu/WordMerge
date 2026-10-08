@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "dayDurationSeconds": 1200,
+  "dayDurationSeconds": 600,
   "initialHour": 12,
   "spawn": { "x": 7, "y": 9 },
   "chunks": [

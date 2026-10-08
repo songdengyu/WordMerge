@@ -14,6 +14,10 @@
 
 ## 实施要点
 
+- 高阶工具与林地奖励扩展见 `docs/implementation/GROVE-TOOLS-REWARDS.md`。工具链斧头 252→253→254、石镐 262→263→264，同链高阶可替代低阶且优先最低级，预留和气泡必须使用实际选中工具。林地大屋初始地基已完成并一次计入 20 经验；旧已建损伤保留、未开工订单释放、已扣料施工继续。雕像 `grove-statue` 坐标保存在 `regionContent.statue`，避开建筑 / 角色 / 工作位 / 已保存路径，用 264 拆除暂奖 30 钻石，移除复用经济记录。目录、经济和区域版本显式迁移，不能清档。Runtime 的临时 `LootFeedback` 只在实际拆除 / 待领领取成功后发出；`ResourceDrops` 负责场景图标、名称、数量与满仓“待领取”表现，不写存档或参与发奖。
+
+- 一天时长在 `world.json` 改为 600 秒，保留中午 12:00 开局及 06:00–19:00 白天。`saveData.ts` 仅对原 1200 秒中午地图指纹 `54404a5a` 显式迁移，将 `elapsedSeconds` 减半以保留日期时刻；施工、交战、警觉与刷怪等相对秒数不缩放，不补算、不清档。原清晨删档授权仍只匹配 1200 秒 / 06:00 的旧地图。
+- 第一批内容扩展见 `docs/implementation/CONTENT-EXPANSION-01.md`：合成新增 204–206 / 214–215 / 223–224 / 233–234 / 243，商店新增 3 图纸、6 摆件、3 服装。`migrations/contentExpansion.ts` 显式迁移旧合成 / 剧情 / 经济指纹，不能清档；旧档回归夹具在 `tests/fixtures/pre-content-expansion.json`。商店新房纳入经济指纹，基础与区域建筑指纹保留。`WorldMap` 按 `FLORA_KINDS` 将指定原树木 ID 派生为灌木 / 苹果树，不变更原地图配置、占位或清理奖励；暂不支持采摘。`houseStyle.ts` 管理视觉分类，斜屋顶 / 两端封板按原屋顶段耐久绘制，保持进屋隐藏和自动门。
 - 昼夜动态遭遇参数在 `encounters.ts`：白天 / 夜晚间隔 160 / 65 秒、动态在场上限 2 / 5；在主角周围 6～14 格的可达地面选点，排除 CampScene 上报的镜头可见范围，无位置则 5 秒后重试。出生时持久化 `Enemy.roaming / tameable`，新单位天亮保留；溪谷常驻巡逻不变。可驯服动物中立靠近，使用 `taming.targetId` 绑定同一只动物的气泡、合成订单、预留和 2 秒作业，支持夜间驯服；栗栗保留白天限制。`survival.recruits` 保存新增伙伴，旧档缺省为空，不替换 `companion`；命令可带 `companionId`，交战用 `duel.companionId` 锁定实际双方，并按物种核算数值。伙伴当前容量 6，原单对交战槽保留；其他伙伴仍移动 / 选敌。救援清除失效野生驯服订单、保留已招募伙伴。详见 `docs/implementation/DYNAMIC-ENCOUNTERS.md`。
 - 装饰独立入口在建造旁，`DecorationPanel` 替代手记装扮页，商店购买的皮肤 / 摆件由此使用。同款摆件可重复购买；`progression.decorStock` 保存剩余库存、`decorations[].id` 标识独立场景实例、`nextDecorationId` 递增。放置扣 1，取消预览 / 指定移动不扣，收回指定实例返还 1；同类物件可共存但不能重叠。旧 schema 4 缺少库存时按旧唯一物件规则验证后补库存与 ID，不清档；`ownedDecor` 和去重购买列表仍用于来源校验。剧情可在已购买同款后再赠 1 件，皮肤仍永久解锁 / 去重。详见 `docs/implementation/DECORATION-COLLECTION.md`。
 - `world.json` 开局为 12:00。用户在 2026-10-07 明确授权这次直接删旧档：`clearMorningStartSave` 在启动前按原 06:00 地图指纹原子清除旧进度和备份并更新 generation；新中午版本存档不重复清除。该授权仅限本次开局变更，不代表今后配置不兼容都可以删档。

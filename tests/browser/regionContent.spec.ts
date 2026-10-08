@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { tapSceneControl } from './sceneControls'
 
+test.use({ baseURL: process.env.WORDMERGE_GAME_URL ?? 'http://127.0.0.1:5178' })
+
 async function ready(page: Page) {
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
@@ -48,28 +50,30 @@ test('a large fixed foundation appears in the grove, builds through its material
   await seed(page, save => {
     save.data.cell = { x: 27, y: 5 }
     const inv = save.data.production.inventory
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       const index = inv.board.findIndex((s: any) => s.lock === 0 && !s.instanceId), id = `i${inv.nextId++}`
       inv.items[id] = { id, itemId: 203, reservedBy: null, location: { kind: 'board', index } }; inv.board[index].instanceId = id
     }
   })
-  const bubble = page.getByTestId('build-bubble-b2:foundation')
-  await expect(bubble).toHaveAccessibleName(/大屋地基/)
+  await expect(page.getByTestId('build-bubble-b2:foundation')).toHaveCount(0)
+  const bubble = page.getByTestId('build-bubble-b2:walls')
+  await expect(bubble).toHaveAccessibleName(/大屋围墙/)
   await expect(bubble).toHaveAttribute('data-ready', 'true')
   await expect(page.getByTestId('remove-b2')).toHaveCount(0)
   await page.screenshot({ path: 'test-results/grove-large-foundation.png' })
   await tapSceneControl(page, bubble)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'building')
-  await expect(page.getByTestId('build-bubble-b2:walls')).toBeVisible()
+  await expect(page.getByTestId('build-bubble-b2:door')).toBeVisible()
   await ready(page)
   const saved = await readSave(page), lodge = saved.data.construction.buildings.find((b: any) => b.blueprintId === 'lodge')
   expect(lodge.parts.foundation.built).toBe(true)
-  expect(saved.data.construction.xp).toBe(90)
+  expect(lodge.parts.walls.built).toBe(true)
+  expect(saved.data.construction.xp).toBe(120)
   await page.reload(); await ready(page)
   expect((await readSave(page)).data.construction.buildings.filter((b: any) => b.blueprintId === 'lodge')).toHaveLength(1)
   await page.screenshot({ path: 'test-results/grove-large-floor-built.png' })
-  await tapSceneControl(page, page.getByTestId('build-bubble-b2:walls'))
+  await tapSceneControl(page, page.getByTestId('build-bubble-b2:door'))
   await expect(page.getByTestId('production-screen')).toBeVisible()
-  await expect(page.getByTestId('production-screen')).toContainText('大屋围墙')
+  await expect(page.getByTestId('production-screen')).toContainText('大屋木门')
   expect(errors).toEqual([])
 })

@@ -15,6 +15,9 @@ import { Atmosphere } from './Atmosphere'
 import { BuildingBubbles } from './BuildingBubbles'
 import { BuildingAppearance } from './BuildingAppearance'
 import { resourceApproach } from '../game/economy'
+import { houseStyle } from './houseStyle'
+import { objectHeight } from './worldObjectStyle'
+import { ResourceDrops } from './ResourceDrops'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
@@ -32,10 +35,37 @@ function makeObject(object: WorldObject): Container {
     g.poly([-25, -43, 0, -90, 25, -43]).fill(0x447455)
     g.poly([-18, -62, 0, -102, 18, -62]).fill(0x5c8d65)
     g.poly([-18, -62, 0, -102, -1, -65]).fill({ color: 0x99b77b, alpha: 0.32 })
+  } else if (object.kind === 'shrub') {
+    for (const [x, y, r] of [[-13, -10, 13], [10, -12, 15], [-3, -22, 14]]) g.circle(x, y, r).fill(0x76915e)
+    g.ellipse(-6, -28, 10, 6).fill(0x9fb578)
+    for (const [x, y] of [[-14, -17], [8, -24], [16, -9], [-1, -12]]) {
+      g.circle(x, y, 3).fill(0xb86e7a); g.circle(x - 1, y - 1, .9).fill(0xe5abb3)
+    }
+  } else if (object.kind === 'fruit-tree') {
+    g.roundRect(-4, -45, 8, 46, 3).fill(0x92704b)
+    g.moveTo(0, -32).lineTo(-12, -50).moveTo(0, -38).lineTo(14, -54).stroke({ width: 4, color: 0x92704b })
+    for (const [x, y, r] of [[-14, -53, 19], [15, -53, 20], [0, -73, 19]]) g.circle(x, y, r).fill(0x769667)
+    g.ellipse(-6, -80, 15, 8).fill(0xa2b980)
+    for (const [x, y] of [[-21, -56], [6, -75], [20, -49], [-2, -48]]) {
+      g.circle(x, y, 5).fill(0xcf8870); g.circle(x - 1.5, y - 1.5, 1.5).fill(0xf0be91)
+      g.moveTo(x, y - 4).lineTo(x + 2, y - 8).stroke({ width: 1.5, color: 0x688050 })
+    }
   } else if (object.kind === 'boulder') {
     g.poly([-22, -3, -18, -22, 1, -32, 19, -20, 23, 0, 4, 7]).fill(0x8b9991)
     g.poly([-18, -22, 1, -32, 19, -20, -1, -11]).fill(0xb6c1ac)
     g.poly([-22, -3, -18, -22, -1, -11, 4, 7]).fill(0x9eada0)
+  } else if (object.kind === 'statue') {
+    // A small forest guardian carved from stone, with a diamond in its pedestal.
+    g.poly([-21, -7, 0, -17, 21, -7, 21, 0, 0, 10, -21, 0]).fill(0x83978f)
+    g.poly([-21, -7, 0, -17, 21, -7, 0, 3]).fill(0xc8d2be)
+    g.poly([-13, -9, -11, -30, 11, -30, 13, -9, 0, -3]).fill(0xa6b7a4)
+    g.poly([-16, -29, -11, -43, 0, -47, 11, -43, 16, -29, 0, -22]).fill(0xb8c7b1)
+    g.ellipse(0, -52, 12, 15).fill(0xc4cfb8)
+    g.poly([-11, -59, -12, -72, -2, -63, 5, -65, 13, -72, 11, -57]).fill(0xa1b398)
+    g.moveTo(-7, -53).lineTo(-3, -52).moveTo(3, -52).lineTo(7, -53).stroke({ width: 2, color: 0x667e72 })
+    g.poly([-3, -47, 3, -47, 0, -44]).fill(0x6e8478)
+    g.poly([-5, -19, 0, -23, 5, -19, 0, -12]).fill(0x91d6df).stroke({ width: 1, color: 0xe0f3db })
+    g.ellipse(-13, -3, 7, 3).fill(0x819a66)
   } else if (object.kind === 'campfire') {
     g.ellipse(0, 0, 23, 12).fill(0xa5977a)
     g.ellipse(0, 0, 17, 8).fill(0x645749)
@@ -57,7 +87,7 @@ function makeObject(object: WorldObject): Container {
   return root
 }
 
-function makePlayer(color = 0xc77b64) {
+function makePlayer(color = 0xc77b64, outfit = 'clay') {
   const root = new Container()
   const g = new Graphics()
   g.ellipse(0, 1, 11, 5).fill({ color: 0x254035, alpha: 0.25 })
@@ -72,6 +102,21 @@ function makePlayer(color = 0xc77b64) {
   g.circle(4, -33, 1).fill(0x584638)
   g.moveTo(-5, -27).lineTo(6, -13).stroke({ width: 3, color: 0xe9d7ac })
   g.roundRect(3, -19, 8, 8, 2).fill(0x866b48)
+  if (outfit === 'meadow') {
+    g.poly([-5, -24, 5, -24, 7, -11, -7, -11]).fill(0xece2b4)
+    g.ellipse(0, -44, 16, 4).fill(0xe2c78a)
+    g.roundRect(-9, -53, 18, 10, 4).fill(0xd2b575)
+    g.moveTo(-9, -44).lineTo(9, -44).stroke({ width: 2, color: 0x859668 })
+  } else if (outfit === 'rain') {
+    g.poly([-6, -28, 6, -28, 14, -8, 0, -13, -14, -8]).fill(0x82b2c3)
+    g.circle(0, -25, 1.5).fill(0xe9d58a)
+    g.moveTo(-11, -35).arc(0, -35, 11, Math.PI, Math.PI * 2).stroke({ width: 5, color: 0x659bb4 })
+  } else if (outfit === 'starlight') {
+    g.poly([-6, -25, 6, -25, 13, -7, -13, -7]).fill(0x9890c1)
+    g.moveTo(-11, -9).lineTo(11, -9).stroke({ width: 2, color: 0xe3d2ab })
+    g.star(1, -19, 5, 3, 1.5).fill(0xf1db92)
+    g.circle(-8, -40, 3).fill(0xeed38c); g.circle(-6.5, -41.5, 2.5).fill(0x634f42)
+  }
   root.addChild(g)
   return root
 }
@@ -110,6 +155,7 @@ export class CampScene {
   private lastHeight = 0
   private contextLost = false
   private readonly buildingBubbles: BuildingBubbles
+  private readonly resourceDrops: ResourceDrops
   private bubblesHidden = false
   private companionControl = false
   private controlledCompanion = 'companion'
@@ -125,6 +171,7 @@ export class CampScene {
     private readonly openMerge: () => void, private readonly onCompanion: (id?: string) => void, private readonly onJournal: () => void,
     private readonly onCancelCompanionControl: () => void) {
     this.buildingBubbles = new BuildingBubbles(runtime, host, onMessage, openMerge)
+    this.resourceDrops = new ResourceDrops(runtime, host)
     const corners = runtime.world.config.chunks.flatMap(chunk => [
       gridToWorld({ x: chunk.x * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
       gridToWorld({ x: (chunk.x + 1) * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
@@ -142,6 +189,7 @@ export class CampScene {
       this.initialized = true
       if (this.disposed) { this.destroyApplication(); return }
       await this.buildingBubbles.load(this.assetAbort.signal)
+      await this.resourceDrops.load(this.assetAbort.signal)
       if (this.disposed) return
       const canvas = this.app.canvas
       canvas.setAttribute('aria-label', '林间营地地图，轻点空地移动，拖动查看，双指缩放')
@@ -150,7 +198,7 @@ export class CampScene {
       this.host.appendChild(canvas)
       canvas.addEventListener('webglcontextlost', this.onContextLost)
       canvas.addEventListener('webglcontextrestored', this.onContextRestored)
-      this.root.addChild(this.ground, this.buildings, this.progressionViews.view, this.survivalActors.guard, this.preview, this.decorPreview, this.route, this.protection, this.actors, this.buildingBubbles.view)
+      this.root.addChild(this.ground, this.buildings, this.progressionViews.view, this.survivalActors.guard, this.preview, this.decorPreview, this.route, this.protection, this.actors, this.buildingBubbles.view, this.resourceDrops.view)
       this.actors.sortableChildren = true
       this.actors.addChild(this.player)
       this.app.stage.addChild(this.root, this.atmosphere.view)
@@ -277,7 +325,7 @@ export class CampScene {
     }
     const object = this.runtime.world.objectAt(cell) ?? this.runtime.world.allObjects()
       .filter(o => this.runtime.world.chunkAt(o)?.unlocked).sort((a, b) => gridToWorld(b).y - gridToWorld(a).y).find(o => {
-        const p = gridToWorld(o), height = o.kind === 'tree' ? 104 : o.kind === 'sign' ? 40 : o.kind === 'boulder' ? 32 : 12
+        const p = gridToWorld(o), height = objectHeight(o.kind)
         return Math.abs(tapPoint.x - p.x) <= (o.kind === 'tree' ? 28 : 22) && tapPoint.y >= p.y - height && tapPoint.y <= p.y + 7
       })
     if (object) {
@@ -314,13 +362,20 @@ export class CampScene {
       const g = this.buildings.clear()
       for (const building of snapshot.construction.buildings) {
         const blueprint = blueprintById(building.blueprintId)!
+        const style = houseStyle(building.blueprintId)
         const foundation = building.parts.foundation, floorConfig = blueprint.parts.find(part => part.kind === 'foundation')!
         for (const segment of buildingSegments(blueprint, floorConfig)) {
           const p = gridToWorld(localToWorld(building, segment.cell)), hp = segmentHp(foundation, segment.id)
-          diamond(g, p.x, p.y, foundation.built ? hp > 0 ? 0xc3a477 : 0x756951 : 0xeee5be, foundation.built ? hp > 0 ? .95 : .45 : .38)
+          diamond(g, p.x, p.y, foundation.built ? hp > 0 ? style.floor : 0x756951 : 0xeee5be, foundation.built ? hp > 0 ? 1 : .45 : .38)
           g.poly([p.x, p.y - 15, p.x + 31, p.y, p.x, p.y + 15, p.x - 31, p.y]).stroke({ width: 1, color: 0xf9edc7, alpha: 0.65 })
+          if (foundation.built && hp > 0) {
+            for (const offset of [-8, 8]) g.moveTo(p.x - 16 + offset, p.y - 8 - offset / 2)
+              .lineTo(p.x + 16 + offset, p.y + 8 - offset / 2).stroke({ width: .7, color: style.trim, alpha: .65 })
+          }
           if (foundation.built && hp < floorConfig.hp) g.moveTo(p.x - 10, p.y - 5).lineTo(p.x, p.y).lineTo(p.x - 3, p.y + 6).lineTo(p.x + 12, p.y + 5).stroke({ width: 2, color: 0x70513d })
         }
+        // Draw solid parts from back to front; the bed must not paint over a nearer wall.
+        const layers: { depth: number; draw: () => void }[] = []
         for (const config of blueprint.parts) {
           const part = building.parts[config.id]
           if (!part.built) continue
@@ -331,18 +386,47 @@ export class CampScene {
             const dx = to.x - from.x, dy = to.y - from.y
             const a = gridToWorld({ x: (from.x + to.x) / 2 - dy / 2, y: (from.y + to.y) / 2 + dx / 2 })
             const b = gridToWorld({ x: (from.x + to.x) / 2 + dy / 2, y: (from.y + to.y) / 2 - dx / 2 })
-            const h = 28
-            g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: 0x8e775b, alpha: .8 })
-              .stroke({ width: 1.5, color: 0xe4c698 })
+            const h = 29
+            layers.push({ depth: (a.y + b.y) / 2, draw: () => {
+            g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill(style.wall)
+              .stroke({ width: 1.5, color: style.trim })
+            for (const row of [1, 2, 3]) g.moveTo(a.x, a.y - row * 7).lineTo(b.x, b.y - row * 7)
+              .stroke({ width: .7, color: style.trim, alpha: .75 })
+            if (style.tier === '精致') for (const row of [0, 1, 2, 3]) {
+              const t = row % 2 ? .33 : .66, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t
+              g.moveTo(x, y - row * 7).lineTo(x, y - (row + 1) * 7).stroke({ width: .7, color: style.trim })
+            }
+            if (Number(segment.id.replace('edge', '')) % 3 === 1) {
+              const l = { x: a.x + (b.x - a.x) * .3, y: a.y + (b.y - a.y) * .3 }, r = { x: a.x + (b.x - a.x) * .7, y: a.y + (b.y - a.y) * .7 }
+              g.poly([l.x, l.y - 8, r.x, r.y - 8, r.x, r.y - 22, l.x, l.y - 22]).fill(style.accent).stroke({ width: 2, color: style.trim })
+              g.moveTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 8).lineTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 22).stroke({ width: 1, color: style.trim })
+            }
             if (hp < config.hp) g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - h).lineTo((a.x + b.x) / 2 - 4, (a.y + b.y) / 2 - h / 2)
               .lineTo((a.x + b.x) / 2 + 3, (a.y + b.y) / 2 - 4).stroke({ width: 2, color: 0x4e3c30 })
+            } })
           }
           if (config.kind === 'bed' && part.hp > 0) {
             const p = gridToWorld(localToWorld(building, { x: 0, y: 1 }))
-            g.roundRect(p.x - 13, p.y - 16, 26, 15, 4).fill(0xd9b4a0).stroke({ width: 2, color: 0xffefd2 })
-            g.roundRect(p.x - 10, p.y - 14, 8, 10, 3).fill(0xf7e5c9)
+            layers.push({ depth: p.y, draw: () => {
+              // Project the mattress inside its actual tile, including house rotation.
+              const project = (x: number, y: number, height: number) => {
+                const point = gridToWorld(localToWorld(building, { x, y: y + 1 }))
+                return { x: point.x, y: point.y - height }
+              }
+              const corners = [[-.3, -.38], [.3, -.38], [.3, .38], [-.3, .38]]
+              const top = corners.map(([x, y]) => project(x, y, 5))
+              const base = corners.map(([x, y]) => project(x, y, 1))
+              for (let i = 0; i < 4; i++) {
+                const j = (i + 1) % 4
+                g.poly([top[i], top[j], base[j], base[i]].flatMap(point => [point.x, point.y])).fill(0xac876c)
+              }
+              g.poly(top.flatMap(point => [point.x, point.y])).fill(0xd9b4a0).stroke({ width: 1, color: 0xffefd2 })
+              const pillow = [[-.23, -.31], [.23, -.31], [.23, -.08], [-.23, -.08]].map(([x, y]) => project(x, y, 6))
+              g.poly(pillow.flatMap(point => [point.x, point.y])).fill(0xf7e5c9)
+            } })
           }
         }
+        layers.sort((a, b) => a.depth - b.depth).forEach(layer => layer.draw())
       }
     }
     const previewSignature = JSON.stringify([this.placement, signature, this.runtime.getUiSnapshot().player])
@@ -357,7 +441,8 @@ export class CampScene {
         diamond(this.preview, p.x, p.y, valid ? 0xf0edb0 : 0xce7767, .6)
         this.preview.poly([p.x, p.y - 16, p.x + 32, p.y, p.x, p.y + 16, p.x - 32, p.y]).stroke({ color: valid ? 0xfff9ca : 0xefada0, width: 2 })
       }
-      const door = gridToWorld(localToWorld(this.placement, { x: 1, y: 1.5 }))
+      const edge = blueprint.parts.find(part => part.kind === 'door')!.edges[0]
+      const door = gridToWorld(localToWorld(this.placement, { x: (edge.from.x + edge.to.x) / 2, y: (edge.from.y + edge.to.y) / 2 }))
       this.preview.circle(door.x, door.y, 5).fill(0xfff8d2)
       }
     }
@@ -380,7 +465,7 @@ export class CampScene {
     this.ground.removeChildren().forEach(child => child.destroy({ children: true }))
     this.chunks.length = 0
     const state = this.runtime.getUiSnapshot()
-    this.regionSignature = `${state.progression.unlockedRegions.join(',')}|${state.economy.removedObjects.join(',')}`
+    this.regionSignature = `${state.progression.unlockedRegions.join(',')}|${state.economy.removedObjects.join(',')}|${JSON.stringify(state.progression.regionContent.statue)}`
     for (const config of this.runtime.world.config.chunks) {
       const chunk = this.runtime.world.chunkAt({ x: config.x * CHUNK_SIZE, y: config.y * CHUNK_SIZE })!
       const view = new Container()
@@ -430,11 +515,11 @@ export class CampScene {
   private render = () => {
     if (this.disposed || this.contextLost) return
     const snapshot = this.runtime.getSceneSnapshot()
-    if (this.regionSignature !== `${snapshot.progression.unlockedRegions.join(',')}|${snapshot.economy.removedObjects.join(',')}`) this.buildMap()
+    if (this.regionSignature !== `${snapshot.progression.unlockedRegions.join(',')}|${snapshot.economy.removedObjects.join(',')}|${JSON.stringify(snapshot.progression.regionContent.statue)}`) this.buildMap()
     this.progressionViews.draw(snapshot.progression)
     if (snapshot.progression.outfit !== this.outfit) {
       this.outfit = snapshot.progression.outfit; this.player.destroy({ children: true })
-      this.player = makePlayer(OUTFITS.find(o => o.id === this.outfit)!.color); this.actors.addChild(this.player)
+      this.player = makePlayer(OUTFITS.find(o => o.id === this.outfit)!.color, this.outfit); this.actors.addChild(this.player)
     }
     if (snapshot.progression.completed.includes('visitor') && !this.resident) {
       this.resident = makePlayer(0x7c92a2)
@@ -483,6 +568,7 @@ export class CampScene {
     this.root.position.set(this.camera.x, this.camera.y)
     this.root.scale.set(this.camera.zoom)
     this.buildingBubbles.update(this.runtime.getUiSnapshot(), this.camera, this.bubblesHidden || this.companionControl)
+    this.resourceDrops.update(snapshot)
     if (snapshot !== this.lastSnapshot) {
       this.route.clear()
       if (snapshot.destination) {
@@ -548,6 +634,7 @@ export class CampScene {
     this.disposed = true
     this.assetAbort.abort()
     this.buildingBubbles.dispose()
+    this.resourceDrops.dispose()
     this.detachInput?.()
     this.resizeObserver?.disconnect()
     this.destroyApplication()

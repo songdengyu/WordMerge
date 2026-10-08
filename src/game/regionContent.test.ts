@@ -65,14 +65,14 @@ describe('persistent regional animals and lodge foundation', () => {
     expect(restored.valid().survival.enemies.filter(e => e.residentId)).toHaveLength(2)
     expect(restored.valid().production.inventory.gold).toBe(gold + 4)
   })
-  it('migrates old unlocked regions without changing player inventory, experience or existing buildings; avoids occupied ground', () => {
+  it('migrates old unlocked regions with foundation discovery experience and preserves inventory and existing buildings; avoids occupied ground', () => {
     const data = prepared(['brook', 'grove']), prior = structuredClone(data.construction.buildings[0])
     data.construction.buildings.push({ ...structuredClone(prior), id: 'b2', origin: { x: 26, y: 3 } })
     data.construction.nextId = 3; data.construction.xp = 140
     const old = envelopeFixture(data) as any; delete old.data.progression.regionContent
     const saved = validateSave(old, world, catalog)
     expect(saved.data.production).toEqual(data.production)
-    expect(saved.data.construction.xp).toBe(140)
+    expect(saved.data.construction.xp).toBe(160)
     expect(saved.data.construction.buildings.slice(0, 2)).toMatchObject(data.construction.buildings)
     const lodge = saved.data.construction.buildings.find(b => b.blueprintId === 'lodge')!
     expect(lodge).toBeTruthy(); expect(footprint(lodge, blueprintById('lodge')!)).toHaveLength(20)
@@ -82,10 +82,10 @@ describe('persistent regional animals and lodge foundation', () => {
   it('builds a discovered 5 by 4 house through real material orders and preserves its enclosure and door navigation', async () => {
     let h = harness(prepared(['grove']))
     const lodge = h.valid().construction.buildings.find(b => b.blueprintId === 'lodge')!, blueprint = blueprintById('lodge')!
-    expect(lodge.parts.foundation.built).toBe(false)
+    expect(lodge.parts.foundation.built).toBe(true)
     expect(await h.send({ type: 'building-remove', buildingId: lodge.id })).toMatchObject({ accepted: false })
     expect(await h.send({ type: 'building-place', blueprintId: 'lodge', origin: { x: 25, y: 3 }, rotation: 0 })).toMatchObject({ accepted: false })
-    for (const part of blueprint.parts) {
+    for (const part of blueprint.parts.filter(p => p.id !== 'foundation')) {
       const data = h.valid(); data.cell = localToWorld(lodge, part.work[0]); data.motion = { version: 1, position: data.cell }
       expect(exchangeItems(data.production.inventory, catalog, [], part.materials)).toBe(true)
       h = harness(data)

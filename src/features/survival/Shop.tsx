@@ -5,6 +5,7 @@ import { ownsProduct } from '../../game/economy'
 import { DECORATIONS, OUTFITS } from '../../game/progressionConfig'
 import { decorAvailable } from '../../game/progression'
 import { MergePiece } from '../../components/MergePiece'
+import { HouseArt, OutfitArt, DecorationArt } from './ContentArt'
 import styles from './Shop.module.css'
 
 export function CurrencyIcon({ kind }: { kind: 'gold' | 'gems' }) {
@@ -51,9 +52,9 @@ export function Shop({ runtime, close, place, collection, merge }: { runtime: Ga
         return <article key={product.id} className={styles.product} data-testid={`product-${product.id}`} data-owned={String(owned)}>
           <div className={`${styles.art} ${styles[product.category]}`}>
             {product.category === 'tools' ? <MergePiece item={runtime.catalog!.itemById.get(Number(product.reward))!} />
-              : product.category === 'outfit' ? <svg viewBox="0 0 50 55" aria-hidden="true"><path d="M15 4 4 14l6 12 7-3-5 27h26l-5-27 7 3 6-12L35 4q-10 10-20 0" fill={`#${outfit!.color.toString(16)}`} /><path d="M17 22h16M20 10l12 33" stroke="#f4e2bd" fill="none" /></svg>
-              : product.category === 'decor' ? <span style={{ color: decor!.color }}>{decor!.symbol}</span>
-              : <svg viewBox="0 0 60 60" fill="none" stroke="#68866f" strokeWidth="2" aria-hidden="true"><rect x="6" y="6" width="48" height="48" rx="4" fill="#e0eadc" /><path d="m14 30 16-14 16 14M18 27v20h24V27M26 47V34h8v13M13 51h34" /></svg>}
+              : product.category === 'outfit' ? <OutfitArt id={outfit!.id} />
+              : product.category === 'decor' ? <DecorationArt kind={decor!.id} />
+              : <HouseArt id={product.reward} />}
             {(owned || repeatable) && <small>{repeatable ? `库存 ${decorAvailable(state.progression, product.reward)}` : '已拥有'}</small>}
           </div>
           <h3>{product.name}</h3><p>{product.category === 'outfit' ? '购买后存入装饰系统，可随时换装。' : product.description}</p>

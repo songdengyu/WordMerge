@@ -35,7 +35,7 @@ export async function clearGameData() {
 /** User-authorized reset for the noon-start release; never erase a new noon save on reload. */
 export async function clearMorningStartSave(world: WorldMap) {
   if (world.config.initialHour !== 12) return false
-  const morningVersion = fingerprint(JSON.stringify({ ...world.config, initialHour: 6 }))
+  const morningVersion = fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6 }))
   const db = await openSaveDatabase()
   try {
     const tx = db.transaction('snapshots', 'readwrite')

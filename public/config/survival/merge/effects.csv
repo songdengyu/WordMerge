@@ -8,3 +8,10 @@ item_id,stat,amount
 232,hp,20
 241,stamina,50
 242,stamina,120
+214,hunger,65
+215,hunger,100
+223,water,65
+224,water,100
+233,hp,45
+234,hp,90
+243,stamina,280

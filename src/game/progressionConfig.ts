@@ -6,11 +6,20 @@ export const OUTFITS = [
   { id: 'clay', name: '初来时的衣裳', color: 0xc77b64 },
   { id: 'sage', name: '鼠尾草围裙', color: 0x789977 },
   { id: 'rose', name: '蔷薇旧衫', color: 0xb87991 },
+  { id: 'meadow', name: '晴日园丁', color: 0xd8b75f },
+  { id: 'rain', name: '雨后漫步', color: 0x659bb4 },
+  { id: 'starlight', name: '星月长裙', color: 0x9890c1 },
 ] as const
 export const DECORATIONS = [
   { id: 'rug', name: '拼布地毯', symbol: '▧', color: '#bd927d' },
   { id: 'planter', name: '野花盆栽', symbol: '✿', color: '#9ba877' },
   { id: 'lantern', name: '暖光提灯', symbol: '✧', color: '#c5a262' },
+  { id: 'chair', name: '藤编单椅', symbol: '♧', color: '#b99664' },
+  { id: 'table', name: '橡木圆桌', symbol: '◉', color: '#a77c54' },
+  { id: 'sofa', name: '奶油双人沙发', symbol: '▰', color: '#d5bda5' },
+  { id: 'bookshelf', name: '林间书柜', symbol: '▤', color: '#957958' },
+  { id: 'tea-set', name: '午后茶点', symbol: '☕', color: '#97b1ab' },
+  { id: 'flowerstand', name: '蔷薇花架', symbol: '❀', color: '#b77b8d' },
 ] as const
 export type DecorId = typeof DECORATIONS[number]['id']
 export const REGIONS = [

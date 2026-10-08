@@ -2,7 +2,7 @@ export type Cell = Readonly<{ x: number; y: number }>
 export type Terrain = 'grass' | 'path' | 'water' | 'rock'
 export type WorldObject = Cell & Readonly<{
   id: string
-  kind: 'tree' | 'boulder' | 'campfire' | 'sign'
+  kind: 'tree' | 'boulder' | 'campfire' | 'sign' | 'shrub' | 'fruit-tree' | 'statue'
   name?: string
 }>
 export interface WorldChunk {
@@ -25,6 +25,11 @@ export interface WorldConfig {
 export interface RegionExtension { readonly id: string; readonly patches: WorldChunk['patches']; readonly objects: readonly WorldObject[] }
 
 export const CHUNK_SIZE = 16
+// Reuse occupied resource cells: old paths, house foundations and removed IDs stay valid.
+export const FLORA_KINDS: Readonly<Record<string, 'shrub' | 'fruit-tree'>> = {
+  t02: 'shrub', t07: 'shrub', t16: 'shrub', 'brook-t2': 'shrub',
+  t03: 'fruit-tree', t09: 'fruit-tree', t13: 'fruit-tree', 'brook-t4': 'fruit-tree',
+}
 export const cellKey = ({ x, y }: Cell) => `${x},${y}`
 export const sameCell = (a: Cell, b: Cell) => a.x === b.x && a.y === b.y
 export const edgeKey = (a: Cell, b: Cell) => [cellKey(a), cellKey(b)].sort().join('|')
@@ -42,6 +47,7 @@ export class WorldMap {
     config.chunks.forEach(chunk => this.chunks.set(cellKey(chunk), { ...chunk, patches: extensions.find(e => e.id === chunk.id)?.patches ?? chunk.patches,
       unlocked: chunk.unlocked || unlocked.includes(chunk.id) }))
     this.configuredObjects = [...config.objects, ...extensions.flatMap(extension => extension.objects)]
+      .map(object => object.kind === 'tree' && FLORA_KINDS[object.id] ? { ...object, kind: FLORA_KINDS[object.id] } : object)
     this.configuredObjects.filter(object => !removed.includes(object.id)).forEach(object => this.objects.set(cellKey(object), object))
     config.blockedEdges.forEach(edge => this.blockedEdges.add(edgeKey(edge.from, edge.to)))
   }
@@ -118,7 +124,7 @@ export function parseWorld(value: unknown): WorldMap {
     assert(isRecord(object) && isCell(object), `objects[${i}] 坐标无效`)
     assert(typeof object.id === 'string' && object.id.length > 0 && !objectIds.has(object.id), `objects[${i}].id 重复或为空`)
     assert(!objectPositions.has(cellKey(object)), `objects[${i}] 与其他元素重叠`)
-    assert(['tree', 'boulder', 'campfire', 'sign'].includes(String(object.kind)), `objects[${i}].kind 无效`)
+    assert(['tree', 'boulder', 'campfire', 'sign', 'shrub', 'fruit-tree', 'statue'].includes(String(object.kind)), `objects[${i}].kind 无效`)
     assert(object.name === undefined || typeof object.name === 'string', `objects[${i}].name 必须为文本`)
     objectIds.add(object.id); objectPositions.add(cellKey(object))
   }

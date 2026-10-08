@@ -14,11 +14,13 @@ import { MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION, PROGRESSION_
 import { validateProgression } from './progressionValidation'
 import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
 import { releaseTaming } from './taming'
-import { createRegionContent } from './regionContentConfig'
-import { populateRegionContent } from './regionContent'
+import { createRegionContent, REGION_CONTENT_VERSION } from './regionContentConfig'
+import { grantLodgeFoundation, populateRegionContent } from './regionContent'
 import { migrateWallDurability, PRE_WALL_BUILDING_VERSION } from './migrations/wallDurability'
 import type { EconomyState } from './economy'
 import { economyForWorld, validateEconomy } from './economyValidation'
+import { CONTENT_CATALOG_VERSIONS, PRE_CONTENT_PROGRESSION_VERSION, PRE_CONTENT_ITEMS } from './migrations/contentExpansion'
+import { NEW_TOOL_IDS, PRE_TOOLS_REGION_VERSION, TOOL_CATALOG_VERSIONS } from './migrations/groveTools'
 
 export interface RuntimeData {
   elapsedSeconds: number
@@ -64,10 +66,19 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (![1, 2, 3, 4].includes(raw.schemaVersion)) throw new SaveError('存档版本不兼容，原文件已保留；请使用相应版本的游戏。', 'incompatible')
   const legacy = raw.schemaVersion === 1
   const versionParts = raw.configVersion.split('-'), oldWalls = versionParts[3] === PRE_WALL_BUILDING_VERSION
+  const preToolsCatalog = CONTENT_CATALOG_VERSIONS.includes(versionParts[2])
+  const supportedCatalogs = [...CONTENT_CATALOG_VERSIONS, ...TOOL_CATALOG_VERSIONS]
+  // Only the released 20-minute noon map may migrate to its 10-minute equivalent.
+  const shorterDay = world.config.dayDurationSeconds === 600 && versionParts[1] === '54404a5a'
+    && fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200 })) === '54404a5a'
+  if (shorterDay) versionParts[1] = fingerprint(JSON.stringify(world.config))
   // Explicit additive catalog migration: existing item IDs/recipes remain unchanged.
   const economyCatalogVersions = ['6e361e33', '726dea98', '30008215'] // Equivalent LF / CRLF checkouts.
+  const preContentCatalog = ['e98b4c81', '9da8a62d', ...economyCatalogVersions].includes(versionParts[2])
   if (['e98b4c81', '9da8a62d', ...economyCatalogVersions].includes(versionParts[2])
-    && economyCatalogVersions.includes(catalog.fingerprint)) versionParts[2] = catalog.fingerprint
+    && [...economyCatalogVersions, ...supportedCatalogs].includes(catalog.fingerprint)) versionParts[2] = catalog.fingerprint
+  if (supportedCatalogs.includes(versionParts[2]) && supportedCatalogs.includes(catalog.fingerprint)) versionParts[2] = catalog.fingerprint
+  if (versionParts[5] === PRE_CONTENT_PROGRESSION_VERSION) versionParts[5] = PROGRESSION_VERSION
   const oldTiming = raw.schemaVersion === 2 && versionParts.join('-') === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
   if (oldWalls) versionParts[3] = BUILDING_VERSION
   const compatibleVersion = versionParts.join('-')
@@ -129,12 +140,15 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   check(integer(inventory.gold) && integer(inventory.gems), '货币')
   check(Array.isArray(inventory.completedOrders) && new Set(inventory.completedOrders).size === inventory.completedOrders.length
     && inventory.completedOrders.every(id => catalog.orders.some(order => order.id === id)), '委托完成记录')
+  if (preContentCatalog) check(inventory.completedOrders.every(id => typeof id === 'number' && id <= 5), '旧版委托完成记录')
   const seen = new Set<string>()
   const visit = (id: unknown, kind: 'board' | 'warehouse', index: number) => {
     if (id === null) return
     check(typeof id === 'string' && /^i[1-9]\d*$/.test(id) && !seen.has(id), '物品重复占格或实例 ID 无效')
     const item = (inventory.items as Record<string, unknown>)[id]
     check(record(item) && item.id === id && typeof item.itemId === 'number' && catalog.itemById.has(item.itemId), `实例 ${id} 配置缺失`)
+    if (preContentCatalog) check(PRE_CONTENT_ITEMS.includes(item.itemId), '旧版物品来源')
+    if (preToolsCatalog) check(!NEW_TOOL_IDS.includes(item.itemId), '旧版工具来源')
     check(record(item.location) && item.location.kind === kind && item.location.index === index
       && (item.reservedBy === null || (!legacy && typeof item.reservedBy === 'string')), `实例 ${id} 归属或预留异常`)
     check(Number(id.slice(1)) < (inventory.nextId as number), '物品序号倒退')
@@ -159,6 +173,8 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   }
   check(expectedChains.size === 0, '关键生成器来源丢失')
   const migrated = structuredClone(raw) as unknown as SaveEnvelope
+  // Preserve calendar time; jobs, combat and spawn timers are relative seconds and stay unchanged.
+  if (shorterDay) migrated.data.elapsedSeconds *= .5
   migrated.data.economy = structuredClone(economy)
   // Additive UI-driven orders: older schema 4 saves have none, without changing existing progress.
   migrated.data.production.supplyOrders ??= []
@@ -209,12 +225,34 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (raw.schemaVersion < 4) migrated.data.progression = createProgression()
   if (record(migrated.data.progression) && migrated.data.progression.regionUnlock === undefined) migrated.data.progression.regionUnlock = null
   if (record(migrated.data.progression) && migrated.data.progression.regionContent === undefined) migrated.data.progression.regionContent = createRegionContent()
+  const regionContent = migrated.data.progression.regionContent
+  const oldRegion = regionContent.version === PRE_TOOLS_REGION_VERSION
+  if (oldRegion) {
+    check(regionContent.statue === undefined || regionContent.statue === null, '旧版雕像来源')
+    regionContent.version = REGION_CONTENT_VERSION
+    regionContent.statue = null
+  }
   validateProgression(migrated.data.progression, migrated.data, world, check)
   validateEconomy(economy, migrated.data, world, check)
-  if (populateRegionContent(world, migrated.data.construction, migrated.data.survival, migrated.data.progression)) {
+  if (oldRegion) {
+    const { construction, production } = migrated.data
+    for (const building of construction.buildings.filter(b => b.blueprintId === 'lodge' && !b.parts.foundation.built)) {
+      const orderId = `${building.id}:foundation`, job = construction.jobs.find(j => j.orderId === orderId)
+      if (job?.phase === 'building') continue // Already paid work finishes normally, once.
+      for (const id of job?.reservedIds ?? []) production.inventory.items[id].reservedBy = null
+      if (job?.phase === 'travel') { migrated.data.route = []; migrated.data.destination = null; migrated.data.searching = false; migrated.data.progress = 0 }
+      construction.jobs = construction.jobs.filter(j => j.orderId !== orderId)
+      construction.orders = construction.orders.filter(o => o.id !== orderId)
+      grantLodgeFoundation(construction, building)
+    }
+  }
+  const playerPath = [migrated.data.motion?.position ?? migrated.data.cell, ...migrated.data.route, ...(migrated.data.destination ? [migrated.data.destination] : []), ...(economy.clearing ? [economy.clearing.workCell] : [])]
+  if (populateRegionContent(world, migrated.data.construction, migrated.data.survival, migrated.data.progression, playerPath) || oldRegion) {
+    world = progressedWorld(world, migrated.data.progression, economy.removedObjects)
     validateConstruction(migrated.data.construction, migrated.data, world, check)
     validateSurvival(migrated.data.survival, migrated.data, world, catalog, check)
     validateProgression(migrated.data.progression, migrated.data, world, check)
+    validateEconomy(migrated.data.economy!, migrated.data, world, check)
   }
   migrated.schemaVersion = 4; migrated.configVersion = configVersion(world, catalog)
   return migrated

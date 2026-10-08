@@ -9,7 +9,8 @@
 .blueprint h3 { font-size: 14px; font-weight: 500; }
 .blueprint p { font-size: 10px; color: #88977c; margin-top: 6px; }
 .blueprint button { margin-left: auto; }
-.house { font-size: 48px; color: #a48c65; }
+.house { width: 76px; height: 66px; flex-shrink: 0; }
+.house svg { width: 100%; height: 100%; }
 .note { font-size: 11px; line-height: 1.8; color: #8b967b; margin: 14px 0; }
 .buildingLink { width: 100%; margin-top: 10px; display: flex; justify-content: space-between; }
 .buildingLink span { color: #879576; font-size: 11px; }

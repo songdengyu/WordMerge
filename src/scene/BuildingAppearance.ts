@@ -5,6 +5,7 @@ import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { footprint, localToWorld } from '../game/construction'
 import type { Cell } from '../game/world'
 import { gridToWorld } from './camera'
+import { houseStyle } from './houseStyle'
 
 type RoofView = { view: Container; art: Graphics; signature: string }
 type DoorView = RoofView & { amount: number; holdUntil: number }
@@ -34,6 +35,7 @@ export class BuildingAppearance {
     const visibleRoofs: string[] = [], doorAmounts: Record<string, number> = {}
     for (const building of snapshot.construction.buildings) {
       const blueprint = blueprintById(building.blueprintId)!, cells = footprint(building, blueprint)
+      const style = houseStyle(building.blueprintId)
       const inside = cells.some(cell => Math.abs(cell.x - player.x) < .5 && Math.abs(cell.y - player.y) < .5)
       const roofConfig = blueprint.parts.find(part => part.kind === 'roof')!
       const roof = building.parts[roofConfig.id]
@@ -51,11 +53,41 @@ export class BuildingAppearance {
         if (entry.signature !== signature) {
           entry.signature = signature
           const g = entry.art.clear()
+          const ridge = (blueprint.height - 1) / 2
+          const project = (x: number, y: number, level?: number) => {
+            const p = gridToWorld(localToWorld(building, { x, y }))
+            const rise = level ?? 29 + style.rise * (1 - Math.abs(y - ridge) / (blueprint.height / 2))
+            return { x: p.x - anchor.x, y: p.y - anchor.y - rise }
+          }
+          // Close the gable ends between the flat wall top and pitched roof.
+          // Each strip belongs to its existing roof tile, so damaged tiles keep their gaps.
           for (const segment of roofSegments) {
-            const p = gridToWorld(localToWorld(building, segment.cell)), x = p.x - anchor.x, y = p.y - anchor.y - 38
-            g.poly([x, y - 16, x + 32, y, x, y + 16, x - 32, y])
-              .fill(segmentHp(roof, segment.id) < roofConfig.hp ? 0x96694f : 0xb66f59)
-              .stroke({ width: 1, color: 0xe4af86, alpha: .6 })
+            if (segment.cell.x !== 0 && segment.cell.x !== blueprint.width - 1) continue
+            const x = segment.cell.x === 0 ? -.5 : blueprint.width - .5
+            const low = segment.cell.y - .5, high = segment.cell.y + .5
+            const outline = [project(x, low, 28), project(x, high, 28), project(x, high)]
+            if (low < ridge && ridge < high) outline.push(project(x, ridge))
+            outline.push(project(x, low))
+            g.poly(outline.flatMap(p => [p.x, p.y])).fill(style.wall).stroke({ width: 1, color: style.trim })
+          }
+          for (const segment of roofSegments) {
+            const x0 = segment.cell.x - .5, x1 = segment.cell.x + .5, y0 = segment.cell.y - .5, y1 = segment.cell.y + .5
+            const cuts = y0 < ridge && ridge < y1 ? [y0, ridge, y1] : [y0, y1]
+            for (let i = 1; i < cuts.length; i++) {
+              const low = cuts[i - 1], high = cuts[i], corners = [project(x0, low), project(x1, low), project(x1, high), project(x0, high)]
+              g.poly(corners.flatMap(p => [p.x, p.y])).fill(segmentHp(roof, segment.id) < roofConfig.hp ? 0x96694f : style.roof)
+                .stroke({ width: 1, color: style.trim, alpha: .75 })
+              if ((low + high) / 2 < ridge) g.poly(corners.flatMap(p => [p.x, p.y])).fill({ color: 0xffffff, alpha: .08 })
+              if (style.roofType === 'thatch') {
+                for (const t of [.2, .4, .6, .8]) {
+                  const a = project(x0 + t, low), b = project(x0 + t, high)
+                  g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 1, color: style.trim, alpha: .6 })
+                }
+              } else {
+                const a = project(x0, (low + high) / 2), b = project(x1, (low + high) / 2)
+                g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: .8, color: style.trim, alpha: .5 })
+              }
+            }
           }
         }
       }
@@ -95,7 +127,7 @@ export class BuildingAppearance {
           for (const p of [a, b, opposite]) { p.x -= anchor.x; p.y -= anchor.y }
           const g = entry.art.clear(), h = 24
           for (const p of [a, opposite]) g.moveTo(p.x, p.y).lineTo(p.x, p.y - h - 2).stroke({ width: 3, color: 0x806247 })
-          g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill(0xb6814e).stroke({ width: 1.5, color: 0xe4c698 })
+          g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill(0xb6814e).stroke({ width: 1.5, color: style.trim })
           g.circle(a.x + (b.x - a.x) * .82, a.y + (b.y - a.y) * .82 - h / 2, 2).fill(0xf1d59a)
           if (hp < config.hp) g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - h)
             .lineTo((a.x + b.x) / 2 - 3, (a.y + b.y) / 2 - h / 2).stroke({ width: 2, color: 0x4e3c30 })

@@ -11,7 +11,7 @@ import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture 
 const world = worldFixture(), catalog = productionFixture()
 function prepared(kind: EnemyKind = 'prowler') {
   const data = dataFixture()
-  data.elapsedSeconds = 650; data.survival = createSurvival(world, data.elapsedSeconds)
+  data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds; data.survival = createSurvival(world, data.elapsedSeconds)
   data.survival.spawnRemaining = 80
   data.cell = { x: 9, y: 10 }; data.motion = { version: 1, position: { x: 9.25, y: 10.2 } }
   data.survival.enemies = [{ id: 'e1', kind, hp: ENEMIES[kind].hp, cell: { x: 6, y: 9 },

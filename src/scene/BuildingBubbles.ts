@@ -10,7 +10,9 @@ import { TAMING_SECONDS } from '../game/taming'
 import { REGIONS } from '../game/progressionConfig'
 import { REGION_UNLOCK_SECONDS, regionGates } from '../game/regionUnlock'
 import { gridToWorld, type Camera, type Point } from './camera'
-import { CLEAR_SECONDS, RESOURCE_RULES } from '../game/economyConfig'
+import { CLEAR_SECONDS, RESOURCE_RULES, TOOL_CHAINS } from '../game/economyConfig'
+import { resourceTool } from '../game/economy'
+import { objectHeight } from './worldObjectStyle'
 
 type Material = { id: number; owned: number; needed: number }
 type Bubble = Point & {
@@ -50,6 +52,7 @@ export class BuildingBubbles {
     BLUEPRINTS.forEach(b => b.parts.forEach(p => [...p.materials, ...p.repairMaterials].forEach(id => ids.add(id))))
     SURVIVAL_RULES.companion.rescueItems.forEach(id => ids.add(id))
     Object.values(RESOURCE_RULES).forEach(rule => ids.add(rule.tool))
+    TOOL_CHAINS.flat().forEach(id => ids.add(id))
     const sheets = new Map<string, Document>()
     for (const id of ids) {
       const item = this.runtime.catalog!.itemById.get(id)!
@@ -72,12 +75,14 @@ export class BuildingBubbles {
     const resourceIds = new Set([this.selectedResource, state.economy.clearing?.objectId])
     for (const object of this.runtime.world.allObjects().filter(o => resourceIds.has(o.id) && this.runtime.world.chunkAt(o)?.unlocked)) {
       const rule = RESOURCE_RULES[object.kind], job = state.economy.clearing?.objectId === object.id ? state.economy.clearing : null
-      const owned = job ? 1 : available.filter(i => i.itemId === rule.tool).length, ready = !job && owned > 0
-      const anchor = gridToWorld(object), x = anchor.x - RADIUS, y = anchor.y - (object.kind === 'tree' ? 112 : 48) - MATERIAL_HEIGHT
+      const reserved = job?.reservedIds[0]
+      const toolId = (reserved ? inventory.items[reserved]?.itemId : resourceTool(state.production!, rule.tool)?.itemId) ?? rule.tool
+      const owned = job ? 1 : available.filter(i => i.itemId === toolId).length, ready = !job && owned > 0
+      const anchor = gridToWorld(object), x = anchor.x - RADIUS, y = anchor.y - Math.max(48, objectHeight(object.kind) + 8) - MATERIAL_HEIGHT
       result.push({ id: `resource-bubble-${object.id}`, x, y, width: SIZE, height: MATERIAL_HEIGHT, kind: 'materials',
-        materials: [{ id: rule.tool, owned, needed: 1 }], ready, phase: job?.phase ?? 'materials', disabled: !!job,
+        materials: [{ id: toolId, owned, needed: 1 }], ready, phase: job?.phase ?? 'materials', disabled: !!job,
         progress: job?.phase === 'clearing' ? 1 - job.remaining / CLEAR_SECONDS : 0,
-        label: `清理${rule.name}，${this.runtime.catalog!.itemById.get(rule.tool)!.name} ${owned}/1，${job ? job.phase === 'clearing' ? '清理中' : '正在前往' : ready ? '点击清理' : '缺少工具，点击去合成'}`,
+        label: `清理${rule.name}，${this.runtime.catalog!.itemById.get(toolId)!.name} ${owned}/1，${job ? job.phase === 'clearing' ? '清理中' : '正在前往' : ready ? '点击清理' : '缺少工具，点击去合成'}`,
         command: { type: 'resource-interact', objectId: object.id } })
     }
     for (const building of state.construction.buildings) {

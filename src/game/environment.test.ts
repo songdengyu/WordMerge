@@ -37,7 +37,7 @@ describe('day cycle and environment testing', () => {
     const { runtime, pump, send } = harness(), before = runtime.getSaveData()
     expect(await send({ type: 'test-time', preset: 'night' })).toMatchObject({ accepted: true })
     expect(runtime.getUiSnapshot()).toMatchObject({ hour: 21, isDay: false })
-    expect(runtime.getSaveData().production.vitals.hunger).toBeCloseTo(before.production.vitals.hunger, 2)
+    expect(runtime.getSaveData().production.vitals.hunger).toBeCloseTo(before.production.vitals.hunger - .05 * 60 / world.config.dayDurationSeconds)
     expect(runtime.getSaveData().production.stamina).toEqual(before.production.stamina)
     expect(runtime.getSaveData().survival.enemies).toHaveLength(0)
     pump(15.1)

@@ -17,6 +17,11 @@ export function validateProgression(raw: unknown, data: RuntimeData, world: Worl
   check(list(raw.unlockedRegions, REGIONS.map(r => r.id)) && list(raw.discoveries, raw.unlockedRegions) && typeof raw.witnessedDawn === 'boolean', '区域探索记录')
   check(record(raw.regionContent) && raw.regionContent.version === REGION_CONTENT_VERSION
     && list(raw.regionContent.initialized, raw.unlockedRegions), '区域内容版本或发现记录')
+  const statue = raw.regionContent.statue
+  check(statue === undefined || statue === null || record(statue) && Number.isSafeInteger(statue.x) && Number.isSafeInteger(statue.y)
+    && raw.regionContent.initialized.includes('grove') && world.chunkAt(statue as unknown as Cell)?.id === 'grove'
+    && ['grass', 'path'].includes(world.terrainAt(statue as unknown as Cell) ?? '')
+    && !world.allConfiguredObjects().some(o => o.id !== 'grove-statue' && sameCell(o, statue as unknown as Cell)), '林地雕像位置')
   for (const enemy of data.survival.enemies) if (enemy.residentId) {
     check(raw.regionContent.initialized.includes(REGION_BOARS.find(s => s.id === enemy.residentId)!.regionId), '区域野猪发现记录')
   }

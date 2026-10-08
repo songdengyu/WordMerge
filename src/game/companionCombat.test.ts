@@ -8,7 +8,7 @@ import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture 
 const world = worldFixture(), catalog = productionFixture()
 function encounter(hp = 180, enemyHp = 32) {
   const data = dataFixture()
-  data.elapsedSeconds = 650; data.survival = createSurvival(world, 650)
+  data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds; data.survival = createSurvival(world, data.elapsedSeconds)
   data.cell = { x: 10, y: 8 }
   Object.assign(data.survival.companion, { status: 'active', hp, cell: { x: 6, y: 8 }, guard: { x: 6, y: 8 } })
   data.survival.enemies = [{ id: 'e1', kind: 'prowler', hp: enemyHp, cell: { x: 7, y: 8 }, route: [], progress: 0, target: null, cooldown: 0 }]

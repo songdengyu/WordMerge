@@ -9,7 +9,7 @@ import { DayCycle } from './DayCycle'
 import { SUPPLY_NAMES, type QuickSupplyCommand } from '../../game/quickSupply'
 import { SURVIVAL_RULES } from '../../game/survivalConfig'
 import { TAMING_ORDER, tamingName, type TamingCommand } from '../../game/taming'
-import { resourceOrderId, type EconomyCommand } from '../../game/economy'
+import { resourceOrderId, resourceTool, type EconomyCommand } from '../../game/economy'
 import { RESOURCE_RULES } from '../../game/economyConfig'
 import { CurrencyIcon } from './Shop'
 import { StaminaValue } from './ResourceFeedback'
@@ -214,13 +214,14 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
       ...state.economy.clearingOrders.map(objectId => {
         const object = runtime.world.allObjects().find(o => o.id === objectId)!, rule = RESOURCE_RULES[object.kind], id = resourceOrderId(objectId)
         const job = state.economy.clearing?.objectId === objectId ? state.economy.clearing : null
-        const owned = job ? 1 : availableItems(inventory).filter(i => i.itemId === rule.tool).length, ready = !job && owned > 0
+        const toolId = job?.reservedIds[0] ? inventory.items[job.reservedIds[0]].itemId : resourceTool(production, rule.tool)?.itemId ?? rule.tool
+        const owned = job ? 1 : availableItems(inventory).filter(i => i.itemId === toolId).length, ready = !job && owned > 0
         return { id, content: <div className={styles.supplyOrder}>
           <button {...orderProps(id, ready)} data-testid={`resource-order-${objectId}`} data-ready={String(ready)} disabled={!!job || !!state.pauseReasons.length}
             onClick={async () => { runtime.focusProductionOrder(id); const result = await send({ type: 'resource-interact', objectId }); if (result.accepted && !result.openProduction) close() }}>
             <OrderTypeIcon kind="clearing" /><strong>清理{rule.name}</strong>
-            <div className={styles.requirements}><span className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(rule.tool)!} compact /></span></div>
-            <small>{catalog.itemById.get(rule.tool)!.name} {owned}/1</small><small>{job ? job.phase === 'clearing' ? '清理中' : '已预留 · 正在前往' : ready ? '点击清理 · 自动前往' : '工具箱生产零件后合成'}</small>
+            <div className={styles.requirements}><span className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(toolId)!} compact /></span></div>
+            <small>{catalog.itemById.get(toolId)!.name} {owned}/1</small><small>{job ? job.phase === 'clearing' ? '清理中' : '已预留 · 正在前往' : ready ? '点击清理 · 自动前往' : '工具箱生产零件后合成'}</small>
           </button>
           <button className={styles.cancelSupply} aria-label={`取消清理${rule.name}订单`} disabled={job?.phase === 'clearing' || !!state.pauseReasons.length}
             onClick={() => void send({ type: 'resource-cancel', objectId })}>×</button>

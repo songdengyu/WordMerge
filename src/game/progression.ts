@@ -5,7 +5,7 @@ import { CHAPTERS, DECORATIONS, OUTFITS, REGIONS, REGION_EXTENSIONS, type DecorI
 import { distance, type SurvivalState } from './survival'
 import { sameCell, type Cell, WorldMap } from './world'
 import type { RegionUnlockJob } from './regionUnlock'
-import { createRegionContent, type RegionContentState } from './regionContentConfig'
+import { createRegionContent, GROVE_STATUE_ID, type RegionContentState } from './regionContentConfig'
 
 export interface Decoration { id?: string; kind: DecorId; buildingId: string; cell: Cell }
 export interface ProgressionState {
@@ -38,7 +38,9 @@ export function grantDecoration(state: ProgressionState, kind: string) {
   if (!state.ownedDecor.includes(kind)) state.ownedDecor.push(kind)
   state.decorStock![kind] = (state.decorStock![kind] ?? 0) + 1
 }
-export const progressedWorld = (world: WorldMap, progress: ProgressionState, removed: readonly string[] = []) => new WorldMap(world.config, progress.unlockedRegions, REGION_EXTENSIONS, removed)
+export const progressedWorld = (world: WorldMap, progress: ProgressionState, removed: readonly string[] = []) => new WorldMap(world.config, progress.unlockedRegions,
+  REGION_EXTENSIONS.map(region => region.id === 'grove' && progress.regionContent?.statue
+    ? { ...region, objects: [...region.objects, { ...progress.regionContent.statue, id: GROVE_STATUE_ID, kind: 'statue' as const }] } : region), removed)
 export const currentChapter = (progress: ProgressionState) => CHAPTERS[progress.completed.length] as StoryChapter | undefined
 export function chapterReady(chapter: StoryChapter, progress: ProgressionState, construction: ConstructionState, survival: SurvivalState, production: ProductionState) {
   const conditions = { always: true, foundation: construction.buildings.some(b => b.parts.foundation.built), companion: survival.companion.status !== 'wild',

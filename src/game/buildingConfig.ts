@@ -47,12 +47,30 @@ const BASE_BLUEPRINTS: readonly Blueprint[] = [{
     { id: 'bed', name: '大屋木床', kind: 'bed', requires: ['roof'], materials: [202, 202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 80, xp: 15, work: [{ x: 0, y: 1 }], edges: [] },
   ],
 }]
+function expandedHouse(id: string, name: string, width: number, height: number, material: number, wallHp: number): Blueprint {
+  const doorX = Math.floor(width / 2), work = [{ x: doorX, y: height - 1 }]
+  const walls = [
+    ...Array.from({ length: width }, (_, x) => ({ from: { x, y: 0 }, to: { x, y: -1 } })),
+    ...Array.from({ length: height }, (_, y) => ({ from: { x: 0, y }, to: { x: -1, y } })),
+    ...Array.from({ length: height }, (_, y) => ({ from: { x: width - 1, y }, to: { x: width, y } })),
+    ...Array.from({ length: width }, (_, x) => x).filter(x => x !== doorX).map(x => ({ from: { x, y: height - 1 }, to: { x, y: height } })),
+  ]
+  return { id, name, width, height, parts: BASE_BLUEPRINTS[0].parts.map(part => ({ ...part,
+    materials: part.kind === 'wall' ? [material, material] : [part.kind === 'door' || part.kind === 'bed' ? Math.max(202, material - 1) : material],
+    repairMaterials: [Math.max(201, material - 1)], hp: part.kind === 'wall' ? wallHp : part.hp,
+    work: part.kind === 'bed' ? [{ x: 0, y: 1 }] : work,
+    edges: part.kind === 'wall' ? walls : part.kind === 'door' ? [{ from: work[0], to: { x: doorX, y: height } }] : [],
+  })) }
+}
 // Shop additions are versioned by economyConfig; preserve the historical building/region fingerprints.
 export const BLUEPRINTS: readonly Blueprint[] = [...BASE_BLUEPRINTS,
   ...[{ id: 'garden-cabin', name: '花园木屋' }, { id: 'guest-cabin', name: '林间客舍' }].map(variant => {
     const source = BASE_BLUEPRINTS[variant.id === 'guest-cabin' ? 1 : 0]
     return { ...source, ...variant, fixedRegion: undefined, parts: source.parts.map(part => ({ ...part })) }
   }),
+  expandedHouse('meadow-hut', '苔原草顶屋', 3, 2, 203, 20),
+  expandedHouse('cedar-home', '暖杉小筑', 4, 3, 204, 40),
+  expandedHouse('rose-manor', '蔷薇庄园', 5, 4, 206, 60),
 ]
 export const BUILDING_VERSION = fingerprint(JSON.stringify(BASE_BLUEPRINTS.filter(blueprint => !blueprint.fixedRegion)))
 export const blueprintById = (id: string) => BLUEPRINTS.find(blueprint => blueprint.id === id)

@@ -54,8 +54,8 @@ describe('resource clearing, shops and action needs', () => {
     await h.send({ type: 'resource-interact', objectId: 't08' })
     expect(h.valid().economy!.clearing).toMatchObject({ phase: 'clearing', remaining: 2, reservedIds: [] })
     expect(h.valid().production.inventory.items[tool.id]).toBeUndefined()
-    expect(h.valid().production.vitals.hunger).toBeCloseTo(59 - .05 * 60 / 1200)
-    expect(h.valid().production.vitals.water).toBeCloseTo(59 - .05 * 80 / 1200)
+    expect(h.valid().production.vitals.hunger).toBeCloseTo(59 - .05 * 60 / world.config.dayDurationSeconds)
+    expect(h.valid().production.vitals.water).toBeCloseTo(59 - .05 * 80 / world.config.dayDurationSeconds)
     h.runtime.applyDamage('player', 100); expect(h.valid().production.vitals.hp).toBe(100)
     expect(await h.send({ type: 'resource-cancel', objectId: 't08' })).toMatchObject({ accepted: false })
     expect(await h.send({ type: 'building-place', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0 })).toMatchObject({ accepted: false })
@@ -154,7 +154,7 @@ describe('resource clearing, shops and action needs', () => {
     const restored = harness(h.valid())
     await restored.send({ type: 'move', target: { x: 7.5, y: 9 } }); restored.pump(.05)
     expect(restored.valid().economy!.distanceRemainder).toBeCloseTo(0)
-    expect(restored.valid().production.vitals.hunger).toBeCloseTo(59 - .2 * 60 / 1200)
+    expect(restored.valid().production.vitals.hunger).toBeCloseTo(59 - .2 * 60 / world.config.dayDurationSeconds)
     restored.pump(1); expect(restored.valid().economy!.distanceRemainder).toBeCloseTo(0)
     const economy = createEconomy(), production = dataFixture().production
     spendMovementNeeds(economy, production, 25.2)
@@ -181,15 +181,15 @@ describe('resource clearing, shops and action needs', () => {
     const data = dataFixture(); data.cell = { x: 8, y: 11 }
     const h = harness(data); await h.send({ type: 'building-place', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0 })
     await h.send({ type: 'building-interact', buildingId: 'b1', partId: 'foundation' })
-    expect(h.valid().production.vitals.hunger).toBeCloseTo(60 - .1 * 60 / 1200)
+    expect(h.valid().production.vitals.hunger).toBeCloseTo(60 - .1 * 60 / world.config.dayDurationSeconds)
     const supplied = h.valid(); exchangeItems(supplied.production.inventory, catalog, [], [202])
     const work = harness(supplied); await work.send({ type: 'building-interact', buildingId: 'b1', partId: 'foundation' })
     const started = work.valid().production.vitals.hunger
-    expect(started).toBeCloseTo(59 - .15 * 60 / 1200)
-    work.pump(2); expect(work.valid().production.vitals.hunger).toBeCloseTo(started - 2 * 60 / 1200)
+    expect(started).toBeCloseTo(59 - .15 * 60 / world.config.dayDurationSeconds)
+    work.pump(2); expect(work.valid().production.vitals.hunger).toBeCloseTo(started - 2 * 60 / world.config.dayDurationSeconds)
     work.runtime.applyDamage({ buildingId: 'b1', partId: 'foundation', segmentId: 'tile1-1' }, 10)
     await work.send({ type: 'building-interact', buildingId: 'b1', partId: 'foundation', segmentId: 'tile1-1' })
-    expect(work.valid().production.vitals.hunger).toBeCloseTo(started - 1 - 2.05 * 60 / 1200)
+    expect(work.valid().production.vitals.hunger).toBeCloseTo(started - 1 - 2.05 * 60 / world.config.dayDurationSeconds)
   })
   it('wildlife patrols around its home, pauses between legs and keeps its state after reload', () => {
     const data = dataFixture(); fullHouse(data); data.progression.unlockedRegions = ['brook']

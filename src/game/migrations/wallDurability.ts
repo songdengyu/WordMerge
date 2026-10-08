@@ -1,5 +1,5 @@
 import { blueprintById } from '../buildingConfig'
-import { REGION_CONTENT_VERSION } from '../regionContentConfig'
+import { PRE_TOOLS_REGION_VERSION } from './groveTools'
 import type { RuntimeData } from '../saveData'
 
 // Delivered fingerprints before cabin/lodge walls changed from 160/320 to 20/30.
@@ -12,7 +12,7 @@ const record = (value: unknown): value is Record<string, unknown> => typeof valu
 export function migrateWallDurability(data: RuntimeData, oldCabin: boolean, check: Check) {
   const region = record(data.progression) && data.progression.regionContent
   const oldLodge = record(region) && region.version === PRE_WALL_REGION_VERSION
-  if (oldLodge) region.version = REGION_CONTENT_VERSION
+  if (oldLodge) region.version = PRE_TOOLS_REGION_VERSION
   if (!record(data.construction) || !Array.isArray(data.construction.buildings)) return
   for (const building of data.construction.buildings) {
     if (!record(building)) continue

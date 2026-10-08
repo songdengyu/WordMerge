@@ -4,6 +4,7 @@ import { decorAvailable } from '../../game/progression'
 import { DECORATIONS, OUTFITS, type DecorId } from '../../game/progressionConfig'
 import styles from './CampJournal.module.css'
 import decorStyles from './DecorationPanel.module.css'
+import { DecorationArt, OutfitArt } from './ContentArt'
 
 export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: GameRuntime; close: () => void;
   decorate: (kind: DecorId, decorationId?: string) => void; shop: () => void }) {
@@ -29,7 +30,7 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
     {tab === 'decor' && <><div className={decorStyles.grid}>{DECORATIONS.filter(d => progress.ownedDecor.includes(d.id)).map(decor => {
       const stock = decorAvailable(progress, decor.id)
       return <article className={decorStyles.card} key={decor.id} data-testid={`decor-stock-${decor.id}`}>
-        <span className={decorStyles.art} style={{ color: decor.color }} aria-hidden="true">{decor.symbol}</span>
+        <span className={decorStyles.art} aria-hidden="true"><DecorationArt kind={decor.id} /></span>
         <strong>{decor.name}</strong><small>库存 <b data-testid={`decor-count-${decor.id}`}>{stock}</b> · 已摆放 {progress.decorations.filter(d => d.kind === decor.id).length}</small>
         <button disabled={disabled || stock <= 0} onClick={() => place(decor.id)}>{stock > 0 ? '摆放' : '库存不足'}</button>
       </article>
@@ -37,13 +38,13 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
       <p className={styles.muted}>每次确认摆放消耗 1 件，取消不扣库存。相同摆件可重复购买、同时摆放；收回后返还库存。</p></>}
     {tab === 'outfits' && <div className={styles.outfits}>{OUTFITS.filter(outfit => progress.ownedOutfits.includes(outfit.id)).map(outfit =>
       <button key={outfit.id} disabled={disabled} aria-pressed={progress.outfit === outfit.id} onClick={() => void send({ type: 'outfit-equip', outfitId: outfit.id })}>
-        <svg viewBox="0 0 50 55" aria-hidden="true"><path d="M15 4 4 14l6 12 7-3-5 27h26l-5-27 7 3 6-12L35 4q-10 10-20 0" fill={`#${outfit.color.toString(16)}`} /><path d="M17 22h16M20 10l12 33" stroke="#f4e2bd" fill="none" /></svg>
+        <OutfitArt id={outfit.id} />
         <span>{outfit.name}</span><small>{progress.outfit === outfit.id ? '穿着中' : '换上'}</small>
       </button>)}</div>}
     {tab === 'placed' && <>{progress.decorations.map(placed => {
       const decor = DECORATIONS.find(d => d.id === placed.kind)!
       return <article key={placed.id} className={decorStyles.placed} data-testid={`placed-${placed.id}`}>
-        <span style={{ color: decor.color }} aria-hidden="true">{decor.symbol}</span>
+        <span aria-hidden="true"><DecorationArt kind={decor.id} /></span>
         <div><strong>{decor.name}</strong><small>位置 {placed.cell.x}, {placed.cell.y}</small></div>
         <button disabled={disabled} onClick={() => place(placed.kind, placed.id)}>移动</button>
         <button disabled={disabled} onClick={() => void send({ type: 'decor-remove', kind: placed.kind, decorationId: placed.id })}>收回</button>

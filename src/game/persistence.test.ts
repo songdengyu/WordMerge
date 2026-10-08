@@ -31,7 +31,7 @@ describe('versioned atomic IndexedDB saves', () => {
   it('clears the old morning start once, invalidates open writers, and preserves new noon progress', async () => {
     const repo = await repository(), old = await repo.save(dataFixture())
     old.configVersion = old.configVersion.replace(fingerprint(JSON.stringify(world.config)),
-      fingerprint(JSON.stringify({ ...world.config, initialHour: 6 })))
+      fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6 })))
     await writeRecord('current', old); await writeRecord('previous', old)
     expect(await clearMorningStartSave(world)).toBe(true)
     expect(await readRecord('current')).toBeUndefined()
@@ -197,7 +197,7 @@ describe('versioned atomic IndexedDB saves', () => {
 
 describe('runtime and durable production', () => {
   it('retries a failed combat settlement save without applying HP loss or loot a second time', async () => {
-    const data = dataFixture(); data.elapsedSeconds = 650; data.survival = createSurvival(world, 650)
+    const data = dataFixture(); data.elapsedSeconds = (25 - world.config.initialHour) / 24 * world.config.dayDurationSeconds; data.survival = createSurvival(world, data.elapsedSeconds)
     data.survival.companion.status = 'active'
     data.survival.enemies = [{ id: 'e1', kind: 'prowler', hp: 32, cell: { ...data.survival.companion.cell }, route: [], progress: 0, target: null, cooldown: 0 }]
     data.survival.nextEnemyId = 2; data.survival.spawnRemaining = 80
