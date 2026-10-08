@@ -6,13 +6,14 @@ import { attachMapInput } from './mapInput'
 import { footprint, localToWorld, type Rotation } from '../game/construction'
 import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { blueprintById } from '../game/buildingConfig'
-import { actorPosition, companions, companionId, companionLocked, distance } from '../game/survival'
+import { actorPosition, companions, companionId, companionById, companionLocked, distance } from '../game/survival'
 import { SurvivalActors } from './SurvivalActors'
 import { decorError } from '../game/progression'
 import { OUTFITS, REGIONS, type DecorId } from '../game/progressionConfig'
 import { drawDecoration, ProgressionViews } from './ProgressionViews'
 import { Atmosphere } from './Atmosphere'
 import { BuildingBubbles } from './BuildingBubbles'
+import { BuildingAppearance } from './BuildingAppearance'
 import { resourceApproach } from '../game/economy'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
@@ -80,6 +81,7 @@ export class CampScene {
   private readonly root = new Container()
   private readonly ground = new Container()
   private readonly actors = new Container()
+  private readonly buildingAppearance = new BuildingAppearance(this.actors)
   private readonly route = new Graphics()
   private readonly buildings = new Graphics()
   private readonly preview = new Graphics()
@@ -208,6 +210,13 @@ export class CampScene {
   private tap(cell: Cell, point: Cell) {
     if (this.companionControl) {
       const survival = this.runtime.getUiSnapshot().survival, tapPoint = gridToWorld(point)
+      const controlled = companionById(survival, this.controlledCompanion)
+      if (controlled && companionLocked(survival, controlled)) {
+        this.setCompanionControl(false)
+        this.onCancelCompanionControl()
+        this.movePlayerTo(point)
+        return
+      }
       const targets = [{ id: 'player', position: this.player.position, width: 18, height: 48, center: 24 },
         ...companions(survival).filter(buddy => companionId(buddy) !== this.controlledCompanion
           && buddy.status !== 'wild' && !companionLocked(survival, buddy)).map(buddy => ({
@@ -284,7 +293,12 @@ export class CampScene {
       else this.onMessage('暂时无法走到物体旁边，请先清理通路')
       return
     }
+    this.movePlayerTo(point)
+  }
+
+  private movePlayerTo(point: Cell) {
     this.buildingBubbles.selectResource(null)
+    this.followOnWalk = true
     const intent = ++this.cameraIntent
     void this.runtime.dispatch({ type: 'move', target: point }).then(result => {
       if (this.disposed) return
@@ -312,26 +326,16 @@ export class CampScene {
           if (!part.built) continue
           for (const segment of buildingSegments(blueprint, config)) {
             const edge = segment.edge, hp = segmentHp(part, segment.id)
-            if (!edge || hp <= 0) continue
+            if (!edge || hp <= 0 || config.kind === 'door') continue
             const from = localToWorld(building, edge.from), to = localToWorld(building, edge.to)
             const dx = to.x - from.x, dy = to.y - from.y
             const a = gridToWorld({ x: (from.x + to.x) / 2 - dy / 2, y: (from.y + to.y) / 2 + dx / 2 })
             const b = gridToWorld({ x: (from.x + to.x) / 2 + dy / 2, y: (from.y + to.y) / 2 - dx / 2 })
-            const h = config.kind === 'door' ? 18 : 28
-            g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: config.kind === 'door' ? 0xb6814e : 0x8e775b, alpha: .8 })
+            const h = 28
+            g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill({ color: 0x8e775b, alpha: .8 })
               .stroke({ width: 1.5, color: 0xe4c698 })
-            if (config.kind === 'door') g.circle((a.x + b.x) / 2 + 4, (a.y + b.y) / 2 - 8, 2).fill(0xf1d59a)
             if (hp < config.hp) g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - h).lineTo((a.x + b.x) / 2 - 4, (a.y + b.y) / 2 - h / 2)
               .lineTo((a.x + b.x) / 2 + 3, (a.y + b.y) / 2 - 4).stroke({ width: 2, color: 0x4e3c30 })
-          }
-          if (config.kind === 'roof') {
-            for (const segment of buildingSegments(blueprint, config)) {
-              const hp = segmentHp(part, segment.id)
-              if (hp <= 0) continue
-              const p = gridToWorld(localToWorld(building, segment.cell))
-              diamond(g, p.x, p.y - 38, hp < config.hp ? 0x96694f : 0xb66f59, .24)
-              g.poly([p.x, p.y - 54, p.x + 32, p.y - 38, p.x, p.y - 22, p.x - 32, p.y - 38]).stroke({ width: 1, color: 0xe4af86, alpha: .4 })
-            }
           }
           if (config.kind === 'bed' && part.hp > 0) {
             const p = gridToWorld(localToWorld(building, { x: 0, y: 1 }))
@@ -451,6 +455,9 @@ export class CampScene {
     const position = { x: snapshot.previousPosition.x + (snapshot.position.x - snapshot.previousPosition.x) * alpha,
       y: snapshot.previousPosition.y + (snapshot.position.y - snapshot.previousPosition.y) * alpha }
     const foot = gridToWorld(position)
+    const appearance = this.buildingAppearance.update(snapshot, position, !!this.placement || !!this.decorationPlacement)
+    this.host.dataset.visibleRoofs = appearance.visibleRoofs.join(',')
+    this.host.dataset.doorAmounts = JSON.stringify(appearance.doorAmounts)
     this.player.position.set(foot.x, foot.y)
     this.player.zIndex = foot.y + 0.1
     // A pre-drag command may only appear in a later snapshot. Manual panning stays
@@ -494,6 +501,7 @@ export class CampScene {
       chunk.view.visible = br.x > 0 && tl.x < this.lastWidth && br.y > 0 && tl.y < this.lastHeight
     }
     for (const actor of this.actors.children) {
+      if (this.buildingAppearance.owns(actor)) continue
       const p = this.camera.toScreen(actor.position)
       actor.visible = p.x > -60 && p.x < this.lastWidth + 60 && p.y > -20 && p.y < this.lastHeight + 130
     }

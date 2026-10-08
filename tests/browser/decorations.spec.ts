@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test.use({ baseURL: process.env.WORDMERGE_GAME_URL ?? 'http://127.0.0.1:5178' })
+
 async function ready(page: Page) {
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
@@ -11,13 +13,14 @@ async function readSave(page: Page) {
     finally { db.close() }
   })
 }
-async function seed(page: Page) {
+async function seed(page: Page, edit?: (save: any) => void) {
   await page.goto('/'); await ready(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
   const save = await readSave(page); await page.goto('/?game=legacy')
   save.data.production.inventory.gold = 300
   save.data.construction = { unlockedBlueprints: ['cabin'], nextId: 2, xp: 70, orders: [], jobs: [], buildings: [{ id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
     parts: Object.fromEntries(Object.entries({ foundation: 100, walls: 20, door: 100, roof: 120, bed: 80 }).map(([id, hp]) => [id, { built: true, hp, xpGranted: true }])) }] }
+  edit?.(save)
   await page.evaluate(async value => {
     const db = await new Promise<IDBDatabase>(resolve => { const r = indexedDB.open('wordmerge-survival', 1); r.onsuccess = () => resolve(r.result) })
     const tx = db.transaction('snapshots', 'readwrite'); tx.objectStore('snapshots').put(value, 'current'); tx.objectStore('snapshots').put(value.revision, 'revision')
@@ -25,6 +28,79 @@ async function seed(page: Page) {
   }, save)
   await page.goto('/'); await ready(page)
 }
+
+test('new decoration focuses and defaults to the nearest house instead of the first built house', async ({ page }) => {
+  await seed(page, save => {
+    save.data.construction.buildings.push({ ...structuredClone(save.data.construction.buildings[0]), id: 'b2', origin: { x: 7, y: 4 } })
+    save.data.construction.nextId = 3
+    save.data.construction.xp = 140
+    save.data.cell = { x: 10, y: 4 }
+    save.data.motion = { version: 1, position: { x: 10, y: 4 } }
+  })
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-building-count', '2')
+  await page.getByRole('button', { name: '商店', exact: true }).click()
+  await page.getByTestId('shop').getByRole('button', { name: '装饰', exact: true }).click()
+  await page.getByTestId('buy-rug').click()
+  await page.getByRole('button', { name: '打开装饰收藏' }).click()
+  await page.getByTestId('decor-stock-rug').getByRole('button', { name: '摆放' }).click()
+  await expect(page.getByTestId('decoration-placement')).toBeVisible()
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-visible-roofs', '')
+  const centered = await page.getByTestId('camp-scene').evaluate(element => {
+    const [x, y, zoom] = (element as HTMLElement).dataset.camera!.split(',').map(Number)
+    return { x: x + (8 - 4.5) * 32 * zoom - element.clientWidth / 2,
+      y: y + (8 + 4.5) * 16 * zoom - element.clientHeight / 2 - Math.min(40, element.clientHeight * .06) }
+  })
+  expect(Math.abs(centered.x)).toBeLessThan(2)
+  expect(Math.abs(centered.y)).toBeLessThan(2)
+  await page.getByRole('button', { name: '确认摆放', exact: true }).click()
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-decorations', '1')
+  await ready(page)
+  expect((await readSave(page)).data.progression.decorations[0].buildingId).toBe('b2')
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-visible-roofs', 'b1,b2')
+})
+
+for (const rotation of [0, 1]) test(`roof hides indoors and door swings both ways with rotation ${rotation}`, async ({ page }) => {
+  const inside = rotation === 0 ? { x: 8, y: 10 } : { x: 7, y: 12 }
+  const outside = rotation === 0 ? { x: 8, y: 13 } : { x: 4, y: 10 }
+  await seed(page, save => {
+    save.data.construction.buildings[0].rotation = rotation
+    save.data.cell = outside
+    save.data.motion = { version: 1, position: outside }
+  })
+  const scene = page.getByTestId('camp-scene'), game = page.getByTestId('survival-game')
+  const doorAmount = async () => JSON.parse((await scene.getAttribute('data-door-amounts')) ?? '{}')['b1:door:whole']
+  const walkTo = async (cell: { x: number; y: number }) => {
+    const [x, y, zoom] = (await scene.getAttribute('data-camera'))!.split(',').map(Number)
+    const box = (await scene.boundingBox())!
+    await page.touchscreen.tap(box.x + x + (cell.x - cell.y) * 32 * zoom, box.y + y + (cell.x + cell.y) * 16 * zoom)
+  }
+  await expect(scene).toHaveAttribute('data-visible-roofs', 'b1')
+  await expect.poll(doorAmount).toBe(0)
+  await page.screenshot({ path: `test-results/roof-outside-${rotation}.png` })
+  await walkTo(inside)
+  await expect.poll(doorAmount, { intervals: [50, 100] }).toBeGreaterThan(0)
+  await expect(game).toHaveAttribute('data-player', `${inside.x},${inside.y}`)
+  await expect(game).toHaveAttribute('data-activity', 'idle')
+  await expect(scene).toHaveAttribute('data-visible-roofs', '')
+  await expect.poll(doorAmount).toBe(0)
+  await page.screenshot({ path: `test-results/roof-inside-${rotation}.png` })
+  await walkTo(outside)
+  await expect.poll(doorAmount, { intervals: [50, 100] }).toBeGreaterThan(0)
+  await expect(game).toHaveAttribute('data-player', `${outside.x},${outside.y}`)
+  await expect(game).toHaveAttribute('data-activity', 'idle')
+  await expect(scene).toHaveAttribute('data-visible-roofs', 'b1')
+  await expect.poll(doorAmount).toBe(0)
+})
+
+test('destroyed roof and door are not restored by their appearance layer', async ({ page }) => {
+  await seed(page, save => {
+    save.data.construction.buildings[0].parts.roof.hp = 0
+    save.data.construction.buildings[0].parts.door.hp = 0
+  })
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-building-count', '1')
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-visible-roofs', '')
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-door-amounts', '{}')
+})
 
 test('decoration collection buys and places multiple copies, returns one, changes skin and survives reload on a small phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 })

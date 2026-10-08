@@ -19,13 +19,15 @@
 .chapter > span:nth-child(2) { font-weight: 600; }
 .chapterDot { width: 5px; height: 5px; background: #9b7e48; transform: rotate(45deg); }
 .chapterLine { width: 17px; height: 1px; background: #97a082; }
-.cameraControls { position: absolute; right: 16px; top: 28%; display: flex; flex-direction: column; gap: 10px; opacity: .5; }
+.cameraControls { position: absolute; left: 16px; bottom: calc(152px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; }
 .iconButton, .zoomButtons { border: 1px solid #f3eed08f; background: #f5f0dfe6; color: #536b4c; box-shadow: 0 3px 12px #37513314; }
 .iconButton { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
-.zoomButtons { border-radius: 22px; width: 44px; display: flex; flex-direction: column; align-items: center; }
+.zoomButtons { border-radius: 22px; width: 44px; display: none; flex-direction: column; align-items: center; }
 .zoomButtons button { width: 42px; height: 42px; border: 0; background: none; color: inherit; font-size: 24px; cursor: pointer; }
 .zoomButtons > span { width: 16px; height: 1px; background: #d7d7bd; }
 .cameraControls .iconButton, .cameraControls .zoomButtons { border: 0; background: transparent; box-shadow: none; }
+.cameraControls .iconButton { width: 52px; height: 52px; }
+.cameraControls .iconButton svg { width: 34px; height: 34px; }
 .cameraControls .zoomButtons > span { display: none; }
 .footer { position: absolute; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; pointer-events: none; }
 .companionControl { position: absolute; z-index: 3; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 16px; right: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #fffbe899; border-radius: 16px; background: #f8f3e5f2; color: #4a6349; box-shadow: 0 5px 24px #29432a24; }
@@ -79,6 +81,7 @@
 @media (max-height: 650px) {
   .header { top: calc(12px + env(safe-area-inset-top, 0px)); }
   .footer { bottom: calc(9px + env(safe-area-inset-bottom, 0px)); }
+  .cameraControls { bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
   .hint { padding: 12px; }
   .footerActions button { min-height: 44px; }
 }

@@ -28,6 +28,12 @@ import type { Cell } from '../../game/world'
 import styles from './SurvivalApp.module.css'
 
 function Icon({ kind }: { kind: 'leaf' | 'sun' | 'moon' | 'compass' | 'book' | 'close' }) {
+  if (kind === 'compass') return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" fill="#f6edd5" stroke="#bd914d" strokeWidth="1.6" />
+    <path d="M15.5 6.5 13 13 11 11Z" fill="#d86758" />
+    <path d="M8.5 17.5 11 11 13 13Z" fill="#568fa5" />
+    <circle cx="12" cy="12" r="1.2" fill="#bd914d" />
+  </svg>
   const paths = {
     leaf: 'M5 20C2 10 8 3 20 4c1 12-5 17-12 13M5 20 15 9M10 14v-4m0 4h4',
     sun: 'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
@@ -120,7 +126,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => { scene.current?.setDecorationPlacement(decorationPlacement) }, [decorationPlacement, attempt])
   useEffect(() => { scene.current?.setCompanionControl(companionControl, selectedCompanion) }, [companionControl, selectedCompanion, attempt])
   useEffect(() => {
-    if (selectedBuddy.status !== 'active' || companionLocked(state.survival, selectedBuddy) || state.survival.failure || state.progression.dialogue
+    if (selectedBuddy.status !== 'active' || state.survival.failure || state.progression.dialogue
       || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || wheelOpen || shopOpen || decorationOpen) cancelCompanionControl()
   }, [selectedBuddy.status, state.survival.duel, state.survival.failure, state.progression.dialogue,
     placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, wheelOpen, shopOpen, decorationOpen, cancelCompanionControl])
@@ -170,14 +176,21 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     }
   }
   const decorate = (kind: DecorId, decorationId?: string) => {
-    const building = state.construction.buildings.find(b => b.parts.foundation.built)
-    if (!building) { message('先建好一块木地基，再布置喜欢的摆件'); return }
+    const player = runtime.getSceneSnapshot().position
+    const candidates = state.construction.buildings.filter(b => b.parts.foundation.built).map(building => {
+      const cells = footprint(building, blueprintById(building.blueprintId)!)
+      return {
+        building,
+        distance: Math.min(...cells.map(cell => Math.hypot(cell.x - player.x, cell.y - player.y))),
+        available: cells.find(cell => !decorError(kind, cell, state.progression, state.construction, decorationId)),
+      }
+    }).sort((a, b) => a.distance - b.distance)
+    const target = candidates.find(candidate => candidate.available) ?? candidates[0]
+    if (!target) { message('先建好一块木地基，再布置喜欢的摆件'); return }
     const existing = decorationId ? state.progression.decorations.find(d => d.id === decorationId) : undefined
-    const available = state.construction.buildings.filter(b => b.parts.foundation.built).flatMap(b => footprint(b, blueprintById(b.blueprintId)!))
-      .find(cell => !decorError(kind, cell, state.progression, state.construction, decorationId))
     setJournalOpen(false); setDecorationOpen(false)
-    setDecorationPlacement({ kind, decorationId, cell: existing?.cell ?? available ?? localToWorld(building, { x: 1, y: 0 }) })
-    scene.current?.centerBuilding(existing?.buildingId ?? building.id)
+    setDecorationPlacement({ kind, decorationId, cell: existing?.cell ?? target.available ?? localToWorld(target.building, { x: 1, y: 0 }) })
+    scene.current?.centerBuilding(existing?.buildingId ?? target.building.id)
   }
   return <main className={styles.shell} data-testid="survival-game" data-player={`${state.player.x},${state.player.y}`}
     data-control={companionControl ? 'companion' : 'player'}
@@ -229,7 +242,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
         else { setDecorationPlacement(null); message(result.message ?? '已经摆好了') }
       }}>确认摆放</button></div>
     </section> : companionControl ? <section className={styles.companionControl} data-testid="companion-control">
-      <div><strong>正在操控{companionName(selectedBuddy)}</strong><p>{companionLocked(state.survival, selectedBuddy) ? '战斗中，请稍候' : '点击地图指定移动位置'}</p></div>
+      <div><strong>正在操控{companionName(selectedBuddy)}</strong><p>{companionLocked(state.survival, selectedBuddy) ? '战斗中，点击地图切换为主角移动' : '点击地图指定移动位置'}</p></div>
       <button onClick={cancelCompanionControl}>取消操控</button>
     </section> : <footer className={styles.footer}>
       <div className={styles.footerCard}>
