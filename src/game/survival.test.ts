@@ -1,3 +1,4 @@
+import { ENCOUNTERS } from './encounters'
 import { describe, expect, it } from 'vitest'
 import { BLUEPRINTS } from './buildingConfig'
 import { GameRuntime, type GameCommand } from './GameRuntime'
@@ -88,7 +89,7 @@ describe('night pressure and companion commands', () => {
     expect(saved.survival.failure).toBeNull()
     expect(saved.production.vitals.hp).toBeGreaterThan(0)
     expect(saved.survival.nextEnemyId).toBeGreaterThan(4)
-    expect(saved.survival.enemies).toHaveLength(0)
+    expect(saved.survival.enemies.every(e => e.roaming)).toBe(true)
     expect(runtime.getUiSnapshot()).toMatchObject({ day: 2, hour: 6 })
     validateSave(JSON.parse(runtime.exportSave()), world, catalog)
   }, 15_000)
@@ -131,7 +132,7 @@ describe('night pressure and companion commands', () => {
     data.survival.companion.guard = { x: 8, y: 13 }
     const { runtime, pump } = harness(data); pump(.05)
     const saved = runtime.getSaveData()
-    expect(saved.survival.enemies[0].target).toEqual({ kind: 'companion' })
+    expect(saved.survival.enemies[0].target).toEqual({ kind: 'companion', id: 'companion' })
     expect(saved.survival.companion.hp).toBe(180)
     expect(saved.construction.buildings[0].parts.door.hp).toBe(100)
     expect(saved.survival.enemies[0].hp).toBe(32)
@@ -150,11 +151,11 @@ describe('night pressure and companion commands', () => {
     expect(result.state.weather).toBe('cloudy')
   })
   it('caps nightly population and discards missed spawns instead of building a backlog', () => {
-    const data = night(); enemy(data); enemy(data); enemy(data)
+    const data = night(); for (let i = 0; i < ENCOUNTERS.nightLimit; i++) enemy(data)
     data.survival.spawnRemaining = .01
     const capped = advanceSurvival(data.survival, data.production, data.construction, world, data.cell, 1150, .05)
-    expect(capped.state.enemies).toHaveLength(3)
-    expect(capped.state.spawnRemaining).toBe(80)
+    expect(capped.state.enemies).toHaveLength(ENCOUNTERS.nightLimit)
+    expect(capped.state.spawnRemaining).toBe(ENCOUNTERS.nightInterval)
     capped.state.enemies = []
     const next = advanceSurvival(capped.state, capped.production, capped.construction, world, data.cell, 1151, .05)
     expect(next.state.enemies).toHaveLength(0)

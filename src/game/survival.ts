@@ -1,6 +1,7 @@
+import { ENCOUNTERS, encounterCells, reachableEncounter, type SpawnVisibility } from './encounters'
 import { releaseTaming, type TamingState } from './taming'
 import { blueprintById } from './buildingConfig'
-import { buildingAt, buildingSummary, constructionDamage, constructionNavigation, footprint, localToWorld, protectedBuildingTarget, releaseJob, type BuildingTarget, type ConstructionState } from './construction'
+import { buildingAt, buildingSummary, constructionDamage, constructionNavigation, localToWorld, protectedBuildingTarget, releaseJob, type BuildingTarget, type ConstructionState } from './construction'
 import { buildingSegments, segmentHp } from './buildingSegments'
 import { availableItems, matchRequirements, type ProductionState } from './inventory'
 import type { NavigationGrid } from './navigation'
@@ -11,15 +12,16 @@ import { BOAR_AGGRO_RANGE, REGION_BOARS } from './regionContentConfig'
 import { combatResult, COMBAT_SECONDS, COMBAT_RESULT_SECONDS, type CompanionCombat } from './companionCombat'
 import { canWalkLine, moveTarget, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
 
-export type ActorTarget = { kind: 'player' } | { kind: 'companion' } | { kind: 'enemy'; id: string }
+export type ActorTarget = { kind: 'player' } | { kind: 'companion'; id?: string } | { kind: 'enemy'; id: string }
   | ({ kind: 'part'; stand: Cell } & BuildingTarget) | { kind: 'point'; cell: Cell }
 export interface Actor {
   cell: Cell; route: Cell[]; progress: number; target: ActorTarget | null; cooldown: number
   /** Continuous world position; absent on legacy cell/progress saves. */
   motion?: { version: 1; position: Cell }
 }
-export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string; patrol?: { index: number; remaining: number } }
+export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string; roaming?: boolean; tameable?: boolean; patrol?: { index: number; remaining: number } }
 export interface Companion extends Actor {
+  id?: string; kind?: EnemyKind
   status: 'wild' | 'active' | 'injured' | 'recovering'
   hp: number; mode: 'guard' | 'follow' | 'move'; guard: Cell; orderedEnemy: string | null; recoveryRemaining: number
 }
@@ -29,17 +31,23 @@ export interface Failure {
 export interface SurvivalState {
   weather: WeatherId; forecast: WeatherId; weatherDay: number; randomState: number
   environmentRemaining: number; decisionRemaining: number; spawnRemaining: number; raidNight: number
-  nextEnemyId: number; enemies: Enemy[]; companion: Companion; taming: TamingState
+  nextEnemyId: number; enemies: Enemy[]; companion: Companion; recruits?: Companion[]; taming: TamingState
   duel: CompanionCombat | null
   failure: Failure | null; failureCount: number; rescuedCount: number; resting: boolean
 }
-export type SurvivalCommand = { type: 'companion-treat' } | { type: 'player-rest' }
+export type SurvivalCommand = ({ type: 'companion-treat' } | { type: 'player-rest' }
   | { type: 'companion-mode'; mode: 'guard' | 'follow'; guard?: Cell }
   | { type: 'companion-move'; target: Cell }
   | { type: 'companion-attack'; enemyId: string }
-  | { type: 'rescue' }
+  | { type: 'rescue' }) & { companionId?: string }
+export const companions = (state: SurvivalState) => [state.companion, ...(state.recruits ?? [])]
+export const companionId = (buddy: Companion) => buddy.id ?? 'companion'
+export const companionById = (state: SurvivalState, id = 'companion') => companions(state).find(b => companionId(b) === id)
+export const companionRules = (buddy: Pick<Companion, 'kind'>) => buddy.kind ? { ...RULES.companion, ...ENEMIES[buddy.kind] } : RULES.companion
+export const companionName = (buddy: Pick<Companion, 'kind'>) => buddy.kind ? ENEMIES[buddy.kind].name : RULES.companion.name
+export const companionLocked = (state: SurvivalState, buddy: Companion) => !!state.duel && (state.duel.companionId ?? 'companion') === companionId(buddy)
 export const distance = (a: Cell, b: Cell) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y)
-export const nearbyThreats = (state: SurvivalState, player: Cell) => state.enemies.filter(enemy => !enemy.residentId || distance(enemy.cell, player) <= BOAR_AGGRO_RANGE + 1)
+export const nearbyThreats = (state: SurvivalState, player: Cell) => state.enemies.filter(enemy => !enemy.tameable && (!enemy.residentId || distance(enemy.cell, player) <= BOAR_AGGRO_RANGE + 1))
 export const dayTime = (minutes: number) => minutes % 1440 >= 360 && minutes % 1440 < 1140
 export const worldMinutes = (world: WorldMap, elapsed: number) => Math.round((world.config.initialHour * 60 + elapsed * 1440 / world.config.dayDurationSeconds) * 1e6) / 1e6
 const weatherDay = (minutes: number) => Math.floor((minutes - 360) / 1440)
@@ -52,7 +60,7 @@ export function createSurvival(world: WorldMap, elapsed = 0): SurvivalState {
     environmentRemaining: RULES.environmentInterval, decisionRemaining: 0, spawnRemaining: RULES.firstSpawnDelay,
     raidNight: dayTime(worldMinutes(world, elapsed)) ? 0 : nightKey(worldMinutes(world, elapsed)), nextEnemyId: 1, enemies: [],
     companion: { ...blankActor(cell), status: 'wild', hp: RULES.companion.hp, mode: 'guard', guard: { ...home }, orderedEnemy: null, recoveryRemaining: 0 },
-    failure: null, failureCount: 0, rescuedCount: 0, resting: false, taming: { ordered: false, job: null }, duel: null }
+    recruits: [], failure: null, failureCount: 0, rescuedCount: 0, resting: false, taming: { ordered: false, job: null }, duel: null }
 }
 function random(state: SurvivalState) {
   let x = state.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5
@@ -135,7 +143,10 @@ export function enemyNavigation(world: WorldMap, grid: NavigationGrid, residentI
 function targetCell(target: ActorTarget | null, state: SurvivalState, player: Cell, construction: ConstructionState, extraProtection = false): Cell | null {
   if (!target) return null
   if (target.kind === 'player') return extraProtection || construction.jobs[0]?.phase === 'building' || state.taming.job?.phase === 'taming' ? null : player
-  if (target.kind === 'companion') return !state.duel && state.companion.status === 'active' ? actorPosition(state.companion) : null
+  if (target.kind === 'companion') {
+    const buddy = companionById(state, target.id)
+    return buddy && !companionLocked(state, buddy) && buddy.status === 'active' ? actorPosition(buddy) : null
+  }
   if (target.kind === 'enemy') {
     const enemy = state.enemies.find(enemy => enemy.id === target.id && enemy.hp > 0)
     return enemy && state.duel?.enemy.id !== target.id ? actorPosition(enemy) : null
@@ -155,11 +166,18 @@ function targetCell(target: ActorTarget | null, state: SurvivalState, player: Ce
   return segmentHp(part, target.segmentId) > 0 && !protectedBuildingTarget(construction, target) ? target.stand : null
 }
 function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, construction: ConstructionState, world: WorldMap, grid: NavigationGrid, extraProtection: boolean) {
+  if (state.taming.targetId === enemy.id && state.taming.job) { stop(enemy); return }
+  if (enemy.tameable) {
+    if (pointDistance(actorPosition(enemy), player) <= 2.5) { stop(enemy); return }
+    const destination = moveTarget(grid, player)
+    if (!destination || !setRoute(enemy, { kind: 'point', cell: destination }, destination, grid, world)) stop(enemy)
+    return
+  }
   if (enemy.residentId) {
     const spawn = REGION_BOARS.find(s => s.id === enemy.residentId)!
     const targets: { target: ActorTarget; cell: Cell }[] = []
     if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming') targets.push({ target: { kind: 'player' }, cell: player })
-    if (!state.duel && state.companion.status === 'active') targets.push({ target: { kind: 'companion' }, cell: actorPosition(state.companion) })
+    for (const buddy of companions(state)) if (!companionLocked(state, buddy) && buddy.status === 'active') targets.push({ target: { kind: 'companion', id: companionId(buddy) }, cell: actorPosition(buddy) })
     for (const candidate of targets) {
       const destination = moveTarget(grid, candidate.cell)
       if (destination && distance(enemy.cell, pointCell(candidate.cell)) <= BOAR_AGGRO_RANGE
@@ -191,16 +209,15 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
   // Keep actor engagements, but reconsider structures when a defender comes within reach.
   const current = targetCell(enemy.target, state, player, construction, extraProtection)
   if (current && (enemy.target?.kind === 'player' || enemy.target?.kind === 'companion') && touching(grid, actorPosition(enemy), current)) return
-  const buddy = state.companion
   const targets: { target: ActorTarget; cell: Cell }[] = []
-  if (!state.duel && buddy.status === 'active' && distance(enemy.cell, buddy.cell) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'companion' }, cell: actorPosition(buddy) })
-  if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming' && distance(enemy.cell, pointCell(player)) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'player' }, cell: player })
+  for (const buddy of companions(state)) if (!companionLocked(state, buddy) && buddy.status === 'active' && distance(enemy.cell, buddy.cell) <= ENEMIES[enemy.kind].sight) targets.push({ target: { kind: 'companion', id: companionId(buddy) }, cell: actorPosition(buddy) })
+  if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming' && (enemy.roaming || distance(enemy.cell, pointCell(player)) <= ENEMIES[enemy.kind].sight)) targets.push({ target: { kind: 'player' }, cell: player })
   for (const candidate of targets) {
     const destination = moveTarget(grid, candidate.cell)
     if (destination && setRoute(enemy, candidate.target, destination, grid, world)) return
   }
-  const home = construction.buildings.find(building => building.parts.foundation.built)
-  const goal = home ? localToWorld(home, { x: 1, y: 1 }) : world.config.spawn
+  const home = buildingAt(construction, pointCell(player)) ?? construction.buildings.find(building => building.parts.foundation.built)
+  const goal = enemy.roaming ? player : home ? localToWorld(home, { x: 1, y: 1 }) : world.config.spawn
   // Use an existing opening before breaking additional walls.
   if (distance(enemy.cell, goal) > 1 && setRoute(enemy, { kind: 'point', cell: goal }, goal, grid, world)) return
   // At an intact segment the route cost is already zero; retain it after reconsidering nearby actors/openings.
@@ -225,8 +242,7 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
   if (candidates[0]) { setRoute(enemy, candidates[0].target, candidates[0].target.stand, grid, world); return }
   if (!setRoute(enemy, { kind: 'point', cell: goal }, goal, grid, world)) stop(enemy)
 }
-function planCompanion(state: SurvivalState, player: Cell, world: WorldMap, grid: NavigationGrid) {
-  const buddy = state.companion
+function planCompanion(state: SurvivalState, buddy: Companion, player: Cell, world: WorldMap, grid: NavigationGrid) {
   if (buddy.status !== 'active') { stopCompanion(buddy); return }
   if (buddy.mode === 'move') {
     if (sameCell(actorPosition(buddy), buddy.guard)) buddy.mode = 'guard'
@@ -234,9 +250,9 @@ function planCompanion(state: SurvivalState, player: Cell, world: WorldMap, grid
     else { buddy.mode = 'guard'; buddy.guard = { ...actorPosition(buddy) }; stopCompanion(buddy); return }
   }
   const anchor = buddy.mode === 'follow' ? player : buddy.guard
-  const manual = state.enemies.find(enemy => enemy.id === buddy.orderedEnemy)
+  const manual = state.enemies.find(enemy => enemy.id === buddy.orderedEnemy && !enemy.tameable && enemy.id !== state.duel?.enemy.id)
   if (!manual) buddy.orderedEnemy = null
-  const choices = manual ? [manual] : state.enemies.filter(enemy => distance(anchor, enemy.cell) <= RULES.companion.radius)
+  const choices = manual ? [manual] : state.enemies.filter(enemy => !enemy.tameable && enemy.id !== state.duel?.enemy.id && distance(anchor, enemy.cell) <= RULES.companion.radius)
     .sort((a, b) => Number(b.id === (buddy.target?.kind === 'enemy' ? buddy.target.id : '')) - Number(a.id === (buddy.target?.kind === 'enemy' ? buddy.target.id : '')) || distance(buddy.cell, a.cell) - distance(buddy.cell, b.cell))
   for (const enemy of choices) {
     const destination = moveTarget(grid, actorPosition(enemy))
@@ -250,7 +266,7 @@ function planCompanion(state: SurvivalState, player: Cell, world: WorldMap, grid
 function settleCombat(state: SurvivalState, production: ProductionState): ProductionState {
   const duel = state.duel
   if (!duel || duel.phase !== 'fighting') return production
-  const buddy = state.companion, enemy = state.enemies.find(enemy => enemy.id === duel.enemy.id)!
+  const buddy = companionById(state, duel.companionId)!, enemy = state.enemies.find(enemy => enemy.id === duel.enemy.id)!
   buddy.hp = duel.result.companionHp; buddy.cooldown = duel.result.companionCooldown
   enemy.hp = duel.result.enemyHp; enemy.cooldown = duel.result.enemyCooldown
   if (enemy.hp === 0) {
@@ -268,7 +284,7 @@ function settleCombat(state: SurvivalState, production: ProductionState): Produc
 
 /** Pure fixed-step simulation. Movement, needs, combat presentation and damage share one clock. */
 export function advanceSurvival(original: SurvivalState, source: ProductionState, originalConstruction: ConstructionState,
-  world: WorldMap, player: Cell, minutes: number, dt: number, extraProtection = false, playerPosition = player) {
+  world: WorldMap, player: Cell, minutes: number, dt: number, extraProtection = false, playerPosition = player, visible?: SpawnVisibility) {
   const state = structuredClone(original)
   let production = { ...source, vitals: { ...source.vitals } }, construction = originalConstruction
   let critical = false, message: string | undefined, cause: Failure['cause'] = 'environment'
@@ -279,8 +295,8 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     message = `天亮了，今日${WEATHER[state.weather].name}，明日预计${WEATHER[state.forecast].name}`; critical = true
   }
   // Dawn has priority over the attack clock. Retreats give no defeat reward.
-  if (day && state.enemies.some(enemy => !enemy.residentId && enemy.id !== state.duel?.enemy.id)) {
-    state.enemies = state.enemies.filter(enemy => enemy.residentId || enemy.id === state.duel?.enemy.id)
+  if (day && state.enemies.some(enemy => !enemy.residentId && !enemy.roaming && enemy.id !== state.duel?.enemy.id)) {
+    state.enemies = state.enemies.filter(enemy => enemy.residentId || enemy.roaming || enemy.id === state.duel?.enemy.id)
     if (!state.enemies.some(enemy => enemy.id === state.companion.orderedEnemy)) state.companion.orderedEnemy = null
     if (!state.duel) stopCompanion(state.companion)
     critical = true
@@ -288,19 +304,23 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
   if (!day && state.raidNight !== nightKey(minutes)) {
     state.raidNight = nightKey(minutes); state.spawnRemaining = RULES.firstSpawnDelay; critical = true; message = '天黑了，林外传来动静。让伙伴驻守，准备补给。'
   }
-  if (!day) {
-    state.spawnRemaining -= dt
-    if (state.spawnRemaining <= 0) {
-      state.spawnRemaining = RULES.spawnInterval // No backlog when the cap is full.
-      if (state.enemies.filter(enemy => !enemy.residentId).length < RULES.enemyLimit) {
-        const occupied = construction.buildings.flatMap(building => footprint(building, blueprintById(building.blueprintId)!))
-        const entries = RULES.entries.filter(cell => world.isWalkable(cell) && !occupied.some(other => sameCell(cell, other)))
-        if (entries.length) {
-          const entry = entries[Math.floor(random(state) * entries.length)], kind: EnemyKind = random(state) < .7 ? 'prowler' : 'boar'
-          state.enemies.push({ ...blankActor(entry), id: `e${state.nextEnemyId++}`, kind, hp: ENEMIES[kind].hp })
-          state.decisionRemaining = 0; critical = true
-        }
+  state.spawnRemaining -= dt
+  if (state.spawnRemaining <= 0) {
+    state.spawnRemaining = day ? ENCOUNTERS.dayInterval : ENCOUNTERS.nightInterval
+    if (state.enemies.filter(e => !e.residentId).length < (day ? ENCOUNTERS.dayLimit : ENCOUNTERS.nightLimit)) {
+      const entries = encounterCells(world, construction, state, playerPosition, visible)
+      let entry: Cell | undefined
+      // Try candidates in a deterministic randomized order; never spawn in a disconnected pocket.
+      while (entries.length) {
+        const candidate = entries.splice(Math.floor(random(state) * entries.length), 1)[0]
+        if (reachableEncounter(world, construction, candidate, playerPosition)) { entry = candidate; break }
       }
+      if (entry) {
+        const kind: EnemyKind = random(state) < .7 ? 'prowler' : 'boar'
+        state.enemies.push({ ...blankActor(entry), id: `e${state.nextEnemyId++}`, kind, hp: ENEMIES[kind].hp,
+          roaming: true, tameable: random(state) < ENCOUNTERS.tameChance })
+        state.decisionRemaining = 0; critical = true
+      } else state.spawnRemaining = ENCOUNTERS.retrySeconds
     }
   }
   const shelter = shelterAt(construction, player), vitals = production.vitals
@@ -317,44 +337,43 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
   }
   if (state.resting && (!shelter.rest || !shelter.rainproof || !shelter.enclosed || nearbyThreats(state, player).length || protectedPlayer || dangerous)) state.resting = false
   if (state.resting) vitals.hp = Math.min(100, vitals.hp + dt * .5)
-  const buddy = state.companion
   if (state.duel) {
     state.duel.remaining = Math.max(0, state.duel.remaining - dt)
     if (state.duel.remaining <= 1e-8) {
       if (state.duel.phase === 'fighting') {
         production = settleCombat(state, production)
-        if (buddy.status === 'injured') message = '栗栗受伤倒下了，需要草药绷带和休养。'
+        if (companionById(state, state.duel!.companionId)!.status === 'injured') message = `${companionName(companionById(state, state.duel!.companionId)!)}受伤倒下了，需要草药绷带和休养。`
       } else { state.duel = null; state.decisionRemaining = 0 }
       critical = true
     }
   }
-  if (buddy.status === 'recovering') {
+  for (const buddy of companions(state)) if (buddy.status === 'recovering') {
     buddy.recoveryRemaining = Math.max(0, buddy.recoveryRemaining - dt)
-    if (buddy.recoveryRemaining === 0) { buddy.status = 'active'; buddy.hp = RULES.companion.hp * .5; buddy.mode = 'guard'; buddy.guard = { ...actorPosition(buddy) }; critical = true; message = '栗栗已经恢复行动，可以继续下达指令。' }
+    if (buddy.recoveryRemaining === 0) { buddy.status = 'active'; buddy.hp = companionRules(buddy).hp * .5; buddy.mode = 'guard'; buddy.guard = { ...actorPosition(buddy) }; critical = true; message = `${companionName(buddy)}已经恢复行动，可以继续下达指令。` }
   }
   const friendly = constructionNavigation(world, construction), hostile = constructionNavigation(world, construction, 'enemy')
   const enemyGrids = new Map(state.enemies.map(enemy => [enemy.id, enemyNavigation(world, hostile, enemy.residentId)]))
-  if (!state.duel && buddy.status === 'active') prepareMotion(buddy, friendly)
+  for (const buddy of companions(state)) if (!companionLocked(state, buddy) && buddy.status === 'active') prepareMotion(buddy, friendly)
   for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id) prepareMotion(enemy, enemyGrids.get(enemy.id)!)
   state.decisionRemaining -= dt
   if (state.decisionRemaining <= 0) {
     state.decisionRemaining = RULES.decisionInterval
-    if (!state.duel) planCompanion(state, playerPosition, world, friendly)
+    for (const buddy of companions(state)) if (!companionLocked(state, buddy)) planCompanion(state, buddy, playerPosition, world, friendly)
     for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id) planEnemy(enemy, state, playerPosition, construction, world, enemyGrids.get(enemy.id)!, extraProtection)
   }
-  if (!state.duel) {
-    if (buddy.status === 'active') moveActor(buddy, friendly, world, RULES.companion.speed, dt)
+  for (const buddy of companions(state)) if (!companionLocked(state, buddy)) {
+    if (buddy.status === 'active') moveActor(buddy, friendly, world, companionRules(buddy).speed, dt)
     buddy.cooldown = Math.max(0, buddy.cooldown - dt)
   }
   for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id) {
     if (enemy.patrol) enemy.patrol.remaining = Math.max(0, enemy.patrol.remaining - dt)
     moveActor(enemy, enemyGrids.get(enemy.id)!, world, ENEMIES[enemy.kind].speed, dt); enemy.cooldown = Math.max(0, enemy.cooldown - dt)
   }
-  if (!state.duel && buddy.status === 'active') {
-    const enemy = state.enemies.find(enemy => (buddy.target?.kind === 'enemy' && buddy.target.id === enemy.id || enemy.target?.kind === 'companion')
+  for (const buddy of companions(state)) if (!state.duel && buddy.status === 'active') {
+    const enemy = state.enemies.find(enemy => !enemy.tameable && (buddy.target?.kind === 'enemy' && buddy.target.id === enemy.id || enemy.target?.kind === 'companion' && (enemy.target.id ?? 'companion') === companionId(buddy))
       && touching(hostile, actorPosition(buddy), actorPosition(enemy)))
     if (enemy) {
-      state.duel = { phase: 'fighting', remaining: COMBAT_SECONDS, companion: structuredClone(buddy), enemy: structuredClone(enemy), result: combatResult(buddy, enemy) }
+      state.duel = { companionId: companionId(buddy), phase: 'fighting', remaining: COMBAT_SECONDS, companion: structuredClone(buddy), enemy: structuredClone(enemy), result: combatResult(buddy, enemy) }
       state.decisionRemaining = 0; critical = true
     }
   }
@@ -365,7 +384,7 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     const inRange = actor.target.kind === 'part' ? sameCell(actorPosition(actor), cell) : touching(hostile, actorPosition(actor), cell)
     if (inRange) { actor.cooldown = interval; hits.push({ target: actor.target, amount }) }
   }
-  for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id && (!day || enemy.residentId)) attack(enemy, ENEMIES[enemy.kind].attack, ENEMIES[enemy.kind].interval)
+  for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id && !enemy.tameable && (!day || enemy.residentId || enemy.roaming)) attack(enemy, ENEMIES[enemy.kind].attack, ENEMIES[enemy.kind].interval)
   // Collect every hit first, then apply: neither side gains an iteration-order advantage.
   for (const hit of hits) {
     if (hit.target.kind === 'player' || hit.target.kind === 'part') {
@@ -380,9 +399,11 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
 
 export function applySurvivalCommand(original: SurvivalState, source: ProductionState, construction: ConstructionState, world: WorldMap,
   player: Cell, _minutes: number, command: Exclude<SurvivalCommand, { type: 'rescue' }>) {
-  const state = structuredClone(original), production = structuredClone(source), buddy = state.companion
+  const state = structuredClone(original), production = structuredClone(source), buddy = companionById(state, command.companionId)
   const reject = (reason: string) => ({ accepted: false as const, reason })
   const accept = (message: string) => ({ accepted: true as const, state, production, message })
+  if (!buddy) return reject('伙伴不存在')
+  const rules = companionRules(buddy)
   const consume = (requirements: readonly number[]) => {
     const ids = matchRequirements(production.inventory, requirements)
     if (!ids) return false
@@ -395,13 +416,13 @@ export function applySurvivalCommand(original: SurvivalState, source: Production
     return true
   }
   if (command.type === 'companion-treat') {
-    if (state.duel) return reject('栗栗正在战斗，请等战斗结束')
+    if (companionLocked(state, buddy)) return reject(`${companionName(buddy)}正在战斗，请等战斗结束`)
     if (buddy.status === 'wild' || buddy.status === 'recovering') return reject('现在不需要再次用药')
-    if (buddy.status === 'active' && buddy.hp >= RULES.companion.hp) return reject('栗栗状态很好，不需要用药')
+    if (buddy.status === 'active' && buddy.hp >= rules.hp) return reject(`${companionName(buddy)}状态很好，不需要用药`)
     if (!consume(RULES.companion.medicineItems)) return reject('需要 1 份草药绷带，可在合成工坊准备')
     if (buddy.status === 'injured') { buddy.status = 'recovering'; buddy.recoveryRemaining = RULES.companion.recoverySeconds }
-    else buddy.hp = Math.min(RULES.companion.hp, buddy.hp + 40)
-    return accept(buddy.status === 'recovering' ? '已经包扎，栗栗需要休养 60 秒' : '栗栗恢复了 40 点生命')
+    else buddy.hp = Math.min(rules.hp, buddy.hp + 40)
+    return accept(buddy.status === 'recovering' ? `已经包扎，${companionName(buddy)}需要休养 60 秒` : `${companionName(buddy)}恢复了 40 点生命`)
   }
   if (command.type === 'player-rest') {
     if (state.resting) { state.resting = false; return accept('结束休养') }
@@ -410,14 +431,14 @@ export function applySurvivalCommand(original: SurvivalState, source: Production
     if (nearbyThreats(state, player).length || construction.jobs.length || state.taming.job) return reject('当前不能安心休养，请先处理袭击或工程')
     state.resting = true; return accept('正在床边休养，饥渴仍会消耗')
   }
-  if (buddy.status !== 'active') return reject('栗栗还不能参战，请先救助或治疗')
-  if (state.duel) return reject('栗栗正在战斗，请等战斗结束')
+  if (buddy.status !== 'active') return reject(`${companionName(buddy)}还不能参战，请先救助或治疗`)
+  if (companionLocked(state, buddy)) return reject(`${companionName(buddy)}正在战斗，请等战斗结束`)
   if (command.type === 'companion-move') {
     const grid = constructionNavigation(world, construction), target = moveTarget(grid, command.target)
     if (!target || !setRoute(buddy, { kind: 'point', cell: { ...target } }, target, grid, world)) return reject('伙伴无法到达该位置')
     buddy.mode = 'move'; buddy.guard = { ...target }; buddy.orderedEnemy = null
     state.decisionRemaining = 0
-    return accept('栗栗正在前往指定位置')
+    return accept(`${companionName(buddy)}正在前往指定位置`)
   }
   if (command.type === 'companion-mode') {
     const guard = command.guard ?? player
@@ -425,14 +446,14 @@ export function applySurvivalCommand(original: SurvivalState, source: Production
     if (!['guard', 'follow'].includes(command.mode) || !destination
       || !setRoute(buddy, { kind: 'point', cell: destination }, destination, grid, world)) return reject('伙伴无法到达该位置')
     buddy.mode = command.mode; buddy.guard = destination; buddy.orderedEnemy = null
-    state.decisionRemaining = 0; return accept(command.mode === 'guard' ? '栗栗将在这里驻守' : '栗栗开始跟随')
+    state.decisionRemaining = 0; return accept(command.mode === 'guard' ? `${companionName(buddy)}将在这里驻守` : `${companionName(buddy)}开始跟随`)
   }
   const enemy = state.enemies.find(enemy => enemy.id === command.enemyId)
   const grid = constructionNavigation(world, construction), destination = enemy && moveTarget(grid, actorPosition(enemy))
-  if (!enemy || !destination || !setRoute(buddy, { kind: 'enemy', id: enemy.id }, destination, grid, world)) return reject('这个目标已离开或无法到达')
+  if (!enemy || enemy.tameable || enemy.id === state.duel?.enemy.id || !destination || !setRoute(buddy, { kind: 'enemy', id: enemy.id }, destination, grid, world)) return reject('这个目标已离开或无法到达')
   if (buddy.mode === 'move') { buddy.mode = 'guard'; buddy.guard = { ...actorPosition(buddy) } }
   buddy.orderedEnemy = enemy.id; state.decisionRemaining = 0
-  return accept(`栗栗正在前往拦截${ENEMIES[enemy.kind].name}`)
+  return accept(`${companionName(buddy)}正在前往拦截${ENEMIES[enemy.kind].name}`)
 }
 
 export function beginFailure(original: SurvivalState, source: ProductionState, originalConstruction: ConstructionState, catalog: ProductionCatalog, minutes: number, cause: Failure['cause']) {
@@ -461,13 +482,17 @@ export function acceptRescue(original: SurvivalState, source: ProductionState, w
   }
   production.vitals = { hp: RULES.rescueHp, hunger: 60, water: 60, temperature: 50 }
   state.rescuedCount = failure.id; state.failure = null
+  if (state.taming.targetId) releaseTaming(state, production, false)
   state.enemies = state.enemies.filter(enemy => enemy.residentId)
   for (const enemy of state.enemies) { stop(enemy); enemy.cooldown = 0 }
   state.resting = false
   state.environmentRemaining = RULES.environmentInterval; state.decisionRemaining = 0
-  state.companion.orderedEnemy = null; Object.assign(state.companion, blankActor(world.config.spawn), { guard: { ...world.config.spawn } })
-  delete state.companion.motion
-  if (state.companion.mode === 'move') state.companion.mode = 'guard'
+  for (const buddy of companions(state)) {
+    buddy.orderedEnemy = null; Object.assign(buddy, blankActor(world.config.spawn), { guard: { ...world.config.spawn } })
+    delete buddy.motion
+    if (buddy.mode === 'move') buddy.mode = 'guard'
+  }
+  state.spawnRemaining = ENCOUNTERS.dayInterval
   const dawnMinutes = (weatherDay(worldMinutes(world, elapsedSeconds)) + 1) * 1440 + 360
   state.weather = state.forecast; state.weatherDay = weatherDay(dawnMinutes)
   state.forecast = (Object.keys(WEATHER) as WeatherId[])[Math.floor(random(state) * 3)]

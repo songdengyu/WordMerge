@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
-import { SURVIVAL_RULES } from '../../game/survivalConfig'
+import { companionById, companionName, companionRules, companionLocked, companions, companionId as buddyId } from '../../game/survival'
 import styles from './CompanionWheel.module.css'
 
 const choices = [
@@ -10,8 +10,10 @@ const choices = [
   { id: 'treat', name: '治疗', path: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6Z' },
 ] as const
 
-export function CompanionWheel({ runtime, close, message, control }: { runtime: GameRuntime; close: () => void; message: (text: string) => void; control: () => void }) {
-  const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot), buddy = state.survival.companion
+export function CompanionWheel({ runtime, close, message, control, select, companionId = 'companion' }: { runtime: GameRuntime; companionId?: string; select: (id: string) => void; close: () => void; message: (text: string) => void; control: () => void }) {
+  const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot), buddy = companionById(state.survival, companionId) ?? state.survival.companion
+  const rules = companionRules(buddy), name = companionName(buddy), locked = companionLocked(state.survival, buddy)
+  const roster = companions(state.survival).filter(b => b.status !== 'wild')
   const dialog = useRef<HTMLDialogElement>(null)
   const pointerStartedInside = useRef(false)
   const [feedback, setFeedback] = useState(''), [busy, setBusy] = useState(false)
@@ -25,7 +27,7 @@ export function CompanionWheel({ runtime, close, message, control }: { runtime: 
     if (result.accepted) close()
     else { setFeedback(text); setBusy(false) }
   }
-  return <dialog ref={dialog} className={styles.overlay} aria-label={`${SURVIVAL_RULES.companion.name}指令盘`} onCancel={close}
+  return <dialog ref={dialog} className={styles.overlay} aria-label={`${name}指令盘`} onCancel={close}
     onPointerDownCapture={() => { pointerStartedInside.current = true }}
     onPointerCancel={() => { pointerStartedInside.current = false }}
     onClickCapture={event => {
@@ -35,23 +37,27 @@ export function CompanionWheel({ runtime, close, message, control }: { runtime: 
       pointerStartedInside.current = false
     }}
     onClick={event => { if (event.target === event.currentTarget) close() }} data-testid="companion-wheel">
+    {roster.length > 1 && <select className={styles.roster} aria-label="选择伙伴" value={companionId} disabled={busy}
+      onChange={event => { select(event.target.value); setFeedback('') }}>
+      {roster.map((b, index) => <option key={buddyId(b)} value={buddyId(b)}>{companionName(b)}{b.kind ? ` · ${index + 1}` : ''}</option>)}
+    </select>}
     <div className={styles.wheel}>
       {choices.map(choice => {
-        const disabled = busy || !!state.survival.duel || !!state.pauseReasons.length || (choice.id === 'treat'
-          ? buddy.status === 'recovering' || buddy.status === 'wild' || buddy.hp >= SURVIVAL_RULES.companion.hp : buddy.status !== 'active')
+        const disabled = busy || locked || !!state.pauseReasons.length || (choice.id === 'treat'
+          ? buddy.status === 'recovering' || buddy.status === 'wild' || buddy.hp >= rules.hp : buddy.status !== 'active')
         return <button key={choice.id} className={`${styles.wedge} ${styles[choice.id]}`} disabled={disabled}
           aria-label={choice.name} aria-pressed={choice.id === 'treat' ? undefined : buddy.mode === choice.id}
           onClick={() => {
             if (choice.id === 'move') { control(); return }
-            void run(choice.id === 'treat' ? { type: 'companion-treat' } : { type: 'companion-mode', mode: choice.id })
+            void run(choice.id === 'treat' ? { type: 'companion-treat', companionId } : { type: 'companion-mode', mode: choice.id, companionId })
           }}>
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={choice.path} /></svg>{choice.name}</span>
         </button>
       })}
       <svg className={styles.lines} viewBox="0 0 300 300" aria-hidden="true"><path d="m44 44 68 68m76 76 68 68M44 256l68-68m76-76 68-68" /></svg>
       <button className={styles.center} aria-label="关闭指令盘" onClick={close} autoFocus>
-        <strong>{SURVIVAL_RULES.companion.name}</strong>
-        <span>{state.survival.duel ? '战斗中' : buddy.status === 'recovering' ? `恢复 ${Math.ceil(buddy.recoveryRemaining)}s` : buddy.status === 'injured' ? '受伤' : `${Math.ceil(buddy.hp)} / ${SURVIVAL_RULES.companion.hp}`}</span>
+        <strong>{name}</strong>
+        <span>{locked ? '战斗中' : buddy.status === 'recovering' ? `恢复 ${Math.ceil(buddy.recoveryRemaining)}s` : buddy.status === 'injured' ? '受伤' : `${Math.ceil(buddy.hp)} / ${rules.hp}`}</span>
       </button>
     </div>
     <p className={styles.feedback} role="status">{feedback || (buddy.status === 'injured' ? '使用草药绷带治疗伙伴' : buddy.status === 'recovering' ? '伙伴正在恢复，请稍候' : '选择指令 · 点击空白关闭')}</p>

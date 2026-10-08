@@ -1,4 +1,5 @@
-import { requestTaming, releaseTaming, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
+import type { SpawnVisibility } from './encounters'
+import { requestTaming, releaseTaming, tamingAnimal, tamingName, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
 import { SURVIVAL_RULES } from './survivalConfig'
 import type { NavigationGrid } from './navigation'
 import { canWalkLine, finitePoint, moveTarget, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
@@ -71,6 +72,8 @@ export interface SceneSnapshot {
 
 /** Sole owner of world simulation. React/Pixi own no gameplay state or clocks. */
 export class GameRuntime {
+  private spawnVisibility?: SpawnVisibility
+  setSpawnVisibility(visible?: SpawnVisibility) { this.spawnVisibility = visible }
   private readonly listeners = new Set<() => void>()
   private readonly pauses = new Set<PauseReason>()
   private readonly commands: { command: GameCommand; resolve: (value: CommandResult) => void }[] = []
@@ -338,7 +341,7 @@ export class GameRuntime {
     let survivalChanged = false
     if (this.production) {
       const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000,
-        this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing', this.point)
+        this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing', this.point, this.spawnVisibility)
       this.survival = result.state; this.production = result.production; this.construction = result.construction
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
@@ -480,11 +483,11 @@ export class GameRuntime {
     const job = this.survival.taming.job
     if (!job || !this.production) return
     if (job.phase === 'travel') {
-      if (!dayTime(this.gameMinutes())) { this.abandonTaming('天黑了，等白天再来驯服，物资已释放'); return }
+      if (!this.survival.taming.targetId && !dayTime(this.gameMinutes())) { this.abandonTaming('天黑了，等白天再来驯服，物资已释放'); return }
       if (this.route.length || this.search) return
-      const animal = this.survival.companion.cell, inventory = this.production.inventory
+      const target = tamingAnimal(this.survival), animal = target?.cell, inventory = this.production.inventory
       const requirements = SURVIVAL_RULES.companion.rescueItems
-      if (!sameCell(this.point, job.workCell) || this.survival.companion.status !== 'wild'
+      if (!sameCell(this.point, job.workCell) || !animal
         || !(sameCell(this.cell, animal) || this.navigation.canStep(this.cell, animal))
         || job.reservedIds.length !== requirements.length || job.reservedIds.some((id, index) => {
           const item = inventory.items[id]
@@ -500,15 +503,23 @@ export class GameRuntime {
       }
       Object.assign(this.survival.taming.job!, { phase: 'taming', remaining: TAMING_SECONDS, reservedIds: [] })
       spendActionNeeds(this.production)
-      this.stopMovement(); this.feedback = '正在驯服栗栗，主角受到保护'; this.constructionChanged = true
+      this.stopMovement(); this.feedback = `正在驯服${tamingName(this.survival)}，主角受到保护`; this.constructionChanged = true
     } else {
       this.survival = structuredClone(this.survival)
       const current = this.survival.taming.job!
       current.remaining = Math.max(0, current.remaining - FIXED_STEP_MS / 1000)
       if (current.remaining > .000001) return
-      Object.assign(this.survival.companion, { status: 'active', guard: { ...this.cell } })
+      const targetId = this.survival.taming.targetId
+      if (targetId) {
+        const animal = this.survival.enemies.find(e => e.id === targetId)!
+        const recruit = { id: animal.id, kind: animal.kind, hp: animal.hp, cell: { ...animal.cell },
+          motion: { version: 1 as const, position: { ...actorPosition(animal) } }, route: [], progress: 0, target: null, cooldown: 0,
+          status: 'active' as const, mode: 'follow' as const, guard: { ...this.cell }, orderedEnemy: null, recoveryRemaining: 0 }
+        this.survival.recruits = [...(this.survival.recruits ?? []), recruit]
+        this.survival.enemies = this.survival.enemies.filter(e => e.id !== targetId)
+      } else Object.assign(this.survival.companion, { status: 'active', guard: { ...this.cell } })
       this.survival.taming = { ordered: false, job: null }; this.survival.decisionRemaining = 0
-      this.feedback = '栗栗愿意留下了，点击它可以下达指令'; this.constructionChanged = true
+      this.feedback = '伙伴愿意留下了，点击它可以下达指令'; this.constructionChanged = true
     }
   }
 
@@ -663,7 +674,7 @@ export class GameRuntime {
   }
 
   private enemyPositions(): Record<string, Cell> {
-    return Object.fromEntries(this.survival.enemies.map(enemy => [enemy.id, { ...actorPosition(enemy) }]))
+    return Object.fromEntries([...this.survival.enemies, ...(this.survival.recruits ?? [])].map(enemy => [enemy.id!, { ...actorPosition(enemy) }]))
   }
 
   private makeSceneSnapshot(previousPosition: Cell, previousCompanionPosition = actorPosition(this.survival.companion), previousEnemyPositions = this.enemyPositions()): SceneSnapshot {
@@ -694,6 +705,7 @@ export class GameRuntime {
     this.destination = restored.destination; this.elapsedSeconds = restored.elapsedSeconds
     this.production = restored.production
     this.survival = restored.survival
+    this.survival.recruits ??= []
     this.survival.taming ??= { ordered: false, job: null }
     this.survival.duel ??= null
     if (String(this.survival.companion.mode) === 'rest') {

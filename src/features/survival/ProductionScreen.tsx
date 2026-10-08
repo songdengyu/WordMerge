@@ -8,7 +8,7 @@ import { VitalLine } from './CampCare'
 import { DayCycle } from './DayCycle'
 import { SUPPLY_NAMES, type QuickSupplyCommand } from '../../game/quickSupply'
 import { SURVIVAL_RULES } from '../../game/survivalConfig'
-import { TAMING_ORDER, type TamingCommand } from '../../game/taming'
+import { TAMING_ORDER, tamingName, type TamingCommand } from '../../game/taming'
 import { resourceOrderId, type EconomyCommand } from '../../game/economy'
 import { RESOURCE_RULES } from '../../game/economyConfig'
 import { CurrencyIcon } from './Shop'
@@ -235,10 +235,10 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
           <button {...orderProps(TAMING_ORDER, ready)} data-testid="taming-order" data-ready={String(ready)}
             disabled={!!job || !!state.pauseReasons.length} onClick={async () => {
               runtime.focusProductionOrder(TAMING_ORDER)
-              const result = await send({ type: 'taming-interact' })
+              const result = await send({ type: 'taming-interact', targetId: state.survival.taming.targetId })
               if (result.accepted && !result.openProduction) close()
             }}>
-            <OrderTypeIcon kind="taming" /><strong>驯服{SURVIVAL_RULES.companion.name}</strong>
+            <OrderTypeIcon kind="taming" /><strong>驯服{tamingName(state.survival)}</strong>
             <div className={styles.requirements}>{requirements.map((id, i) => <span key={i} className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(id)!} compact /></span>)}</div>
             <small>{[...counts].map(([id, needed]) => `${catalog.itemById.get(id)!.name} ${job ? needed : availableItems(inventory).filter(item => item.itemId === id).length}/${needed}`).join(' · ')}</small>
             <small>{job ? job.phase === 'taming' ? '驯服中' : '已预留 · 正在前往' : ready ? '点击驯服 · 自动前往' : '合成所需物资'}</small>

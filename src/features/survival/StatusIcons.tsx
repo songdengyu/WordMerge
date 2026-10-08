@@ -100,13 +100,3 @@ export function WeatherIcon({ weather }: { weather: WeatherId }) {
     {weather === 'rain' && <path d="m9 23-1 2m7-2-1 2m7-2-1 2" stroke="#64b4e0" strokeWidth="2" />}
   </svg>
 }
-
-export function PawIcon() {
-  return <svg viewBox="0 0 32 32" aria-hidden="true" fill="currentColor">
-    <ellipse cx="7" cy="13" rx="3" ry="4" transform="rotate(-25 7 13)" />
-    <ellipse cx="13" cy="8" rx="3" ry="4" transform="rotate(-8 13 8)" />
-    <ellipse cx="21" cy="8" rx="3" ry="4" transform="rotate(10 21 8)" />
-    <ellipse cx="27" cy="14" rx="3" ry="4" transform="rotate(25 27 14)" />
-    <path d="M16 15c-4 0-4 4-7 6-4 4-1 8 3 7l5-1 5 1c5 1 7-4 3-7-3-3-5-6-9-6Z" />
-  </svg>
-}

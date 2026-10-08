@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 昼夜动态遭遇参数在 `encounters.ts`：白天 / 夜晚间隔 160 / 65 秒、动态在场上限 2 / 5；在主角周围 6～14 格的可达地面选点，排除 CampScene 上报的镜头可见范围，无位置则 5 秒后重试。出生时持久化 `Enemy.roaming / tameable`，新单位天亮保留；溪谷常驻巡逻不变。可驯服动物中立靠近，使用 `taming.targetId` 绑定同一只动物的气泡、合成订单、预留和 2 秒作业，支持夜间驯服；栗栗保留白天限制。`survival.recruits` 保存新增伙伴，旧档缺省为空，不替换 `companion`；命令可带 `companionId`，交战用 `duel.companionId` 锁定实际双方，并按物种核算数值。伙伴当前容量 6，原单对交战槽保留；其他伙伴仍移动 / 选敌。救援清除失效野生驯服订单、保留已招募伙伴。详见 `docs/implementation/DYNAMIC-ENCOUNTERS.md`。
 - 装饰独立入口在建造旁，`DecorationPanel` 替代手记装扮页，商店购买的皮肤 / 摆件由此使用。同款摆件可重复购买；`progression.decorStock` 保存剩余库存、`decorations[].id` 标识独立场景实例、`nextDecorationId` 递增。放置扣 1，取消预览 / 指定移动不扣，收回指定实例返还 1；同类物件可共存但不能重叠。旧 schema 4 缺少库存时按旧唯一物件规则验证后补库存与 ID，不清档；`ownedDecor` 和去重购买列表仍用于来源校验。剧情可在已购买同款后再赠 1 件，皮肤仍永久解锁 / 去重。详见 `docs/implementation/DECORATION-COLLECTION.md`。
 - `world.json` 开局为 12:00。用户在 2026-10-07 明确授权这次直接删旧档：`clearMorningStartSave` 在启动前按原 06:00 地图指纹原子清除旧进度和备份并更新 generation；新中午版本存档不重复清除。该授权仅限本次开局变更，不代表今后配置不兼容都可以删档。
 - 经济扩展见 `docs/implementation/ECONOMY-RESOURCE-SHOP.md`。界面称“精力”，内部 `stamina` 不改；金币 / 钻石复用 `production.inventory.gold/gems`。`economy.ts` / Runtime 管理资源清理、商店购买、领取与移动消耗；schema 4 旧档补默认经济状态，新增工具 CSV 目录有显式指纹迁移，不能清档。

@@ -3,6 +3,7 @@
   margin: 0; padding: 0; border: 0; background: transparent; color: #f6f3e1; overflow: hidden;
 }
 .overlay::backdrop { background: #12291e22; }
+.roster { position: absolute; left: 50%; bottom: calc(50% + min(150px, 42.5vw, 37.5dvh) + 16px); transform: translateX(-50%); padding: 8px 16px; border: 1px solid #c0d9be70; border-radius: 20px; background: #243f3de6; color: #fff5cf; font: inherit; }
 .wheel {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(300px, 85vw, 75dvh); aspect-ratio: 1; border-radius: 50%;

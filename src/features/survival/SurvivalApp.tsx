@@ -1,3 +1,4 @@
+import { companionById, companionLocked, companionName } from '../../game/survival'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameRuntime } from '../../game/GameRuntime'
 import { attachBrowserLoop } from '../../game/browserLoop'
@@ -8,7 +9,7 @@ import { CampScene } from '../../scene/CampScene'
 import { ProductionScreen } from './ProductionScreen'
 import { SaveControls } from './SaveControls'
 import { BuildingPanel } from './BuildingPanel'
-import { CampCare, FailurePanel, SurvivalHud } from './CampCare'
+import { FailurePanel, SurvivalHud } from './CampCare'
 import { CampJournal, StoryDialogue } from './CampJournal'
 import { DayCycle } from './DayCycle'
 import { TestControls } from './TestControls'
@@ -62,14 +63,14 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const [mergeOpen, setMergeOpen] = useState(false)
   const openMerge = useCallback(() => setMergeOpen(true), [])
   const [buildingOpen, setBuildingOpen] = useState(false)
-  const [careOpen, setCareOpen] = useState(false)
   const [wheelOpen, setWheelOpen] = useState(false)
   const [companionControl, setCompanionControl] = useState(false)
-  const openWheel = useCallback(() => setWheelOpen(true), [])
+  const [selectedCompanion, setSelectedCompanion] = useState('companion')
+  const selectedBuddy = companionById(state.survival, selectedCompanion) ?? state.survival.companion
+  const openWheel = useCallback((id = 'companion') => { setSelectedCompanion(id); setWheelOpen(true) }, [])
   const [journalOpen, setJournalOpen] = useState(false)
   const openJournal = useCallback(() => setJournalOpen(true), [])
   const [decorationPlacement, setDecorationPlacement] = useState<{ kind: DecorId; cell: Cell; decorationId?: string } | null>(null)
-  const openCare = useCallback(() => setCareOpen(true), [])
   const [placement, setPlacement] = useState<{ blueprintId: string; origin: Cell; rotation: Rotation } | null>(null)
   const selectBuilding = useCallback((id: string) => { setBuildingOpen(false); scene.current?.centerBuilding(id) }, [])
   const chooseOrigin = useCallback((origin: Cell) => {
@@ -81,12 +82,13 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const message = useCallback((text: string) => setToast({ text, id: performance.now() }), [])
   const controlCompanion = useCallback(() => {
     const current = runtime.getUiSnapshot()
-    if (current.pauseReasons.length || current.survival.duel || current.survival.companion.status !== 'active') {
+    const buddy = companionById(current.survival, selectedCompanion)
+    if (!buddy || current.pauseReasons.length || companionLocked(current.survival, buddy) || buddy.status !== 'active') {
       message('伙伴暂时无法移动'); return
     }
-    setWheelOpen(false); setCareOpen(false)
-    setCompanionControl(true); scene.current?.setCompanionControl(true)
-  }, [runtime, message])
+    setWheelOpen(false)
+    setCompanionControl(true); scene.current?.setCompanionControl(true, selectedCompanion)
+  }, [runtime, message, selectedCompanion])
   const cancelCompanionControl = useCallback(() => {
     setCompanionControl(false); scene.current?.setCompanionControl(false)
   }, [])
@@ -109,17 +111,17 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       setShopOpen(false)
       setDecorationOpen(false)
       setWheelOpen(false)
-      setSettingsOpen(false); setCareOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
+      setSettingsOpen(false); setBuildingOpen(false); setMergeOpen(false); setPlacement(null); setJournalOpen(false); setDecorationPlacement(null)
     }
   }, [state.survival.failure, state.progression.dialogue])
   useEffect(() => { scene.current?.setPlacement(placement) }, [placement, attempt])
   useEffect(() => { scene.current?.setDecorationPlacement(decorationPlacement) }, [decorationPlacement, attempt])
-  useEffect(() => { scene.current?.setCompanionControl(companionControl) }, [companionControl, attempt])
+  useEffect(() => { scene.current?.setCompanionControl(companionControl, selectedCompanion) }, [companionControl, selectedCompanion, attempt])
   useEffect(() => {
-    if (state.survival.companion.status !== 'active' || state.survival.failure || state.progression.dialogue
-      || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || careOpen || wheelOpen || shopOpen || decorationOpen) cancelCompanionControl()
-  }, [state.survival.companion.status, state.survival.failure, state.progression.dialogue,
-    placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, careOpen, wheelOpen, shopOpen, decorationOpen, cancelCompanionControl])
+    if (selectedBuddy.status !== 'active' || companionLocked(state.survival, selectedBuddy) || state.survival.failure || state.progression.dialogue
+      || placement || decorationPlacement || mergeOpen || buildingOpen || journalOpen || settingsOpen || wheelOpen || shopOpen || decorationOpen) cancelCompanionControl()
+  }, [selectedBuddy.status, state.survival.duel, state.survival.failure, state.progression.dialogue,
+    placement, decorationPlacement, mergeOpen, buildingOpen, journalOpen, settingsOpen, wheelOpen, shopOpen, decorationOpen, cancelCompanionControl])
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(null), 4000)
@@ -141,14 +143,14 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const placementError = placement && runtime.placementError(placement.blueprintId, placement.origin, placement.rotation)
   const decorationError = decorationPlacement && decorError(decorationPlacement.kind, decorationPlacement.cell, state.progression, state.construction, decorationPlacement.decorationId)
   const placing = !!placement || !!decorationPlacement
-  const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || careOpen || wheelOpen || journalOpen || settingsOpen || shopOpen || decorationOpen || paused
+  const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || wheelOpen || journalOpen || settingsOpen || shopOpen || decorationOpen || paused
   useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
   const chapter = currentChapter(state.progression)
   const navigate = (action: StoryChapter['action']) => {
     setJournalOpen(false)
     if (action === 'build') setBuildingOpen(true)
     else if (action === 'dress') setDecorationOpen(true)
-    else if (action === 'care') setCareOpen(true)
+    else if (action === 'care') scene.current?.centerCell(state.survival.companion.cell)
     else if (action === 'brook' || action === 'grove') {
       if (state.progression.discoveries.includes(action)) setMergeOpen(true)
       else if (!state.progression.unlockedRegions.includes(action)) {
@@ -191,7 +193,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <span className={styles.walletEntry} aria-label={`钻石 ${state.production?.inventory.gems ?? 0}`}><CurrencyIcon kind="gems" /><strong data-testid="map-gems">{state.production?.inventory.gems ?? 0}</strong></span>
     </div>
     {!saveFailed && !placing && !state.survival.failure && !state.progression.dialogue && <TestControls runtime={runtime} state={state} message={message} reset={reset} />}
-    {!placing && <SurvivalHud state={state} runtime={runtime} open={openCare} openMerge={openMerge} message={message} />}
+    {!placing && <SurvivalHud state={state} runtime={runtime} openMerge={openMerge} message={message} />}
     <div className={styles.cameraControls}>
       <button aria-label="定位主角" className={styles.iconButton} onClick={() => scene.current?.centerPlayer()}><Icon kind="compass" /></button>
       <div className={styles.zoomButtons}>
@@ -222,7 +224,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
         else { setDecorationPlacement(null); message(result.message ?? '已经摆好了') }
       }}>确认摆放</button></div>
     </section> : companionControl ? <section className={styles.companionControl} data-testid="companion-control">
-      <div><strong>正在操控栗栗</strong><p>{state.survival.duel ? '战斗中，请稍候' : '点击地图指定移动位置'}</p></div>
+      <div><strong>正在操控{companionName(selectedBuddy)}</strong><p>{companionLocked(state.survival, selectedBuddy) ? '战斗中，请稍候' : '点击地图指定移动位置'}</p></div>
       <button onClick={cancelCompanionControl}>取消操控</button>
     </section> : <footer className={styles.footer}>
       <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建造</button>
@@ -246,8 +248,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     {shopOpen && <Shop runtime={runtime} close={() => setShopOpen(false)} place={place} collection={() => { setShopOpen(false); setDecorationOpen(true) }} merge={openMerge} />}
     {decorationOpen && <DecorationPanel runtime={runtime} close={() => setDecorationOpen(false)} decorate={decorate} shop={() => { setDecorationOpen(false); setShopOpen(true) }} />}
     {buildingOpen && !mergeOpen && <BuildingPanel runtime={runtime} select={selectBuilding} close={() => setBuildingOpen(false)} place={place} />}
-    {careOpen && <CampCare runtime={runtime} close={() => setCareOpen(false)} openMerge={() => setMergeOpen(true)} message={message} control={controlCompanion} />}
-    {wheelOpen && <CompanionWheel runtime={runtime} close={() => setWheelOpen(false)} message={message} control={controlCompanion} />}
+    {wheelOpen && <CompanionWheel companionId={selectedCompanion} select={setSelectedCompanion} runtime={runtime} close={() => setWheelOpen(false)} message={message} control={controlCompanion} />}
     {journalOpen && <CampJournal runtime={runtime} close={() => setJournalOpen(false)} navigate={navigate} />}
     {state.progression.dialogue && <StoryDialogue runtime={runtime} />}
     {state.survival.failure && <FailurePanel runtime={runtime} message={message} />}

@@ -73,7 +73,8 @@ it('supports three online days from the actual starter inventory with two-minute
   await send({ type: 'outfit-equip', outfitId: 'rose' })
   await send({ type: 'move', target: { x: 8, y: 11 } }); pump(15)
   maintenance = true
-  while (runtime.getSaveData().elapsedSeconds < 3600) {
+  for (let cycle = 0; runtime.getSaveData().elapsedSeconds < 3600; cycle++) {
+    expect(cycle, JSON.stringify(runtime.getUiSnapshot().pauseReasons)).toBeLessThan(40)
     const state = runtime.getSaveData()
     expect(state.survival.failure, `failed on day ${runtime.getUiSnapshot().day}`).toBeNull()
     for (const [stat, itemId, threshold] of [['hunger', 212, 50], ['water', 222, 50], ['hp', 232, 80]] as const) {
@@ -97,7 +98,7 @@ it('supports three online days from the actual starter inventory with two-minute
   expect(saved.survival.failure).toBeNull()
   expect(runtime.getUiSnapshot()).toMatchObject({ day: 4, hour: world.config.initialHour })
   expect(saved.survival.nextEnemyId).toBeGreaterThan(15)
-  expect(saved.survival.enemies.filter(enemy => !enemy.residentId)).toHaveLength(0)
+  expect(saved.survival.enemies.filter(enemy => !enemy.residentId).every(enemy => enemy.roaming)).toBe(true)
   expect(saved.survival.enemies.filter(enemy => enemy.residentId)).toHaveLength(3)
   expect(saved.progression.witnessedDawn).toBe(true)
   expect(saved.production.stamina.value).toBeGreaterThan(0)
@@ -108,5 +109,5 @@ it('supports three online days from the actual starter inventory with two-minute
   for (const budget of upkeep) expect(budget).toBeLessThanOrEqual(40)
   validateSave(JSON.parse(runtime.exportSave()), world, catalog)
   console.info('Three-day production stamina:', JSON.stringify({ total: costs, maintenance: upkeep, endingHp: saved.production.vitals.hp, companionHp: saved.survival.companion.hp, endingStamina: saved.production.stamina.value }))
-// Simulates 72,000 fixed steps with swept collision checks for all actors.
-}, 60_000)
+// Simulates 72,000 steps with daytime encounters and up to five persistent roaming actors.
+}, 300_000)

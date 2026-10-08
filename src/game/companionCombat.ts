@@ -1,4 +1,4 @@
-import type { Actor, Enemy } from './survival'
+import type { Actor, Enemy, Companion } from './survival'
 import { ENEMIES, SURVIVAL_RULES } from './survivalConfig'
 
 export const COMBAT_SECONDS = 2
@@ -9,8 +9,9 @@ export interface CombatResult {
   companionCooldown: number; enemyCooldown: number; simulatedSeconds: number
 }
 export interface CompanionCombat {
+  companionId?: string
   phase: 'fighting' | 'result'; remaining: number
-  companion: Actor & { hp: number }; enemy: Enemy
+  companion: Actor & { hp: number; kind?: Companion['kind'] }; enemy: Enemy
   result: CombatResult
 }
 
@@ -31,7 +32,7 @@ export function simulateCombat(companion: Fighter, enemy: Fighter): CombatResult
     enemyCooldown: Math.max(0, enemyNext - time), simulatedSeconds: time }
 }
 
-export function combatResult(companion: { hp: number; cooldown: number }, enemy: Enemy) {
-  return simulateCombat({ ...SURVIVAL_RULES.companion, hp: companion.hp, cooldown: companion.cooldown },
+export function combatResult(companion: { hp: number; cooldown: number; kind?: Companion['kind'] }, enemy: Enemy) {
+  return simulateCombat({ ...(companion.kind ? ENEMIES[companion.kind] : SURVIVAL_RULES.companion), hp: companion.hp, cooldown: companion.cooldown },
     { ...ENEMIES[enemy.kind], hp: enemy.hp, cooldown: enemy.cooldown })
 }

@@ -6,7 +6,7 @@ import { attachMapInput } from './mapInput'
 import { footprint, localToWorld, type Rotation } from '../game/construction'
 import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { blueprintById } from '../game/buildingConfig'
-import { actorPosition, distance } from '../game/survival'
+import { actorPosition, companions, companionId, companionLocked, distance } from '../game/survival'
 import { SurvivalActors } from './SurvivalActors'
 import { decorError } from '../game/progression'
 import { OUTFITS, REGIONS, type DecorId } from '../game/progressionConfig'
@@ -109,12 +109,13 @@ export class CampScene {
   private readonly buildingBubbles: BuildingBubbles
   private bubblesHidden = false
   private companionControl = false
+  private controlledCompanion = 'companion'
   private readonly assetAbort = new AbortController()
 
   constructor(private readonly host: HTMLDivElement, private readonly runtime: GameRuntime,
     private readonly onMessage: (message: string) => void, private readonly onError: (message: string) => void,
     private readonly onOrigin: (cell: Cell) => void,
-    private readonly openMerge: () => void, private readonly onCompanion: () => void, private readonly onJournal: () => void) {
+    private readonly openMerge: () => void, private readonly onCompanion: (id?: string) => void, private readonly onJournal: () => void) {
     this.buildingBubbles = new BuildingBubbles(runtime, host, onMessage, openMerge)
     const corners = runtime.world.config.chunks.flatMap(chunk => [
       gridToWorld({ x: chunk.x * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
@@ -179,12 +180,12 @@ export class CampScene {
   }
   setPlacement(placement: typeof this.placement) { this.placement = placement }
   setBubblesHidden(hidden: boolean) { this.bubblesHidden = hidden }
-  setCompanionControl(active: boolean) { this.companionControl = active }
+  setCompanionControl(active: boolean, id = 'companion') { this.companionControl = active; this.controlledCompanion = id }
   zoomBy(factor: number) { this.camera.zoomAt(this.camera.zoom * factor, { x: this.camera.width / 2, y: this.camera.height / 2 }) }
 
   private tap(cell: Cell, point: Cell) {
     if (this.companionControl) {
-      void this.runtime.dispatch({ type: 'companion-move', target: point }).then(result => {
+      void this.runtime.dispatch({ type: 'companion-move', target: point, companionId: this.controlledCompanion }).then(result => {
         if (!this.disposed && !result.accepted) this.onMessage(result.reason)
       })
       return
@@ -195,21 +196,30 @@ export class CampScene {
     const landmark = REGIONS.find(r => progress.unlockedRegions.includes(r.id) && distance(cell, r.point) < .8)
     if (landmark && progress.discoveries.includes(landmark.id)) { this.onJournal(); return }
     const survival = this.runtime.getUiSnapshot().survival
-    const animalPoint = gridToWorld(actorPosition(survival.companion)), tapPoint = gridToWorld(point)
-    if (!survival.duel && Math.abs(tapPoint.x - animalPoint.x) <= 26 && tapPoint.y >= animalPoint.y - 38 && tapPoint.y <= animalPoint.y + 10) {
-      if (survival.companion.status !== 'wild') this.onCompanion()
-      else void this.runtime.dispatch({ type: 'taming-interact' }).then(result => {
-        if (this.disposed) return
-        if (!result.accepted) this.onMessage(result.reason)
-        else if (result.openProduction) this.openMerge()
-        else if (result.message) this.onMessage(result.message)
-      })
-      return
+    const tapPoint = gridToWorld(point)
+    for (const buddy of companions(survival).reverse().sort((a, b) => {
+      const pa = gridToWorld(actorPosition(a)), pb = gridToWorld(actorPosition(b))
+      return Math.hypot(tapPoint.x - pa.x, tapPoint.y - (pa.y - 18)) - Math.hypot(tapPoint.x - pb.x, tapPoint.y - (pb.y - 18))
+    })) {
+      const animalPoint = gridToWorld(actorPosition(buddy))
+      if (!companionLocked(survival, buddy) && Math.abs(tapPoint.x - animalPoint.x) <= 26 && tapPoint.y >= animalPoint.y - 38 && tapPoint.y <= animalPoint.y + 10) {
+        if (buddy.status !== 'wild') this.onCompanion(companionId(buddy))
+        else void this.runtime.dispatch({ type: 'taming-interact' }).then(result => {
+          if (this.disposed) return
+          if (!result.accepted) this.onMessage(result.reason)
+          else if (result.openProduction) this.openMerge()
+          else if (result.message) this.onMessage(result.message)
+        })
+        return
+      }
     }
     const enemy = survival.enemies.find(enemy => enemy.id !== survival.duel?.enemy.id && distance(actorPosition(enemy), cell) < .8)
     if (enemy) {
-      void this.runtime.dispatch({ type: 'companion-attack', enemyId: enemy.id }).then(result => {
-        if (!this.disposed) this.onMessage(result.accepted ? result.message ?? '已指派伙伴' : result.reason)
+      void this.runtime.dispatch(enemy.tameable ? { type: 'taming-interact', targetId: enemy.id } : { type: 'companion-attack', enemyId: enemy.id }).then(result => {
+        if (!this.disposed) {
+          if (result.accepted && result.openProduction) this.openMerge()
+          else this.onMessage(result.accepted ? result.message ?? '已指派伙伴' : result.reason)
+        }
       }); return
     }
     const object = this.runtime.world.objectAt(cell) ?? this.runtime.world.allObjects()
@@ -392,6 +402,10 @@ export class CampScene {
     const foot = gridToWorld(position)
     this.player.position.set(foot.x, foot.y)
     this.player.zIndex = foot.y + 0.1
+    this.runtime.setSpawnVisibility(cell => {
+      const p = this.camera.toScreen(gridToWorld(cell)), margin = 120 * this.camera.zoom
+      return p.x >= -margin && p.x <= this.camera.width + margin && p.y >= -margin && p.y <= this.camera.height + margin
+    })
     this.root.position.set(this.camera.x, this.camera.y)
     this.root.scale.set(this.camera.zoom)
     this.buildingBubbles.update(this.runtime.getUiSnapshot(), this.camera, this.bubblesHidden || this.companionControl)
@@ -401,8 +415,8 @@ export class CampScene {
         const p = gridToWorld(snapshot.destination)
         this.route.ellipse(p.x, p.y, 15, 7).stroke({ width: 2, color: 0xfff5cf })
       }
-      if (snapshot.survival.companion.mode === 'move') {
-        const p = gridToWorld(snapshot.survival.companion.guard)
+      for (const buddy of companions(snapshot.survival)) if (buddy.mode === 'move') {
+        const p = gridToWorld(buddy.guard)
         this.route.ellipse(p.x, p.y, 15, 7).stroke({ width: 2, color: 0xc4e49b })
       }
       this.lastSnapshot = snapshot
@@ -420,6 +434,7 @@ export class CampScene {
     this.host.dataset.camera = `${this.camera.x},${this.camera.y},${this.camera.zoom}`
     this.host.dataset.position = `${position.x.toFixed(4)},${position.y.toFixed(4)}`
     const companionPosition = actorPosition(snapshot.survival.companion)
+    this.host.dataset.recruits = JSON.stringify((snapshot.survival.recruits ?? []).map(b => ({ id: b.id, ...actorPosition(b) })))
     this.host.dataset.companionPosition = `${companionPosition.x.toFixed(4)},${companionPosition.y.toFixed(4)}`
     this.host.dataset.duelPhase = snapshot.survival.duel?.phase ?? 'idle'
     this.host.dataset.duelEnemy = snapshot.survival.duel?.enemy.id ?? ''
@@ -452,6 +467,7 @@ export class CampScene {
     this.initialized = false
   }
   dispose() {
+    this.runtime.setSpawnVisibility(undefined)
     this.disposed = true
     this.assetAbort.abort()
     this.buildingBubbles.dispose()

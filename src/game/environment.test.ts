@@ -33,7 +33,7 @@ describe('day cycle and environment testing', () => {
     expect(environmentLight(1080, 'sunny').warmth).toBeGreaterThan(.3)
     expect(environmentLight(720, 'rain').overcast).toBeGreaterThan(environmentLight(720, 'cloudy').overcast)
   })
-  it('jumps into a real night raid, then retreats at a test dawn without loss, loot or a story dawn award', async () => {
+  it('jumps into a real night raid, then retains encounters at a test dawn without loss, loot or a story dawn award', async () => {
     const { runtime, pump, send } = harness(), before = runtime.getSaveData()
     expect(await send({ type: 'test-time', preset: 'night' })).toMatchObject({ accepted: true })
     expect(runtime.getUiSnapshot()).toMatchObject({ hour: 21, isDay: false })
@@ -46,7 +46,8 @@ describe('day cycle and environment testing', () => {
     expect(await send({ type: 'test-time', preset: 'dawn' })).toMatchObject({ accepted: true })
     const saved = runtime.getSaveData()
     expect(runtime.getUiSnapshot()).toMatchObject({ day: 2, hour: 6, isDay: true })
-    expect(saved.survival.enemies).toHaveLength(0)
+    expect(saved.survival.enemies).toHaveLength(1)
+    expect(saved.survival.enemies[0].roaming).toBe(true)
     expect(saved.production.inventory.gold).toBe(gold)
     expect(saved.progression.witnessedDawn).toBe(false)
     const restored = validateSave(JSON.parse(runtime.exportSave()), world, catalog)

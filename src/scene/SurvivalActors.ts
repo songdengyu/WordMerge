@@ -1,6 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js'
 import type { SceneSnapshot } from '../game/GameRuntime'
-import { actorPosition, type Actor } from '../game/survival'
+import { actorPosition, companions, companionId, companionName, companionRules, type Actor } from '../game/survival'
 import { ENEMIES, SURVIVAL_RULES } from '../game/survivalConfig'
 import { gridToWorld } from './camera'
 import { COMBAT_SECONDS, COMBAT_RESULT_SECONDS } from '../game/companionCombat'
@@ -37,12 +37,17 @@ export class SurvivalActors {
       ...enemies.map(enemy => ({ id: enemy.id, actor: enemy, hp: enemy.hp, max: ENEMIES[enemy.kind].hp,
         color: enemy.kind === 'boar' ? 0x846653 : 0x78817a, boar: enemy.kind === 'boar', label: ENEMIES[enemy.kind].name, injured: false })),
     ]
+    units.push(...(state.recruits ?? []).map(buddy => ({ id: companionId(buddy), actor: buddy, hp: buddy.hp,
+      max: companionRules(buddy).hp, color: buddy.kind === 'boar' ? 0x846653 : 0x78817a, boar: buddy.kind === 'boar',
+      label: companionName(buddy), injured: buddy.status === 'injured' || buddy.status === 'recovering' })))
+    const friendly = new Set(companions(state).map(companionId))
+    const duelBuddy = duel?.companionId ?? 'companion'
     const alive = new Set(units.map(unit => unit.id))
     for (const [id, item] of this.views) if (!alive.has(id)) { item.view.destroy({ children: true }); this.views.delete(id) }
     for (const unit of units) {
       let item = this.views.get(unit.id)
       if (!item) { item = animal(unit.color, unit.boar); this.views.set(unit.id, item); this.parent.addChild(item.view) }
-      const participant = !!duel && (unit.id === 'companion' || unit.id === duel.enemy.id)
+      const participant = !!duel && (unit.id === duelBuddy || unit.id === duel.enemy.id)
       const position = actorPosition(unit.actor)
       const previous = unit.id === 'companion' ? snapshot.previousCompanionPosition : snapshot.previousEnemyPositions[unit.id] ?? position
       const p = gridToWorld(!participant ? {
@@ -57,11 +62,11 @@ export class SurvivalActors {
       item.label.visible = !posing || unit.hp > 0; item.health.visible = !posing || unit.hp > 0
       if (item.label.text !== unit.label) item.label.text = unit.label
       item.health.clear().roundRect(-16, -38, 32, 4, 2).fill(0x4a5042)
-      if (unit.hp > 0) item.health.roundRect(-16, -38, Math.max(1, 32 * unit.hp / unit.max), 4, 2).fill(unit.id === 'companion' ? 0xb3ce82 : 0xcb8b70)
+      if (unit.hp > 0) item.health.roundRect(-16, -38, Math.max(1, 32 * unit.hp / unit.max), 4, 2).fill(friendly.has(unit.id) ? 0xb3ce82 : 0xcb8b70)
       item.effect.clear()
       if (posing) {
         const t = 1 - duel.remaining / COMBAT_RESULT_SECONDS
-        const ease = Math.min(1, t / .35), direction = unit.id === 'companion' ? -1 : 1
+        const ease = Math.min(1, t / .35), direction = unit.id === duelBuddy ? -1 : 1
         item.view.x += direction * 12 * Math.sin(t * Math.PI)
         if (unit.hp > 0) {
           const hop = Math.abs(Math.sin(t * Math.PI * 2)) * (1 - t)
@@ -73,7 +78,7 @@ export class SurvivalActors {
           }
         } else {
           item.body.rotation = -1.25 * ease; item.body.y = 5 * ease
-          item.body.alpha = unit.id === 'companion' ? 1 - .35 * ease : 1
+          item.body.alpha = friendly.has(unit.id) ? 1 - .35 * ease : 1
           if (unit.id !== 'companion') item.view.alpha = Math.min(1, (1 - t) / .4)
         }
       } else if (!participant && unit.actor.target && unit.actor.target.kind !== 'point' && unit.actor.cooldown > 1.8) {

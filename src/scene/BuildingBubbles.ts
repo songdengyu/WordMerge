@@ -4,7 +4,7 @@ import { BLUEPRINTS, blueprintById } from '../game/buildingConfig'
 import { buildingOrderId, buildingSummary, localToWorld } from '../game/construction'
 import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { availableItems, matchRequirements } from '../game/inventory'
-import { actorPosition } from '../game/survival'
+import { actorPosition, companionName } from '../game/survival'
 import { SURVIVAL_RULES } from '../game/survivalConfig'
 import { TAMING_SECONDS } from '../game/taming'
 import { REGIONS } from '../game/progressionConfig'
@@ -134,18 +134,22 @@ export class BuildingBubbles {
       if (canRemove) result.push(this.closeBubble(`remove-${building.id}`, `收回图纸 ${building.id}`,
         anchor.x + width / 2 - 6, row[0].y - 14, { type: 'building-remove', buildingId: building.id }))
     }
-    const buddy = state.survival.companion, job = state.survival.taming.job
-    if (buddy.status === 'wild' && (state.isDay || job)) {
+    const wild = [
+      ...(state.survival.companion.status === 'wild' && (state.isDay || state.survival.taming.job && !state.survival.taming.targetId) ? [{ animal: state.survival.companion, targetId: undefined }] : []),
+      ...state.survival.enemies.filter(e => e.tameable).map(animal => ({ animal, targetId: animal.id })),
+    ]
+    for (const { animal: buddy, targetId } of wild) {
+      const job = state.survival.taming.targetId === targetId ? state.survival.taming.job : null
       const anchor = gridToWorld(actorPosition(buddy)), counts = new Map<number, number>()
       SURVIVAL_RULES.companion.rescueItems.forEach(id => counts.set(id, (counts.get(id) ?? 0) + 1))
       const materials = [...counts].map(([id, needed]) => ({ id, needed, owned: job ? needed : available.filter(item => item.itemId === id).length }))
       const width = materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP
       const ready = !job && matchRequirements(inventory, SURVIVAL_RULES.companion.rescueItems) !== null
       const x = anchor.x - width / 2, y = anchor.y - 58 - MATERIAL_HEIGHT
-      result.push({ id: 'taming-bubble', x, y, width, height: MATERIAL_HEIGHT, kind: 'materials', materials,
+      result.push({ id: targetId ? `taming-bubble-${targetId}` : 'taming-bubble', x, y, width, height: MATERIAL_HEIGHT, kind: 'materials', materials,
         ready, phase: job?.phase ?? 'materials', disabled: !!job, progress: job?.phase === 'taming' ? 1 - job.remaining / TAMING_SECONDS : 0,
-        label: `驯服${SURVIVAL_RULES.companion.name}，${materials.map(m => `${this.runtime.catalog!.itemById.get(m.id)!.name} ${m.owned}/${m.needed}`).join('，')}，${job ? job.phase === 'taming' ? '驯服中' : '正在前往' : ready ? '点击驯服' : '缺少材料，点击去合成'}`,
-        command: { type: 'taming-interact' } })
+        label: `驯服${companionName(buddy)}，${materials.map(m => `${this.runtime.catalog!.itemById.get(m.id)!.name} ${m.owned}/${m.needed}`).join('，')}，${job ? job.phase === 'taming' ? '驯服中' : '正在前往' : ready ? '点击驯服' : '缺少材料，点击去合成'}`,
+        command: { type: 'taming-interact', targetId } })
       if (job?.phase === 'travel') result.push(this.closeBubble('cancel-taming', '取消前往驯服', x + width - 6, y - 14, { type: 'taming-cancel' }))
     }
     for (const region of REGIONS.filter(r => !state.progression.unlockedRegions.includes(r.id))) {
@@ -226,7 +230,7 @@ export class BuildingBubbles {
     if (state !== this.snapshot) {
       this.snapshot = state
       const models = this.models(state)
-      const signature = JSON.stringify(models.map(({ progress: _progress, ...model }) => model))
+      const signature = JSON.stringify(models.map(({ progress: _progress, x: _x, y: _y, ...model }) => model))
       if (signature !== this.signature) {
         this.signature = signature
         for (const entry of this.entries.values()) { entry.view.destroy({ children: true }); entry.button.remove() }
@@ -235,7 +239,7 @@ export class BuildingBubbles {
       }
       for (const model of models) {
         const entry = this.entries.get(model.id)!
-        entry.model = model; entry.ring.clear()
+        entry.model = model; entry.view.position.set(model.x, model.y); entry.ring.clear()
         if (model.kind === 'sign' && model.phase === 'unlocking') {
           entry.ring.roundRect(4, 37, 48, 4, 2).fill({ color: 0x344d2e, alpha: .3 })
           if (model.progress > 0) entry.ring.roundRect(4, 37, Math.max(1, model.progress * 48), 4, 2).fill(0xe2efb3)
