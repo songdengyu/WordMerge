@@ -22,6 +22,76 @@ function harness(data = dataFixture()) {
 }
 
 describe('day/night encounters and recruited companions', () => {
+  it('warns without damage, resets outside range, and persists permanent hostility after patience expires', () => {
+    const data = dataFixture(), animal = enemy(data)
+    const h = harness(data); h.pump(3)
+    const alert = h.valid()
+    expect(alert.survival.enemies[0].tameable).toBe(true)
+    expect(alert.survival.enemies[0].alertSeconds).toBeCloseTo(3)
+    expect(alert.production.vitals.hp).toBe(data.production.vitals.hp)
+    const far = advanceSurvival(alert.survival, alert.production, alert.construction, world, { x: 1, y: 9 }, 720, .05)
+    expect(far.state.enemies[0].alertSeconds).toBeUndefined()
+    expect(alert.survival.enemies[0].alertSeconds).toBeCloseTo(3)
+    const loaded = harness(alert)
+    loaded.pump(ENCOUNTERS.patienceSeconds - 3 - .05)
+    expect(loaded.valid().survival.enemies[0].tameable).toBe(true)
+    loaded.pump(.1)
+    const angry = loaded.valid()
+    expect(angry.survival.enemies.find(e => e.id === animal.id)).toMatchObject({ tameable: false })
+    expect(angry.survival.enemies[0].alertSeconds).toBeUndefined()
+    const again = harness(angry); again.pump(2)
+    expect(again.valid().production.vitals.hp).toBeLessThan(data.production.vitals.hp)
+    expect(again.valid().survival.enemies[0].tameable).toBe(false)
+    const away = advanceSurvival(again.valid().survival, angry.production, angry.construction, world, { x: 1, y: 9 }, 1800, .05)
+    expect(away.state.enemies[0].tameable).toBe(false)
+  })
+
+  it('cancels an expired travel reservation and order without spending or mutating source materials', async () => {
+    const data = tamingDataFixture(), animal = enemy(data, { x: 9, y: 9 })
+    animal.alertSeconds = ENCOUNTERS.patienceSeconds - .05
+    const itemId = data.production.inventory.board[9].instanceId!
+    const h = harness(data)
+    await h.send({ type: 'taming-interact', targetId: animal.id })
+    const expired = h.valid()
+    expect(expired.survival.enemies[0].tameable).toBe(false)
+    expect(expired.survival.taming).toEqual({ ordered: false, job: null })
+    expect(expired.production.inventory.items[itemId]).toMatchObject({ itemId: 213, reservedBy: null })
+    expect(expired.destination).toBeNull()
+    expect(expired.route).toHaveLength(0)
+    expect(await h.send({ type: 'taming-interact', targetId: animal.id })).toMatchObject({ accepted: false })
+    expect(data.survival.enemies[0].tameable).toBe(true)
+  })
+
+  it('clears a missing-material order on anger, pauses with the world, and lets started taming finish', async () => {
+    const data = dataFixture(), animal = enemy(data)
+    animal.alertSeconds = ENCOUNTERS.patienceSeconds - .1
+    const h = harness(data)
+    await h.send({ type: 'taming-interact', targetId: animal.id })
+    h.runtime.setPauseReason('background', true); h.pump(30)
+    expect(h.valid().survival.enemies[0].tameable).toBe(true)
+    h.runtime.setPauseReason('background', false); h.pump(.2)
+    expect(h.valid().survival.taming).toEqual({ ordered: false, job: null })
+    const prepared = tamingDataFixture(), target = enemy(prepared)
+    target.alertSeconds = ENCOUNTERS.patienceSeconds - .05
+    const taming = harness(prepared)
+    await taming.send({ type: 'taming-interact', targetId: target.id })
+    expect(taming.valid().survival.taming.job?.phase).toBe('taming')
+    expect(taming.valid().survival.enemies[0].alertSeconds).toBeUndefined()
+    const restored = harness(taming.valid()); restored.pump(2)
+    expect(restored.valid().survival.recruits).toHaveLength(1)
+  })
+
+  it('accepts legacy animals without alert state and rejects invalid or hostile alert timers', () => {
+    const data = dataFixture(); enemy(data)
+    expect(harness(data).valid().survival.enemies[0].alertSeconds).toBeUndefined()
+    for (const value of [-1, NaN, Infinity, 86401]) {
+      const bad = structuredClone(data); bad.survival.enemies[0].alertSeconds = value
+      expect(() => validateSave(envelopeFixture(bad), world, catalog)).toThrow()
+    }
+    const bad = structuredClone(data); Object.assign(bad.survival.enemies[0], { tameable: false, alertSeconds: 1 })
+    expect(() => validateSave(envelopeFixture(bad), world, catalog)).toThrow()
+  })
+
   it('spawns outside visibility near the current player, retries when all ground is visible, and uses larger night budgets', () => {
     const data = dataFixture(), player = { x: 10, y: 10 }
     const visible = (p: { x: number; y: number }) => p.x >= 5

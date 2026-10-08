@@ -5,7 +5,8 @@ type Pointer = { start: Point; last: Point }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
 const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
 
-export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap: (cell: Cell, world: Point) => void) {
+export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap: (cell: Cell, world: Point) => void,
+  onCameraGesture: () => void = () => {}) {
   const pointers = new Map<number, Pointer>()
   let suppressTap = false
   const local = (event: PointerEvent | WheelEvent): Point => {
@@ -28,9 +29,10 @@ export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap:
     const point = local(event)
     if (pointers.size === 1) {
       if (distance(pointer.start, point) > 8) suppressTap = true
-      if (suppressTap) camera.pan(point.x - pointer.last.x, point.y - pointer.last.y)
+      if (suppressTap) { onCameraGesture(); camera.pan(point.x - pointer.last.x, point.y - pointer.last.y) }
       pointer.last = point
     } else {
+      onCameraGesture()
       const pair = [...pointers.values()].slice(0, 2)
       const oldCenter = midpoint(pair[0].last, pair[1].last)
       const oldDistance = distance(pair[0].last, pair[1].last)
@@ -58,6 +60,7 @@ export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap:
   const cancel = (event: PointerEvent) => finish(event, true)
   const wheel = (event: WheelEvent) => {
     event.preventDefault()
+    onCameraGesture()
     camera.zoomAt(camera.zoom * Math.exp(-event.deltaY * 0.0015), local(event))
   }
   const context = (event: Event) => event.preventDefault()

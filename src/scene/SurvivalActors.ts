@@ -6,7 +6,7 @@ import { gridToWorld } from './camera'
 import { COMBAT_SECONDS, COMBAT_RESULT_SECONDS } from '../game/companionCombat'
 
 function animal(color: number, boar: boolean) {
-  const view = new Container(), body = new Graphics(), health = new Graphics(), effect = new Graphics()
+  const view = new Container(), body = new Graphics(), health = new Graphics(), effect = new Graphics(), anger = new Graphics()
   body.ellipse(0, 1, 15, 6).fill({ color: 0x243b30, alpha: .2 })
   body.roundRect(-11, -8, 5, 10, 2).fill(color).roundRect(6, -8, 5, 10, 2).fill(color)
   body.ellipse(0, -12, boar ? 18 : 14, boar ? 11 : 8).fill(color)
@@ -18,8 +18,16 @@ function animal(color: number, boar: boolean) {
   if (boar) body.moveTo(19, -13).lineTo(23, -18).stroke({ color: 0xf3e9cf, width: 3 })
   const label = new Text({ text: '', style: { fontFamily: 'sans-serif', fontSize: 10, fill: 0xfff5db, stroke: { color: 0x465441, width: 3 } } })
   label.anchor.set(.5, 1); label.position.set(0, -40)
-  view.addChild(body, health, label, effect)
-  return { view, body, health, label, effect }
+  // Four bent strokes form a comic anger symbol, beside the material bubble.
+  for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    anger.moveTo(x * 3, y * 10).lineTo(x * 3, y * 3).lineTo(x * 10, y * 3)
+      .stroke({ color: 0xffe9ce, width: 5, cap: 'round', join: 'round' })
+    anger.moveTo(x * 3, y * 10).lineTo(x * 3, y * 3).lineTo(x * 10, y * 3)
+      .stroke({ color: 0xe54f42, width: 2.5, cap: 'round', join: 'round' })
+  }
+  anger.position.set(30, -52); anger.visible = false
+  view.addChild(body, health, label, effect, anger)
+  return { view, body, health, label, effect, anger }
 }
 /** Presentation only; actor HP, pathing and attack results come entirely from the runtime. */
 export class SurvivalActors {
@@ -27,6 +35,10 @@ export class SurvivalActors {
   private readonly dust = new Graphics()
   readonly guard = new Graphics()
   constructor(private readonly parent: Container) { parent.addChild(this.dust) }
+  displayedPosition(id: string, requireVisible = true) {
+    const view = this.views.get(id)?.view
+    return view && (!requireVisible || view.visible) && view.renderable ? { x: view.x, y: view.y } : null
+  }
   draw(snapshot: SceneSnapshot, interpolation = 1) {
     const state = snapshot.survival, buddy = state.companion, duel = state.duel
     const enemies = [...state.enemies]
@@ -48,6 +60,9 @@ export class SurvivalActors {
       let item = this.views.get(unit.id)
       if (!item) { item = animal(unit.color, unit.boar); this.views.set(unit.id, item); this.parent.addChild(item.view) }
       const participant = !!duel && (unit.id === duelBuddy || unit.id === duel.enemy.id)
+      const alert = state.enemies.find(enemy => enemy.id === unit.id)
+      item.anger.visible = !!alert?.tameable && (alert.alertSeconds ?? 0) > 0 && !participant
+      item.anger.scale.set(.65 * (1 + .08 * Math.sin(snapshot.elapsedSeconds * 7)))
       const position = actorPosition(unit.actor)
       const previous = unit.id === 'companion' ? snapshot.previousCompanionPosition : snapshot.previousEnemyPositions[unit.id] ?? position
       const p = gridToWorld(!participant ? {

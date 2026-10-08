@@ -340,9 +340,11 @@ export class GameRuntime {
     this.advanceClearing()
     let survivalChanged = false
     if (this.production) {
+      const wasTamingTravel = this.survival.taming.job?.phase === 'travel'
       const result = advanceSurvival(this.survival, this.production, this.construction, this.world, this.cell, this.gameMinutes(), FIXED_STEP_MS / 1000,
         this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing', this.point, this.spawnVisibility)
       this.survival = result.state; this.production = result.production; this.construction = result.construction
+      if (wasTamingTravel && !this.survival.taming.job) this.stopMovement()
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
       if (result.critical) this.navigation = constructionNavigation(this.world, this.construction)

@@ -9,6 +9,7 @@ export const ENCOUNTERS = {
   dayInterval: 160, nightInterval: 65, dayLimit: 2, nightLimit: 5,
   minDistance: 6, maxDistance: 14, retrySeconds: 5, tameChance: .3,
   companionLimit: 6,
+  alertRange: 3, patienceSeconds: 5,
 } as const
 
 /** Camera reports visibility only. Runtime still chooses/validates all spawn positions. */

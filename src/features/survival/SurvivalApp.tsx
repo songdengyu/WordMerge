@@ -101,11 +101,11 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => {
     runtime.setPauseReason('renderer-loading', true)
     setError(null)
-    const renderer = new CampScene(host.current!, runtime, message, setError, chooseOrigin, openMerge, openWheel, openJournal)
+    const renderer = new CampScene(host.current!, runtime, message, setError, chooseOrigin, openMerge, openWheel, openJournal, cancelCompanionControl)
     scene.current = renderer
     void renderer.init()
     return () => { renderer.dispose(); scene.current = null }
-  }, [runtime, message, attempt, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal])
+  }, [runtime, message, attempt, selectBuilding, chooseOrigin, openMerge, openWheel, openJournal, cancelCompanionControl])
   useEffect(() => {
     if (state.survival.failure || state.progression.dialogue) {
       setShopOpen(false)
@@ -135,7 +135,10 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const paused = state.pauseReasons.length > 0
   const loading = state.pauseReasons.includes('renderer-loading')
   const saveFailed = state.saveStatus.state === 'error' || state.saveStatus.state === 'conflict'
-  const closeMerge = useCallback(() => setMergeOpen(false), [])
+  const closeMerge = useCallback(() => {
+    scene.current?.clearResourceSelection()
+    setMergeOpen(false)
+  }, [])
   const place = (blueprintId: string) => {
     setBuildingOpen(false)
     setPlacement({ blueprintId, origin: { x: 7, y: 10 }, rotation: 0 })
@@ -227,15 +230,13 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <div><strong>正在操控{companionName(selectedBuddy)}</strong><p>{companionLocked(state.survival, selectedBuddy) ? '战斗中，请稍候' : '点击地图指定移动位置'}</p></div>
       <button onClick={cancelCompanionControl}>取消操控</button>
     </section> : <footer className={styles.footer}>
-      <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建造</button>
-      <button className={styles.shopButton} onClick={() => setShopOpen(true)}>商店</button>
-      <button className={styles.decorButton} onClick={() => setDecorationOpen(true)}>装饰</button>
-      <div className={styles.activity} data-testid="activity"><span className={styles.activityDot} data-moving={state.activity !== 'idle'} />
-        <span>{paused ? '营地已暂停' : state.activity === 'clearing' ? `清理中 · ${Math.ceil(state.economy.clearing!.remaining)} 秒` : state.activity === 'unlocking' ? `开放区域 · ${Math.ceil(state.progression.regionUnlock!.remaining)} 秒` : state.activity === 'taming' ? `驯服中 · ${Math.ceil(state.survival.taming.job!.remaining)} 秒` : state.activity === 'building' ? `施工中 · 保护生效 · ${Math.ceil(state.construction.jobs[0].remaining)} 秒` : state.activity === 'walking' ? '沿着小径前行' : state.activity === 'searching' ? '正在寻找小径' : '在林间停留片刻'}</span></div>
       <div className={styles.footerCard}>
         <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
           <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{chapter?.goal ?? '首章完成 · 继续建设与装扮'}</p></div></button>
         <div className={styles.footerActions}>
+          <button onClick={() => setShopOpen(true)}>商店</button>
+          <button onClick={() => setDecorationOpen(true)}>装饰</button>
+          <button className={styles.buildButton} onClick={() => setBuildingOpen(true)}>建造</button>
           <button className={styles.craftButton} onClick={() => setMergeOpen(true)}>✧ 合成物资</button>
         </div>
       </div>
@@ -244,7 +245,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
       <Icon kind="leaf" /><h2>{error ? '暂时无法进入营地' : '穿过林间小径…'}</h2>
       {error && <><p>{error}</p><button className={styles.primaryButton} onClick={() => setAttempt(value => value + 1)}>重新载入地图</button></>}
     </div>}
-    {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} openShop={() => { setMergeOpen(false); setShopOpen(true) }} />}
+    {mergeOpen && <ProductionScreen runtime={runtime} close={closeMerge} message={message} />}
     {shopOpen && <Shop runtime={runtime} close={() => setShopOpen(false)} place={place} collection={() => { setShopOpen(false); setDecorationOpen(true) }} merge={openMerge} />}
     {decorationOpen && <DecorationPanel runtime={runtime} close={() => setDecorationOpen(false)} decorate={decorate} shop={() => { setDecorationOpen(false); setShopOpen(true) }} />}
     {buildingOpen && !mergeOpen && <BuildingPanel runtime={runtime} select={selectBuilding} close={() => setBuildingOpen(false)} place={place} />}

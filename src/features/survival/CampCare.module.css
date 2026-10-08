@@ -1,5 +1,8 @@
-.hud { position: absolute; z-index: 3; top: calc(76px + env(safe-area-inset-top, 0px)); left: 22px; display: flex; align-items: center; gap: 6px; height: 44px; }
+.hud { position: absolute; z-index: 3; bottom: calc(156px + env(safe-area-inset-bottom, 0px)); right: 22px; display: flex; align-items: center; gap: 6px; height: 44px; }
 .hud > div { flex: 0 0 auto; }
+@media (max-height: 650px) {
+  .hud { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+}
 .failure h2 { font: 24px 'Songti SC', 'SimSun', serif; margin: 7px 0; }
 .primary { display: block; width: 100%; margin: 18px 0 12px; padding: 14px; background: #668456; border: 0; border-radius: 10px; color: #fff6df; font: inherit; font-size: 14px; cursor: pointer; }
 .failure button:disabled { opacity: .5; cursor: default; }

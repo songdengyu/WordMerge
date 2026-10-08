@@ -13,6 +13,7 @@ import { OUTFITS, REGIONS, type DecorId } from '../game/progressionConfig'
 import { drawDecoration, ProgressionViews } from './ProgressionViews'
 import { Atmosphere } from './Atmosphere'
 import { BuildingBubbles } from './BuildingBubbles'
+import { resourceApproach } from '../game/economy'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
@@ -110,12 +111,17 @@ export class CampScene {
   private bubblesHidden = false
   private companionControl = false
   private controlledCompanion = 'companion'
+  private followTarget: string | null = 'player'
+  private followOnWalk = true
+  private previousDestination = ''
+  private cameraIntent = 0
   private readonly assetAbort = new AbortController()
 
   constructor(private readonly host: HTMLDivElement, private readonly runtime: GameRuntime,
     private readonly onMessage: (message: string) => void, private readonly onError: (message: string) => void,
     private readonly onOrigin: (cell: Cell) => void,
-    private readonly openMerge: () => void, private readonly onCompanion: (id?: string) => void, private readonly onJournal: () => void) {
+    private readonly openMerge: () => void, private readonly onCompanion: (id?: string) => void, private readonly onJournal: () => void,
+    private readonly onCancelCompanionControl: () => void) {
     this.buildingBubbles = new BuildingBubbles(runtime, host, onMessage, openMerge)
     const corners = runtime.world.config.chunks.flatMap(chunk => [
       gridToWorld({ x: chunk.x * CHUNK_SIZE - 0.5, y: chunk.y * CHUNK_SIZE - 0.5 }),
@@ -152,8 +158,9 @@ export class CampScene {
       this.resizeObserver = new ResizeObserver(() => this.resize())
       this.resizeObserver.observe(this.host)
       this.detachInput = attachMapInput(canvas, this.camera, (cell, world) => {
+        this.followOnWalk = true
         if (this.companionControl || !this.buildingBubbles.tap(world)) this.tap(cell, worldToPosition(world))
-      })
+      }, () => this.pauseFollowing())
       this.app.ticker.add(this.render)
       this.app.start()
       this.runtime.setPauseReason('renderer-lost', false)
@@ -167,12 +174,21 @@ export class CampScene {
     }
   }
 
-  centerPlayer() { this.camera.center(this.runtime.getSceneSnapshot().position) }
-  centerCell(cell: Cell) { this.camera.center(cell) }
+  private pauseFollowing() {
+    this.cameraIntent++
+    this.followTarget = null
+    this.camera.cancelFollow()
+    this.followOnWalk = false
+    const destination = this.runtime.getSceneSnapshot().destination
+    this.previousDestination = destination ? `${destination.x},${destination.y}` : ''
+  }
+  centerPlayer() { this.cameraIntent++; this.followOnWalk = true; this.followTarget = 'player' }
+  centerCell(cell: Cell) { this.pauseFollowing(); this.camera.center(cell) }
   setDecorationPlacement(placement: typeof this.decorationPlacement) { this.decorationPlacement = placement }
   centerBuilding(id: string) {
     const building = this.runtime.getUiSnapshot().construction.buildings.find(building => building.id === id)
     if (building) {
+        this.pauseFollowing()
         const blueprint = blueprintById(building.blueprintId)!
         this.camera.center(localToWorld(building, { x: (blueprint.width - 1) / 2, y: (blueprint.height - 1) / 2 }))
       this.camera.pan(0, Math.min(40, this.camera.height * .06))
@@ -180,13 +196,41 @@ export class CampScene {
   }
   setPlacement(placement: typeof this.placement) { this.placement = placement }
   setBubblesHidden(hidden: boolean) { this.bubblesHidden = hidden }
-  setCompanionControl(active: boolean, id = 'companion') { this.companionControl = active; this.controlledCompanion = id }
+  clearResourceSelection() { this.buildingBubbles.selectResource(null) }
+  setCompanionControl(active: boolean, id = 'companion') {
+    if (active !== this.companionControl || active && id !== this.controlledCompanion) this.cameraIntent++
+    if (active && (!this.companionControl || id !== this.controlledCompanion)) { this.followOnWalk = true; this.followTarget = id }
+    else if (!active && this.companionControl && this.followTarget === this.controlledCompanion) this.followTarget = 'player'
+    this.companionControl = active; this.controlledCompanion = id
+  }
   zoomBy(factor: number) { this.camera.zoomAt(this.camera.zoom * factor, { x: this.camera.width / 2, y: this.camera.height / 2 }) }
 
   private tap(cell: Cell, point: Cell) {
     if (this.companionControl) {
-      void this.runtime.dispatch({ type: 'companion-move', target: point, companionId: this.controlledCompanion }).then(result => {
-        if (!this.disposed && !result.accepted) this.onMessage(result.reason)
+      const survival = this.runtime.getUiSnapshot().survival, tapPoint = gridToWorld(point)
+      const targets = [{ id: 'player', position: this.player.position, width: 18, height: 48, center: 24 },
+        ...companions(survival).filter(buddy => companionId(buddy) !== this.controlledCompanion
+          && buddy.status !== 'wild' && !companionLocked(survival, buddy)).map(buddy => ({
+          id: companionId(buddy), position: this.survivalActors.displayedPosition(companionId(buddy)), width: 26, height: 38, center: 18,
+        }))]
+      const hit = targets.filter(target => target.position && Math.abs(tapPoint.x - target.position.x) <= target.width
+        && tapPoint.y >= target.position.y - target.height && tapPoint.y <= target.position.y + 10)
+        .sort((a, b) => Math.hypot(tapPoint.x - a.position!.x, tapPoint.y - (a.position!.y - a.center))
+          - Math.hypot(tapPoint.x - b.position!.x, tapPoint.y - (b.position!.y - b.center)))[0]
+      if (hit) {
+        // Only leave the input mode; the runtime keeps the previously issued movement order.
+        this.setCompanionControl(false)
+        this.onCancelCompanionControl()
+        if (hit.id === 'player') this.centerPlayer()
+        else this.onCompanion(hit.id)
+        return
+      }
+      const id = this.controlledCompanion
+      const intent = ++this.cameraIntent
+      void this.runtime.dispatch({ type: 'companion-move', target: point, companionId: id }).then(result => {
+        if (this.disposed) return
+        if (!result.accepted) this.onMessage(result.reason)
+        else if (intent === this.cameraIntent && this.companionControl && this.controlledCompanion === id) this.followTarget = id
       })
       return
     }
@@ -229,11 +273,23 @@ export class CampScene {
       })
     if (object) {
       this.buildingBubbles.selectResource(object.id)
+      const snapshot = this.runtime.getSceneSnapshot()
+      const target = resourceApproach(this.runtime.world, snapshot.construction, snapshot.position, object)
+      const intent = ++this.cameraIntent
+      if (target) void this.runtime.dispatch({ type: 'move', target }).then(result => {
+        if (this.disposed) return
+        if (!result.accepted) this.onMessage(result.reason)
+        else if (intent === this.cameraIntent) this.followTarget = 'player'
+      })
+      else this.onMessage('暂时无法走到物体旁边，请先清理通路')
       return
     }
     this.buildingBubbles.selectResource(null)
+    const intent = ++this.cameraIntent
     void this.runtime.dispatch({ type: 'move', target: point }).then(result => {
-      if (!this.disposed && !result.accepted) this.onMessage(result.reason)
+      if (this.disposed) return
+      if (!result.accepted) this.onMessage(result.reason)
+      else if (intent === this.cameraIntent) this.followTarget = 'player'
     })
   }
 
@@ -391,17 +447,28 @@ export class CampScene {
     }
     this.drawBuildings(snapshot)
     this.survivalActors.draw(snapshot, this.runtime.getInterpolation())
-    const lights = [
-      ...this.runtime.world.allObjects().filter(o => o.kind === 'campfire'),
-      ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
-    ].map(cell => this.camera.toScreen(gridToWorld(cell)))
-    const light = this.atmosphere.draw(snapshot, this.lastWidth, this.lastHeight, lights)
     const alpha = this.runtime.getInterpolation()
     const position = { x: snapshot.previousPosition.x + (snapshot.position.x - snapshot.previousPosition.x) * alpha,
       y: snapshot.previousPosition.y + (snapshot.position.y - snapshot.previousPosition.y) * alpha }
     const foot = gridToWorld(position)
     this.player.position.set(foot.x, foot.y)
     this.player.zIndex = foot.y + 0.1
+    // A pre-drag command may only appear in a later snapshot. Manual panning stays
+    // authoritative until a new tap or locate action explicitly allows following again.
+    const destination = snapshot.destination ? `${snapshot.destination.x},${snapshot.destination.y}` : ''
+    if (this.followOnWalk && destination && destination !== this.previousDestination && !this.companionControl) this.followTarget = 'player'
+    this.previousDestination = destination
+    const cameraSeconds = this.app.ticker.deltaMS / 1000
+    if (this.followTarget === 'player') this.camera.follow(position, cameraSeconds, 'player')
+    else if (this.followTarget) {
+      const buddy = this.survivalActors.displayedPosition(this.followTarget, false)
+      if (buddy) this.camera.follow(worldToPosition(buddy), cameraSeconds, this.followTarget)
+    }
+    const lights = [
+      ...this.runtime.world.allObjects().filter(o => o.kind === 'campfire'),
+      ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
+    ].map(cell => this.camera.toScreen(gridToWorld(cell)))
+    const light = this.atmosphere.draw(snapshot, this.lastWidth, this.lastHeight, lights)
     this.runtime.setSpawnVisibility(cell => {
       const p = this.camera.toScreen(gridToWorld(cell)), margin = 120 * this.camera.zoom
       return p.x >= -margin && p.x <= this.camera.width + margin && p.y >= -margin && p.y <= this.camera.height + margin
@@ -432,12 +499,14 @@ export class CampScene {
     }
     // Small, read-only DOM diagnostics also make real pointer workflows reproducible in browser tests.
     this.host.dataset.camera = `${this.camera.x},${this.camera.y},${this.camera.zoom}`
+    this.host.dataset.cameraFollow = this.followTarget ?? ''
     this.host.dataset.position = `${position.x.toFixed(4)},${position.y.toFixed(4)}`
     const companionPosition = actorPosition(snapshot.survival.companion)
     this.host.dataset.recruits = JSON.stringify((snapshot.survival.recruits ?? []).map(b => ({ id: b.id, ...actorPosition(b) })))
     this.host.dataset.companionPosition = `${companionPosition.x.toFixed(4)},${companionPosition.y.toFixed(4)}`
     this.host.dataset.duelPhase = snapshot.survival.duel?.phase ?? 'idle'
     this.host.dataset.duelEnemy = snapshot.survival.duel?.enemy.id ?? ''
+    this.host.dataset.alertEnemies = snapshot.survival.enemies.filter(e => e.tameable && (e.alertSeconds ?? 0) > 0).map(e => e.id).join(',')
     this.host.dataset.weather = snapshot.survival.weather
     this.host.dataset.phase = light.phase
     this.host.dataset.darkness = light.darkness.toFixed(3)

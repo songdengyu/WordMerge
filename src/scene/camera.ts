@@ -1,4 +1,5 @@
 import type { Cell } from '../game/world'
+import { CAMERA_CONFIG } from './cameraConfig'
 
 export const TILE_WIDTH = 64
 export const TILE_HEIGHT = 32
@@ -25,6 +26,8 @@ export class Camera {
   zoom = 1
   width = 1
   height = 1
+  private followKey: string | null = null
+  private followOffset: Point = { x: 0, y: 0 }
   constructor(private readonly bounds: { left: number; right: number; top: number; bottom: number }) {}
   toWorld(point: Point): Point { return { x: (point.x - this.x) / this.zoom, y: (point.y - this.y) / this.zoom } }
   toScreen(point: Point): Point { return { x: point.x * this.zoom + this.x, y: point.y * this.zoom + this.y } }
@@ -35,13 +38,31 @@ export class Camera {
     this.clamp()
   }
   center(cell: Cell) {
+    this.cancelFollow()
     const point = gridToWorld(cell)
     this.x = this.width / 2 - point.x * this.zoom
-    this.y = this.height * 0.52 - point.y * this.zoom
+    this.y = this.height / 2 - point.y * this.zoom
     this.clamp()
   }
-  pan(dx: number, dy: number) { this.x += dx; this.y += dy; this.clamp() }
+  cancelFollow() { this.followKey = null }
+  follow(cell: Cell, deltaSeconds: number, key: string) {
+    const point = gridToWorld(cell)
+    const target = { x: this.width / 2 - point.x * this.zoom, y: this.height / 2 - point.y * this.zoom }
+    if (this.followKey !== key) {
+      this.followKey = key
+      this.followOffset = { x: this.x - target.x, y: this.y - target.y }
+    }
+    const dt = Math.max(0, Math.min(deltaSeconds, CAMERA_CONFIG.maxFrameSeconds))
+    const decay = Math.exp(-Math.max(0, CAMERA_CONFIG.followReturnSpeed) * dt)
+    this.followOffset.x *= decay; this.followOffset.y *= decay
+    if (Math.hypot(this.followOffset.x, this.followOffset.y) <= CAMERA_CONFIG.settleDistance) this.followOffset = { x: 0, y: 0 }
+    // Decay only the return offset; once centered, ordinary walking remains centered without lag.
+    this.x = target.x + this.followOffset.x; this.y = target.y + this.followOffset.y
+    this.clamp()
+  }
+  pan(dx: number, dy: number) { this.cancelFollow(); this.x += dx; this.y += dy; this.clamp() }
   zoomAt(zoom: number, anchor: Point) {
+    this.cancelFollow()
     const world = this.toWorld(anchor)
     this.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
     this.x = anchor.x - world.x * this.zoom

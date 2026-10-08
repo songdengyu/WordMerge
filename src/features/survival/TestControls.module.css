@@ -1,4 +1,7 @@
-.tests { position: absolute; top: calc(190px + env(safe-area-inset-top, 0px)); left: 22px; z-index: 6; }
+.tests { position: absolute; top: calc(66px + env(safe-area-inset-top, 0px)); left: 22px; z-index: 6; }
+@media (max-height: 650px) {
+  .tests { top: calc(56px + env(safe-area-inset-top, 0px)); }
+}
 .toggle { min-height: 44px; padding: 8px 12px; border: 1px solid #ddd9bb; border-radius: 10px; background: #f7efdded; color: #657652; font: inherit; font-size: 11px; cursor: pointer; box-shadow: 0 3px 12px #37513314; }
 .panel { position: absolute; top: 49px; left: 0; width: min(330px, calc(100vw - 44px)); padding: 12px; border: 1px solid #eee4c8; border-radius: 14px; background: #faf4e7f7; color: #53674d; box-shadow: 0 5px 24px #203b3b33; max-height: calc(100dvh - 260px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
 .panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }

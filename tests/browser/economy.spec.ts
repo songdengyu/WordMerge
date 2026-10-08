@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import { tapSceneControl } from './sceneControls'
 
+test.use({ baseURL: process.env.WORDMERGE_GAME_URL ?? 'http://127.0.0.1:5178' })
+
 async function ready(page: Page) {
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
@@ -12,12 +14,12 @@ async function readSave(page: Page) {
     finally { db.close() }
   })
 }
-async function seed(page: Page, axe: boolean) {
+async function seed(page: Page, axe: boolean, player = { x: 5, y: 6 }) {
   await page.goto('/?game=survival'); await ready(page)
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
   const save = await readSave(page)
   await page.goto('/?game=legacy')
-  save.data.cell = { x: 5, y: 6 }; save.data.motion = { version: 1, position: { x: 5, y: 6 } }
+  save.data.cell = player; save.data.motion = { version: 1, position: { ...player } }
   save.data.production.inventory.gold = 300
   if (axe) { const inv = save.data.production.inventory; inv.items[inv.board[9].instanceId].itemId = 252 }
   await page.evaluate(async value => {
@@ -34,6 +36,39 @@ async function tapTree(page: Page) {
   })
   await page.touchscreen.tap(point.x, point.y)
 }
+
+test('selecting a tree shows its bubble and walks beside it without ordering or consuming a tool', async ({ page }) => {
+  await seed(page, true, { x: 7, y: 7 })
+  const before = await readSave(page)
+  await tapTree(page)
+  await expect(page.getByTestId('resource-bubble-t08')).toBeVisible()
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-player', '5,6')
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'idle')
+  await expect(page.getByTestId('resource-bubble-t08')).toHaveAttribute('data-phase', 'materials')
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
+  const after = await readSave(page)
+  expect(after.data.economy.clearing).toBeNull()
+  expect(after.data.economy.clearingOrders).toEqual([])
+  expect(after.data.production.inventory).toEqual(before.data.production.inventory)
+})
+
+test('returning from merge dismisses the resource bubble without canceling its order', async ({ page }) => {
+  await seed(page, false)
+  await tapTree(page)
+  const bubble = page.getByTestId('resource-bubble-t08')
+  await tapSceneControl(page, bubble)
+  await expect(page.getByTestId('resource-order-t08')).toHaveAttribute('data-current', 'true')
+  await page.getByRole('button', { name: '返回营地', exact: true }).click()
+  await expect(bubble).toHaveCount(0)
+  await expect(page.getByTestId('cancel-resource-t08')).toHaveCount(0)
+  await tapTree(page)
+  await expect(bubble).toHaveAttribute('data-ready', 'false')
+  await expect(page.getByTestId('cancel-resource-t08')).toHaveCount(0)
+  await tapSceneControl(page, bubble)
+  await expect(page.getByTestId('resource-order-t08')).toHaveCount(1)
+  await page.getByRole('button', { name: '返回营地', exact: true }).click()
+  await expect(bubble).toHaveCount(0)
+})
 
 test('tree bubble creates a focused tool order, shop grants a real generator once, purchases persist', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))

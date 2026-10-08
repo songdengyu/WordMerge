@@ -8,12 +8,13 @@
 .supply { position: absolute; top: -9px; right: -8px; z-index: 1; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: #f9f0dbe8; display: grid; place-items: center; cursor: pointer; touch-action: manipulation; }
 .supply > span { width: 24px; height: 24px; }
 .supply[data-ready="false"] { background: #e76666; }
-.vital:disabled, .supply:disabled { cursor: default; }
+/* Pending supply commands disable clicks without dimming the whole status row. */
+.line .vital:disabled, .line .supply:disabled { opacity: 1; cursor: default; }
 .vital:focus-visible, .supply:focus-visible { outline: 2px solid #ac8450; outline-offset: 2px; }
-.compact { height: 18px; }
-.compact .vital { width: 24px; height: 18px; }
+.compact { height: 28px; }
+.compact .vital { width: 32px; height: 28px; }
 .compact .damageFloat { font-size: 15px; }
-.compact .vital svg { width: 18px; height: 19px; filter: none; }
+.compact .vital svg { width: 26px; height: 27px; filter: none; }
 .compact .supply { top: -6px; right: -7px; width: 18px; height: 18px; }
 .compact .supply > span { width: 18px; height: 18px; }
 @media (prefers-reduced-motion: reduce) { .fill { transition: none; } .damageFloat { animation-name: damageFade; } }

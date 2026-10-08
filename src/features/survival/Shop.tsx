@@ -32,7 +32,7 @@ export function Shop({ runtime, close, place, collection, merge }: { runtime: Ga
   }
   return <dialog ref={dialog} className={styles.shop} aria-labelledby="shop-title" data-testid="shop" onCancel={close}
     onClick={e => { if (e.target === e.currentTarget) close() }}>
-    <header><div><small>林间小铺</small><h2 id="shop-title">把喜欢带回家</h2></div><button onClick={close} aria-label="关闭商店">×</button></header>
+    <header><div><small>林间小铺</small><h2 id="shop-title">把喜欢带回家</h2></div></header>
     <div className={styles.wallet}><span><CurrencyIcon kind="gold" />金币 <b data-testid="shop-gold">{inventory.gold}</b></span>
       <span><CurrencyIcon kind="gems" />钻石 <b data-testid="shop-gems">{inventory.gems}</b></span></div>
     <nav aria-label="商店分类">{([['all', '全部'], ['tools', '工具'], ['blueprint', '图纸'], ['decor', '装饰'], ['outfit', '衣裳']] as const).map(([id, name]) =>
@@ -67,6 +67,7 @@ export function Shop({ runtime, close, place, collection, merge }: { runtime: Ga
       <p className={styles.hint}>摆件可重复购买，每次获得 1 件。人物皮肤永久解锁；购买后在装饰系统中管理。</p>
       <button className={styles.collection} onClick={collection}>打开装饰收藏</button>
     </div>
-    <footer role="status">{notice || '图纸和皮肤永久解锁，摆件按件入库'}</footer>
+    <footer><p role="status">{notice || '图纸和皮肤永久解锁，摆件按件入库'}</p>
+      <button className={styles.returnButton} onClick={close}>回到地图</button></footer>
   </dialog>
 }

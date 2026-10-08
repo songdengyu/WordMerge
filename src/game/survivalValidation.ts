@@ -79,6 +79,8 @@ export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMa
     actor(enemy)
     check(enemy.roaming === undefined || typeof enemy.roaming === 'boolean', '动态怪物来源')
     check(enemy.tameable === undefined || typeof enemy.tameable === 'boolean', '可驯服状态')
+    check(enemy.alertSeconds === undefined || enemy.tameable === true && finite(enemy.alertSeconds)
+      && enemy.alertSeconds <= 86400, '动物警觉计时')
     if (enemy.patrol !== undefined) check(enemy.residentId && record(enemy.patrol)
       && integer(enemy.patrol.index) && enemy.patrol.index < 4 && finite(enemy.patrol.remaining) && enemy.patrol.remaining <= 2, '野生动物巡逻状态')
     if (enemy.residentId !== undefined) {

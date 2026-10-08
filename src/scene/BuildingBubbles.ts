@@ -69,7 +69,7 @@ export class BuildingBubbles {
 
   private models(state: UiSnapshot): Bubble[] {
     const inventory = state.production!.inventory, available = availableItems(inventory), result: Bubble[] = []
-    const resourceIds = new Set([this.selectedResource, state.economy.clearing?.objectId, ...state.economy.clearingOrders])
+    const resourceIds = new Set([this.selectedResource, state.economy.clearing?.objectId])
     for (const object of this.runtime.world.allObjects().filter(o => resourceIds.has(o.id) && this.runtime.world.chunkAt(o)?.unlocked)) {
       const rule = RESOURCE_RULES[object.kind], job = state.economy.clearing?.objectId === object.id ? state.economy.clearing : null
       const owned = job ? 1 : available.filter(i => i.itemId === rule.tool).length, ready = !job && owned > 0
@@ -79,7 +79,6 @@ export class BuildingBubbles {
         progress: job?.phase === 'clearing' ? 1 - job.remaining / CLEAR_SECONDS : 0,
         label: `清理${rule.name}，${this.runtime.catalog!.itemById.get(rule.tool)!.name} ${owned}/1，${job ? job.phase === 'clearing' ? '清理中' : '正在前往' : ready ? '点击清理' : '缺少工具，点击去合成'}`,
         command: { type: 'resource-interact', objectId: object.id } })
-      if (job?.phase === 'travel' || !job && state.economy.clearingOrders.includes(object.id)) result.push(this.closeBubble(`cancel-resource-${object.id}`, '取消清理订单', x + SIZE - 6, y - 14, { type: 'resource-cancel', objectId: object.id }))
     }
     for (const building of state.construction.buildings) {
       const blueprint = blueprintById(building.blueprintId)!, summary = buildingSummary(building)

@@ -23,8 +23,7 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
   }
   return <dialog ref={dialog} className={styles.journal} aria-labelledby="decoration-title" data-testid="decoration-panel"
     onCancel={close} onClick={e => { if (e.target === e.currentTarget) close() }}>
-    <header><div><small>收藏喜欢，布置生活</small><h2 id="decoration-title">装饰</h2></div>
-      <button className={styles.close} onClick={close} aria-label="关闭装饰">×</button></header>
+    <header><div><small>收藏喜欢，布置生活</small><h2 id="decoration-title">装饰</h2></div></header>
     <nav aria-label="装饰分类">{([['decor', '摆件'], ['outfits', '人物皮肤'], ['placed', '已摆放']] as const).map(([id, name]) =>
       <button key={id} aria-pressed={tab === id} onClick={() => { setTab(id); setNotice('') }}>{name}</button>)}</nav>
     {tab === 'decor' && <><div className={decorStyles.grid}>{DECORATIONS.filter(d => progress.ownedDecor.includes(d.id)).map(decor => {
@@ -52,5 +51,6 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
     })}{!progress.decorations.length && <p className={styles.muted}>尚未摆放装饰，先选一件喜欢的摆件吧。</p>}</>}
     <button className={styles.secondary} onClick={shop}>去商店添置</button>
     <p role="status" className={styles.notice}>{notice}</p>
+    <footer className={decorStyles.returnBar}><button onClick={close}>回到地图</button></footer>
   </dialog>
 }

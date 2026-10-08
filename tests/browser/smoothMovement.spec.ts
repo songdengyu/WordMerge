@@ -15,6 +15,74 @@ async function position(page: Page) {
   return { x, y }
 }
 
+test('camera follows walking, manual drag suspends it, locating and walking resume it', async ({ page }) => {
+  await enter(page)
+  await page.clock.install()
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  const scene = page.getByTestId('camp-scene')
+  const offset = async () => scene.evaluate(element => {
+      const host = element as HTMLElement, [cx, cy, zoom] = host.dataset.camera!.split(',').map(Number)
+      const [x, y] = host.dataset.position!.split(',').map(Number)
+      return Math.hypot(cx + (x - y) * 32 * zoom - host.clientWidth / 2,
+        cy + (x + y) * 16 * zoom - host.clientHeight / 2)
+    })
+  const centered = async () => { expect(await offset()).toBeLessThan(.1) }
+  const pan = async () => {
+    await page.mouse.move(170, 380); await page.mouse.down()
+    await page.mouse.move(220, 410, { steps: 5 }); await page.mouse.up()
+    await page.clock.runFor(50)
+    await expect(scene).toHaveAttribute('data-camera-follow', '')
+    const camera = await scene.getAttribute('data-camera'), before = await position(page)
+    await page.clock.runFor(150)
+    expect(await scene.getAttribute('data-camera')).toBe(camera)
+    expect(await position(page)).not.toEqual(before)
+  }
+  await tapPoint(page, 10, 10)
+  await page.clock.runFor(200)
+  await centered()
+  const following = await scene.getAttribute('data-camera')
+  await page.clock.runFor(100)
+  expect(await scene.getAttribute('data-camera')).not.toBe(following)
+  await centered()
+  await pan()
+  await page.getByRole('button', { name: '定位主角' }).click()
+  await page.clock.runFor(50)
+  await expect(scene).toHaveAttribute('data-camera-follow', 'player')
+  expect(await offset()).toBeGreaterThan(1)
+  expect(await offset()).toBeLessThan(60)
+  await pan()
+  await tapPoint(page, 9.25, 10.2)
+  await page.clock.runFor(100)
+  await expect(scene).toHaveAttribute('data-camera-follow', 'player')
+  expect(await offset()).toBeGreaterThan(1)
+  await page.clock.runFor(1500)
+  expect(await position(page)).toEqual({ x: 9.25, y: 10.2 })
+  await centered()
+})
+
+test('a touch drag wins over a pending walk and stays where the player leaves it', async ({ page, context }) => {
+  await enter(page)
+  await page.clock.install()
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  const scene = page.getByTestId('camp-scene'), cdp = await context.newCDPSession(page)
+  // Drag before the queued walk has reached its first simulation step.
+  await tapPoint(page, 10, 10)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x: 160, y: 380 }] })
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: 230, y: 420 }] })
+  await page.clock.runFor(16)
+  const dragged = await scene.getAttribute('data-camera')
+  await page.clock.runFor(300)
+  await expect(scene).toHaveAttribute('data-camera-follow', '')
+  expect(await scene.getAttribute('data-camera')).toBe(dragged)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await page.clock.runFor(300)
+  expect(await scene.getAttribute('data-camera')).toBe(dragged)
+  expect((await position(page)).x).toBeGreaterThan(7)
+  await tapPoint(page, 9.25, 10.2)
+  await page.clock.runFor(100)
+  await expect(scene).toHaveAttribute('data-camera-follow', 'player')
+})
+
 test('touch movement reaches the exact point inside a cell, pauses and reloads at the same position', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await enter(page)
@@ -34,11 +102,14 @@ test('touch movement reaches the exact point inside a cell, pauses and reloads a
 test('a new tap redirects immediately and diagonal interpolation changes both coordinates', async ({ page }) => {
   await enter(page)
   await page.clock.install()
+  // Freeze between gestures so projection and tapping use the same moving camera frame.
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
   await tapPoint(page, 9.3, 10.3)
   await page.clock.runFor(150)
   const before = await position(page)
   expect(before.x).toBeGreaterThan(7); expect(before.y).toBeGreaterThan(9)
-  await tapPoint(page, 6.7, 11.2)
+  // Clear ground: the old (6.7, 11.2) point lies on the tree at (10, 14)'s canopy.
+  await tapPoint(page, 6.7, 10.2)
   await page.clock.runFor(150)
   const after = await position(page)
   expect(after.x).toBeLessThan(before.x)
@@ -46,7 +117,7 @@ test('a new tap redirects immediately and diagonal interpolation changes both co
   expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(.65)
   await page.screenshot({ path: 'test-results/movement-retarget.png' })
   await page.clock.runFor(1500)
-  await expect.poll(() => position(page)).toEqual({ x: 6.7, y: 11.2 })
+  await expect.poll(() => position(page)).toEqual({ x: 6.7, y: 10.2 })
 })
 
 test('a saved move continues after reload without snapping to a cell or simulating background travel', async ({ page }) => {

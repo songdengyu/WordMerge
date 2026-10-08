@@ -4,7 +4,6 @@
 .shop header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 12px; }
 .shop header small { color: #91a082; font-size: 11px; letter-spacing: 3px; }
 .shop h2 { font: 24px "Songti SC", serif; margin: 6px 0 0; }
-.shop header button { width: 36px; height: 36px; border: 1px solid #dedbc5; border-radius: 50%; background: transparent; color: inherit; font-size: 24px; cursor: pointer; }
 .wallet { display: flex; gap: 12px; margin: 0 20px 14px; }
 .wallet span { display: flex; align-items: center; gap: 6px; background: #eee8d4; border-radius: 20px; padding: 7px 10px; font-size: 11px; }
 .wallet b { font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -34,5 +33,8 @@
 .claim { display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 11px; margin-top: 8px; }
 .claim button { padding: 6px 10px; flex-shrink: 0; }
 .shop footer { border-top: 1px solid #e6e0cd; min-height: 44px; padding: 13px 18px calc(13px + env(safe-area-inset-bottom, 0px)); font-size: 11px; line-height: 1.6; color: #8d7850; background: #f3efdf; }
+.shop footer { flex-shrink: 0; }
+.shop footer p { margin: 0 0 10px; }
+.returnButton { width: 100%; padding: 10px 12px; border: 1px solid #c9d3ba; border-radius: 8px; color: #f8f0d9; background: #617b55; font: inherit; font-size: 12px; cursor: pointer; }
 .shop button:focus-visible { outline: 2px solid #9b7d40; outline-offset: 2px; }
 .collection { width: 100%; margin-top: 12px; min-height: 40px; border: 1px solid #bbc9a9; border-radius: 9px; background: #e4ead4; color: #4c6946; font: inherit; font-size: 12px; cursor: pointer; }

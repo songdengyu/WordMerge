@@ -16,6 +16,13 @@ export type EconomyCommand = { type: 'resource-interact'; objectId: string } | {
 export const createEconomy = (): EconomyState => ({ version: ECONOMY_VERSION, removedObjects: [], clearingOrders: [], clearing: null,
   purchases: [], pendingLoot: [], distanceRemainder: 0 })
 export const resourceOrderId = (id: string) => `resource:${id}`
+/** A resource itself blocks movement; approach a reachable neighboring cell without starting work. */
+export function resourceApproach(world: WorldMap, construction: ConstructionState, player: Cell, object: Cell) {
+  const grid = constructionNavigation(world, construction)
+  return [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([x, y]) => ({ x: object.x + x, y: object.y + y }))
+    .sort((a, b) => pointDistance(a, player) - pointDistance(b, player))
+    .find(point => new SmoothPathSearch(grid, player, point).advance(world.config.chunks.length * 256 + 1).status === 'found')
+}
 export function spendActionNeeds(production: ProductionState, amount = 1) {
   production.vitals = { ...production.vitals, hunger: Math.max(0, production.vitals.hunger - amount), water: Math.max(0, production.vitals.water - amount) }
 }
@@ -76,10 +83,7 @@ export function applyEconomyCommand(original: EconomyState, source: ProductionSt
   const picked = matchRequirements(production.inventory, [rule.tool])
   if (!state.clearingOrders.includes(object.id)) state.clearingOrders.push(object.id)
   if (!picked) return accept(`需要${catalog.itemById.get(rule.tool)!.name}，在工具箱中生产零件并合成`, true)
-  const grid = constructionNavigation(world, construction)
-  const work = [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([x, y]) => ({ x: object.x + x, y: object.y + y }))
-    .sort((a, b) => pointDistance(a, player) - pointDistance(b, player))
-    .find(point => new SmoothPathSearch(grid, player, point).advance(world.config.chunks.length * 256 + 1).status === 'found')
+  const work = resourceApproach(world, construction, player, object)
   if (!work) return reject('暂时无法走到物体旁边，请先清理通路')
   picked.forEach(id => { production.inventory.items[id].reservedBy = resourceOrderId(object.id) })
   state.clearing = { objectId: object.id, phase: 'travel', workCell: work, remaining: 0, reservedIds: picked }

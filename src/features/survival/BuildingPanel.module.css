@@ -4,7 +4,6 @@
 .panel header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 12px; }
 .panel header small { font-size: 10px; letter-spacing: 2px; color: #879276; }
 .panel h2 { font-family: "Songti SC", "SimSun", serif; font-size: 24px; font-weight: 500; margin-top: 5px; }
-.panel header button { width: 40px; height: 40px; border-radius: 50%; font-size: 22px; padding: 0; }
 .scroll { overflow-y: auto; min-height: 0; padding: 0 22px; }
 .blueprint { display: flex; align-items: center; gap: 12px; border: 1px solid #d5dac5; border-radius: 12px; padding: 12px; flex-wrap: wrap; }
 .blueprint h3 { font-size: 14px; font-weight: 500; }

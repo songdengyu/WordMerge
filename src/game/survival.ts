@@ -19,7 +19,7 @@ export interface Actor {
   /** Continuous world position; absent on legacy cell/progress saves. */
   motion?: { version: 1; position: Cell }
 }
-export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string; roaming?: boolean; tameable?: boolean; patrol?: { index: number; remaining: number } }
+export interface Enemy extends Actor { id: string; kind: EnemyKind; hp: number; residentId?: string; roaming?: boolean; tameable?: boolean; alertSeconds?: number; patrol?: { index: number; remaining: number } }
 export interface Companion extends Actor {
   id?: string; kind?: EnemyKind
   status: 'wild' | 'active' | 'injured' | 'recovering'
@@ -352,6 +352,29 @@ export function advanceSurvival(original: SurvivalState, source: ProductionState
     if (buddy.recoveryRemaining === 0) { buddy.status = 'active'; buddy.hp = companionRules(buddy).hp * .5; buddy.mode = 'guard'; buddy.guard = { ...actorPosition(buddy) }; critical = true; message = `${companionName(buddy)}已经恢复行动，可以继续下达指令。` }
   }
   const friendly = constructionNavigation(world, construction), hostile = constructionNavigation(world, construction, 'enemy')
+  for (const enemy of state.enemies) {
+    if (!enemy.tameable) continue
+    // Started work is guaranteed to finish; merely reserving food does not pause patience.
+    if (state.taming.targetId === enemy.id && state.taming.job?.phase === 'taming') { delete enemy.alertSeconds; continue }
+    if (pointDistance(actorPosition(enemy), playerPosition) > ENCOUNTERS.alertRange) {
+      if (enemy.alertSeconds !== undefined) { delete enemy.alertSeconds; critical = true }
+      continue
+    }
+    const elapsed = enemy.alertSeconds ?? 0
+    enemy.alertSeconds = elapsed + dt
+    if (elapsed === 0 && dt > 0) critical = true
+    if (enemy.alertSeconds < ENCOUNTERS.patienceSeconds - 1e-8) continue
+    enemy.tameable = false
+    delete enemy.alertSeconds
+    stop(enemy)
+    if (state.taming.targetId === enemy.id) {
+      // releaseTaming mutates inventory reservations, so take ownership of the inventory first.
+      production = structuredClone(production)
+      releaseTaming(state, production, false)
+    }
+    state.decisionRemaining = 0
+    critical = true; message = `${ENEMIES[enemy.kind].name}被激怒了，已无法驯服！`
+  }
   const enemyGrids = new Map(state.enemies.map(enemy => [enemy.id, enemyNavigation(world, hostile, enemy.residentId)]))
   for (const buddy of companions(state)) if (!companionLocked(state, buddy) && buddy.status === 'active') prepareMotion(buddy, friendly)
   for (const enemy of state.enemies) if (enemy.id !== state.duel?.enemy.id) prepareMotion(enemy, enemyGrids.get(enemy.id)!)

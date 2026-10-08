@@ -32,7 +32,7 @@ function OrderTypeIcon({ kind }: { kind: OrderKind }) {
   </span>
 }
 
-export function ProductionScreen({ runtime, close, message, openShop }: { runtime: GameRuntime; close: () => void; message: (text: string) => void; openShop?: () => void }) {
+export function ProductionScreen({ runtime, close, message }: { runtime: GameRuntime; close: () => void; message: (text: string) => void }) {
   const state = useSyncExternalStore(runtime.subscribeUi, runtime.getUiSnapshot)
   const catalog = runtime.catalog!
   const production = state.production!
@@ -207,7 +207,6 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
       </div>
       <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
         message={text => { setNotice(text); message(text) }} /></div>
-      <button className={styles.close} aria-label="关闭合成" onClick={close}>×</button>
     </header>
     <section ref={orderList} className={`${styles.orders} ${state.construction.orders.length || production.supplyOrders.length || state.survival.taming.ordered || state.economy.clearingOrders.length ? styles.withBuildingOrders : ''}`} aria-label="营地委托">
       {[
@@ -299,7 +298,6 @@ export function ProductionScreen({ runtime, close, message, openShop }: { runtim
         .map(order => <div key={order.id} className={styles.orderSlot} data-order-id={order.id}>{order.content}</div>)}
       {!orderIds.length && <p>这批营地委托已全部完成，继续储备物资吧。</p>}
     </section>
-    {!!state.economy.clearingOrders.length && !state.economy.purchases.includes('starter-tools') && <button className={styles.toolHint} onClick={openShop}>到商店免费领取工具箱 →</button>}
     <div ref={boardArea} className={styles.boardArea} data-testid="board-scroll"><div className={styles.board}
       style={{ width: boardWidth, height: (boardWidth - 32) * 9 / 7 + 38 }}>
       {inventory.board.map((slot, index) => {

@@ -4,6 +4,8 @@
 
 ## 1. 先确认当前运行的是哪份代码
 
+2026-10-08 已确认一个具体的开发服务问题：用户端口 5173 的 `CampScene.ts` 已含镜头跟随，但 HTTP 返回的 `mapInput.ts` 仍为不带暂停跟随回调的旧编译结果，导致鼠标拖动被逐帧居中抵消。独立新建的 5178 测试服务正常，不能据此判定用户环境已修复。应检查用户端口实际返回的相关模块，并直接在该端口复现；本次重启原服务后桌面连续拖动回归通过。Vite 已在 Windows 启用 300ms 轮询监听，避免文件变更通知遗漏导致模块混用；无需清档。
+
 原项目从 `D:/OtherProject/TitanDemo/TitanDemo` 迁到 `TitanDemoGithub/TitanDemo`，现在又拷贝为 WordMerge。历史有“改 CSV 后数值没生效”的反馈，但可见记录没有证实单一根因。排查时确认终端 cwd、浏览器端口、Network 返回的 CSV 内容和实际装备 ID，再判断是否缓存或代码问题。不要直接把历史猜测写成根因。
 
 数值只改 `public/config/` 下的正式表。桌面原始 CSV、`docs/history/original-design/`、旧 `dist/` 不参与 dev 配置加载；CSV 通常在页面挂载时读取，需要刷新才能验证新值。
