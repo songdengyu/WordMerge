@@ -109,10 +109,36 @@ describe('quick status supplies', () => {
     expect((await first).accepted).toBe(true); expect((await duplicate).accepted).toBe(false)
     expect(runtime.getUiSnapshot().production!.vitals.hunger).toBeGreaterThan(69)
     expect(runtime.getUiSnapshot().production!.vitals.hunger).toBeLessThanOrEqual(70)
+    expect(runtime.getUiSnapshot().resourceFeedback).toEqual([{ id: 1, stat: 'hunger', amount: 10, itemId: 211 }])
+    expect(JSON.parse(runtime.exportSave()).data.resourceFeedback).toBeUndefined()
     runtime.setPauseReason('background', true)
     const before = runtime.exportSave()
     expect((await runtime.dispatch({ type: 'quick-supply', stat: 'water', requestOnMissing: false })).accepted).toBe(false)
     expect(runtime.exportSave()).toBe(before)
+    expect(runtime.getUiSnapshot().resourceFeedback).toHaveLength(1)
+  })
+
+  it('records successful generator costs and direct item use without replaying receipts after reload', async () => {
+    const runtime = new GameRuntime(world, { catalog, now: () => testNow })
+    runtime.advanceFrame(0)
+    const original = runtime.getUiSnapshot()
+    const generator = original.production!.inventory.board[0].instanceId!
+    const first = runtime.dispatch({ type: 'item-use', instanceId: generator })
+    const second = runtime.dispatch({ type: 'item-use', instanceId: generator })
+    runtime.advanceFrame(50)
+    expect((await first).accepted).toBe(true); expect((await second).accepted).toBe(true)
+    expect(original.resourceFeedback).toEqual([])
+    expect(runtime.getUiSnapshot().resourceFeedback).toEqual([
+      { id: 1, stat: 'stamina', amount: -1 }, { id: 2, stat: 'stamina', amount: -1 },
+    ])
+    const water = runtime.getUiSnapshot().production!.inventory.board[10].instanceId!
+    const use = runtime.dispatch({ type: 'item-use', instanceId: water })
+    runtime.advanceFrame(100)
+    expect((await use).accepted).toBe(true)
+    expect(runtime.getUiSnapshot().resourceFeedback[2]).toMatchObject({ stat: 'water', itemId: 221, amount: 20 })
+    const saved = JSON.parse(runtime.exportSave())
+    const restored = new GameRuntime(world, { catalog, saved, now: () => testNow })
+    expect(restored.getUiSnapshot().resourceFeedback).toEqual([])
   })
 
   it('shows urgent badges at the damage boundary and uses the existing low-health warning', () => {

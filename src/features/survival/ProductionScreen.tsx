@@ -12,6 +12,7 @@ import { TAMING_ORDER, tamingName, type TamingCommand } from '../../game/taming'
 import { resourceOrderId, type EconomyCommand } from '../../game/economy'
 import { RESOURCE_RULES } from '../../game/economyConfig'
 import { CurrencyIcon } from './Shop'
+import { StaminaValue } from './ResourceFeedback'
 import styles from './ProductionScreen.module.css'
 
 type Gesture = { id: string; pointerId: number; originX: number; originY: number; startX: number; startY: number; fromWarehouse: boolean; dragging: boolean }
@@ -202,7 +203,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   return <div ref={root} className={styles.screen} data-testid="production-screen">
     <header className={styles.topBar}>
       <div className={styles.worldStatus}><DayCycle state={state} compact /></div>
-      <div className={styles.resources}><span aria-label="精力" title={production.stamina.value >= 100 ? '自然恢复已满' : '每 10 秒恢复 1 点'}>⚡ <strong data-testid="stamina-value">{production.stamina.value}</strong><small> 精力</small></span>
+      <div className={styles.resources}><span aria-label="精力" title={production.stamina.value >= 100 ? '自然恢复已满' : '每 10 秒恢复 1 点'}><StaminaValue state={state} runtime={runtime} testId="stamina-value" /><small> 精力</small></span>
       <span aria-label={`钻石 ${inventory.gems}`}><CurrencyIcon kind="gems" /> {inventory.gems}</span><span aria-label={`金币 ${inventory.gold}`}><CurrencyIcon kind="gold" /> {inventory.gold}</span>
       </div>
       <div className={styles.vitals}><VitalLine state={state} runtime={runtime} compact openMerge={() => {}}
@@ -319,8 +320,9 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
       })}
     </div></div>
     <section className={styles.info}><div><strong>{config ? `${config.name} · Lv.${config.level}` : '准备好下一份物资'}</strong>
-      <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}</section>
-    {!!notice && <p className={styles.feedback} role="status">{notice}</p>}
+      <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}
+      {!!notice && <p className={styles.feedback} role="status">{notice}</p>}
+    </section>
     <nav className={styles.footer}><button onClick={() => setWarehouseOpen(true)}>▦ 仓库 {usedWarehouse}/{inventory.warehouse.length}</button>
       <button onClick={close}>返回营地</button></nav>
     {warehouseOpen && <div className={styles.warehouseBackdrop} onClick={() => setWarehouseOpen(false)}>

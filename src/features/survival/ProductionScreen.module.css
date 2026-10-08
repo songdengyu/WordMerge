@@ -49,7 +49,7 @@
 .level { position: absolute; bottom: 1px; right: 3px; font-size: 8px; color: #81946f; }
 .hidden { opacity: 0 !important; }
 /* Selection controls must not change the space used to size the board. */
-.info { display: flex; gap: 8px; align-items: center; padding: 10px 2px 4px; height: 66px; min-height: 0; flex: 0 0 66px; }
+.info { position: relative; display: flex; gap: 8px; align-items: center; padding: 20px 2px 4px; height: 66px; min-height: 0; flex: 0 0 66px; }
 .info > div:first-child { flex: 1; min-width: 0; max-height: 100%; overflow-y: auto; }
 .info > .itemActions { max-width: none; flex-wrap: nowrap; }
 .info > .itemActions button { white-space: nowrap; }
@@ -59,7 +59,7 @@
 .itemActions button { background: #6f8762; color: #f9f2da; border: 0; padding: 8px 9px; border-radius: 7px; font-size: 10px; }
 .itemActions .discard { background: #e6e7d5; color: #939079; }
 .notice { padding: 5px 2px; min-height: 25px; font-size: 10px; line-height: 1.5; color: #9a885e; text-align: center; flex-shrink: 0; }
-.feedback { position: absolute; z-index: 1; left: 20px; right: 20px; bottom: calc(128px + env(safe-area-inset-bottom, 0px)); padding: 8px 12px; border: 1px solid #d8ddc5; border-radius: 10px; background: #faf7e9f2; color: #8a754e; box-shadow: 0 3px 12px #435b4520; font-size: 11px; line-height: 1.5; text-align: center; pointer-events: none; }
+.info > .feedback { position: absolute; top: 2px; left: 2px; right: 2px; margin: 0; padding: 0; color: #939b86; font-size: 10px; line-height: 1.5; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 4px; flex-shrink: 0; }
 .footer button { border: 1px solid #ccd7bd; border-radius: 9px; background: #e2e8d0; min-height: 43px; font-size: 12px; }
 .footer button:last-child { background: #5f7856; color: #f6f1de; border-color: #5f7856; }
@@ -85,4 +85,4 @@
 .saveControls small { font-size: 10px; display: block; color: #88937b; margin-top: 12px; line-height: 1.8; }
 .screen button:disabled, .saveControls button:disabled { opacity: .5; cursor: default; }
 .screen button:focus-visible { outline: 2px solid #b49769; outline-offset: 2px; }
-@media (max-height: 680px) { .info { height: 56px; flex-basis: 56px; padding-top: 7px; } .notice { padding: 3px 2px; min-height: 20px; } }
+@media (max-height: 680px) { .info { height: 56px; flex-basis: 56px; } .notice { padding: 3px 2px; min-height: 20px; } }

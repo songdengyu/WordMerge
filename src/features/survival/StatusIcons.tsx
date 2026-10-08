@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { GameRuntime, UiSnapshot } from '../../game/GameRuntime'
 import { MergePiece } from '../../components/MergePiece'
+import { ResourceFeedback } from './ResourceFeedback'
 import { supplyDanger, supplyFor } from '../../game/quickSupply'
 import type { WeatherId } from '../../game/survivalConfig'
 import styles from './StatusIcons.module.css'
@@ -78,6 +79,7 @@ export function VitalIcons({ state, runtime, openMerge, message, compact = false
       const item = supply && runtime.catalog!.itemById.get(supply.itemId)!
       return <span className={styles.slot} key={kind}>
         <VitalIcon kind={kind} value={vitals[kind]} disabled={disabled} onClick={() => void useSupply(kind, false)} />
+        {kind !== 'temperature' && <ResourceFeedback state={state} runtime={runtime} stat={kind} compact={compact} />}
         {kind === 'hp' && damageFloats.map(entry => <span key={entry.id} className={styles.damageFloat}
           data-testid="hp-damage-float" aria-hidden="true"
           onAnimationEnd={() => setDamageFloats(floats => floats.filter(float => float.id !== entry.id))}>−{entry.amount}</span>)}

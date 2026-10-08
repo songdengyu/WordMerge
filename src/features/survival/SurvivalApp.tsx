@@ -15,6 +15,8 @@ import { DayCycle } from './DayCycle'
 import { TestControls } from './TestControls'
 import { CompanionWheel } from './CompanionWheel'
 import { CurrencyIcon, Shop } from './Shop'
+import { StaminaValue } from './ResourceFeedback'
+import { HealthScreenEffect } from './HealthScreenEffect'
 import { DecorationPanel } from './DecorationPanel'
 import { currentChapter, decorError } from '../../game/progression'
 import { reachableRegionGate } from '../../game/regionUnlock'
@@ -191,7 +193,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </header>
     {placement && <div className={styles.chapter}><span className={styles.chapterDot} /><span>安放一个家</span><span className={styles.chapterLine} />从第一块木地基开始</div>}
     <div className={styles.supplyBadge}>
-      <span className={styles.walletEntry} aria-label={`精力 ${state.production?.stamina.value ?? 100}`}>⚡ <strong data-testid="map-stamina">{state.production?.stamina.value ?? 100}</strong><small>精力</small></span>
+      <span className={styles.walletEntry} aria-label={`精力 ${state.production?.stamina.value ?? 100}`}><StaminaValue state={state} runtime={runtime} testId="map-stamina" /><small>精力</small></span>
       <span className={styles.walletEntry} aria-label={`金币 ${state.production?.inventory.gold ?? 0}`}><CurrencyIcon kind="gold" /><strong data-testid="map-gold">{state.production?.inventory.gold ?? 0}</strong></span>
       <span className={styles.walletEntry} aria-label={`钻石 ${state.production?.inventory.gems ?? 0}`}><CurrencyIcon kind="gems" /><strong data-testid="map-gems">{state.production?.inventory.gems ?? 0}</strong></span>
     </div>
@@ -256,6 +258,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     {saveFailed && <section className={styles.saveError} role="alert"><h2>先保管好营地进度</h2><SaveControls runtime={runtime} />
       <button className={styles.dangerButton} title="清除所有数据" onClick={reset}>删</button></section>}
     {settingsOpen && <SettingsSheet close={() => setSettingsOpen(false)} runtime={runtime} />}
+    <HealthScreenEffect state={state} runtime={runtime} />
   </main>
 }
 

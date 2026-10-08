@@ -34,7 +34,9 @@ export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | Co
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
+export type ResourceFeedback = { id: number; stat: 'hp' | 'hunger' | 'water' | 'stamina'; amount: number; itemId?: number }
 export interface UiSnapshot {
+  readonly resourceFeedback: readonly ResourceFeedback[]
   readonly day: number
   readonly hour: number
   readonly minute: number
@@ -91,6 +93,8 @@ export class GameRuntime {
   private sceneSnapshot: SceneSnapshot
   private production: ProductionState | null
   private productionOrderFocus: string | null = null
+  private resourceFeedback: ResourceFeedback[] = []
+  private resourceFeedbackId = 0
   private construction = createConstruction()
   private survival: SurvivalState
   private progression = createProgression()
@@ -226,8 +230,10 @@ export class GameRuntime {
         return { accepted: true, message: this.feedback } as CommandResult
       }
       if (command.type === 'quick-supply' || command.type === 'supply-order-use' || command.type === 'supply-order-cancel') {
-        const result = applyQuickSupply(this.production, this.catalog, command, this.now())
+        const commandNow = this.now()
+        const result = applyQuickSupply(this.production, this.catalog, command, commandNow)
         if (!result.accepted) return result
+        this.recordResourceFeedback(this.production, result.state, commandNow)
         this.production = result.state; this.feedback = result.message
         if (result.openProduction) this.productionOrderFocus = `supply:${command.stat}`
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
@@ -298,8 +304,10 @@ export class GameRuntime {
         this.feedback = result.message
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
       }
-      const result = applyInventoryCommand(this.production, this.catalog, command as InventoryCommand, this.now())
+      const commandNow = this.now()
+      const result = applyInventoryCommand(this.production, this.catalog, command as InventoryCommand, commandNow)
       if (!result.accepted) return result
+      this.recordResourceFeedback(this.production, result.state, commandNow)
       this.production = result.state
       return { accepted: true, message: result.message } as CommandResult
     })
@@ -660,11 +668,29 @@ export class GameRuntime {
 
   private gameMinutes() { return worldMinutes(this.world, this.elapsedSeconds) }
 
+  // Transient presentation receipts: never saved, and never used to apply gameplay effects.
+  private recordResourceFeedback(before: ProductionState, after: ProductionState, now: number) {
+    const add = (event: Omit<ResourceFeedback, 'id'>) => {
+      this.resourceFeedback = [...this.resourceFeedback.slice(-15), { ...event, id: ++this.resourceFeedbackId }]
+    }
+    const spent = after.stamina === before.stamina ? 0 : syncStamina(before.stamina, now).value - after.stamina.value
+    if (spent > 0) add({ stat: 'stamina', amount: -spent })
+    for (const item of Object.values(before.inventory.items)) {
+      if (after.inventory.items[item.id]) continue
+      const effect = this.catalog!.effects.get(item.itemId)
+      if (!effect) continue
+      const amount = effect.stat === 'stamina' ? after.stamina.value - syncStamina(before.stamina, now).value
+        : after.vitals[effect.stat] - before.vitals[effect.stat]
+      if (amount > 0) add({ stat: effect.stat, amount, itemId: item.itemId })
+    }
+  }
+
   private makeUiSnapshot(): UiSnapshot {
     const minutes = Math.floor(this.gameMinutes())
     const hour = Math.floor(minutes / 60) % 24
     return {
       day: Math.floor(minutes / 1440) + 1, hour, minute: minutes % 60, isDay: hour >= 6 && hour < 19,
+      resourceFeedback: this.resourceFeedback,
       player: { ...this.cell }, destination: this.destination ? { ...this.destination } : null,
       activity: this.economy.clearing?.phase === 'clearing' ? 'clearing' : this.progression.regionUnlock?.phase === 'unlocking' ? 'unlocking' : this.survival.taming.job?.phase === 'taming' ? 'taming' : this.construction.jobs[0]?.phase === 'building' ? 'building' : this.search ? 'searching' : this.route.length ? 'walking' : 'idle',
       feedback: this.feedback, pauseReasons: [...this.pauses], productionOrderFocus: this.productionOrderFocus,
