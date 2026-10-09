@@ -1,7 +1,8 @@
+import { sceneText } from '../../scene/contentPresentation'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
 import { decorAvailable } from '../../game/progression'
-import { DECORATIONS, OUTFITS, type DecorId } from '../../game/progressionConfig'
+import { DECORATIONS, OUTFITS, type DecorId } from '../../scene/contentPresentation'
 import styles from './CampJournal.module.css'
 import decorStyles from './DecorationPanel.module.css'
 import { DecorationArt, OutfitArt } from './ContentArt'
@@ -51,7 +52,7 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
       </article>
     })}{!progress.decorations.length && <p className={styles.muted}>尚未摆放装饰，先选一件喜欢的摆件吧。</p>}</>}
     <button className={styles.secondary} onClick={shop}>去商店添置</button>
-    <p role="status" className={styles.notice}>{notice}</p>
+    <p role="status" className={styles.notice}>{sceneText(notice)}</p>
     <footer className={decorStyles.returnBar}><button onClick={close}>回到地图</button></footer>
   </dialog>
 }

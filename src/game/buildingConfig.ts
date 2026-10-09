@@ -15,7 +15,31 @@ export interface BuildingPartConfig {
   work: Cell[]
   edges: { from: Cell; to: Cell }[]
 }
-export interface Blueprint { id: string; name: string; width: number; height: number; parts: BuildingPartConfig[]; fixedRegion?: string }
+export interface Blueprint { id: string; name: string; width: number; height: number; cells?: readonly Cell[]; parts: BuildingPartConfig[]; fixedRegion?: string }
+
+export const blueprintCells = (blueprint: Blueprint): readonly Cell[] => blueprint.cells ?? Array.from(
+  { length: blueprint.width * blueprint.height }, (_, i) => ({ x: i % blueprint.width, y: Math.floor(i / blueprint.width) }))
+
+export function validateBlueprintShape(blueprint: Blueprint) {
+  const cells = blueprintCells(blueprint), keys = new Set(cells.map(c => `${c.x},${c.y}`))
+  if (!cells.length || keys.size !== cells.length || cells.some(c => !Number.isInteger(c.x) || !Number.isInteger(c.y)
+    || c.x < 0 || c.y < 0 || c.x >= blueprint.width || c.y >= blueprint.height)) throw new Error('建筑配置：占格无效')
+  const visited = new Set<string>(), queue = [cells[0]]
+  for (let i = 0; i < queue.length; i++) {
+    const cell = queue[i], key = `${cell.x},${cell.y}`
+    if (visited.has(key)) continue
+    visited.add(key)
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const next = { x: cell.x + dx, y: cell.y + dy }, id = `${next.x},${next.y}`
+      if (keys.has(id) && !visited.has(id)) queue.push(next)
+    }
+  }
+  if (visited.size !== cells.length) throw new Error('建筑配置：占格必须连通')
+  if (blueprint.cells) for (const part of blueprint.parts) {
+    if (part.work.some(c => !keys.has(`${c.x},${c.y}`))) throw new Error('建筑配置：工作位不在占格内')
+    if (part.edges.some(e => !keys.has(`${e.from.x},${e.from.y}`) || keys.has(`${e.to.x},${e.to.y}`))) throw new Error('建筑配置：墙门必须位于外围')
+  }
+}
 
 // Versioned with the build, like code: changing this catalog requires an explicit save migration.
 const BASE_BLUEPRINTS: readonly Blueprint[] = [{
@@ -62,6 +86,19 @@ function expandedHouse(id: string, name: string, width: number, height: number, 
     edges: part.kind === 'wall' ? walls : part.kind === 'door' ? [{ from: work[0], to: { x: doorX, y: height } }] : [],
   })) }
 }
+function shapedHouse(id: string, name: string, width: number, height: number, material: number, hp: number, cells: Cell[], door: Cell): Blueprint {
+  const source = expandedHouse(id, name, width, height, material, hp)
+  const has = (x: number, y: number) => cells.some(c => c.x === x && c.y === y)
+  const doorEdge = { from: door, to: { x: door.x, y: door.y + 1 } }
+  const edges = cells.flatMap(from => [[0, -1], [1, 0], [0, 1], [-1, 0]].flatMap(([dx, dy]) => {
+    const to = { x: from.x + dx, y: from.y + dy }
+    return has(to.x, to.y) || from.x === door.x && from.y === door.y && dy === 1 ? [] : [{ from, to }]
+  }))
+  return { ...source, cells, parts: source.parts.map(part => ({ ...part,
+    work: part.kind === 'bed' ? [{ x: 0, y: 1 }] : [door],
+    edges: part.kind === 'wall' ? edges : part.kind === 'door' ? [doorEdge] : [],
+  })) }
+}
 // Shop additions are versioned by economyConfig; preserve the historical building/region fingerprints.
 export const BLUEPRINTS: readonly Blueprint[] = [...BASE_BLUEPRINTS,
   ...[{ id: 'garden-cabin', name: '花园木屋' }, { id: 'guest-cabin', name: '林间客舍' }].map(variant => {
@@ -71,6 +108,10 @@ export const BLUEPRINTS: readonly Blueprint[] = [...BASE_BLUEPRINTS,
   expandedHouse('meadow-hut', '苔原草顶屋', 3, 2, 203, 20),
   expandedHouse('cedar-home', '暖杉小筑', 4, 3, 204, 40),
   expandedHouse('rose-manor', '蔷薇庄园', 5, 4, 206, 60),
+  shapedHouse('forest-corner', '森语转角屋', 4, 4, 204, 40,
+    Array.from({ length: 16 }, (_, i) => ({ x: i % 4, y: Math.floor(i / 4) })).filter(c => c.x < 2 || c.y < 2), { x: 1, y: 3 }),
+  shapedHouse('flower-court', '花庭小院', 5, 4, 206, 60,
+    Array.from({ length: 20 }, (_, i) => ({ x: i % 5, y: Math.floor(i / 5) })).filter(c => c.x !== 2 || c.y < 2), { x: 2, y: 1 }),
 ]
 export const BUILDING_VERSION = fingerprint(JSON.stringify(BASE_BLUEPRINTS.filter(blueprint => !blueprint.fixedRegion)))
 export const blueprintById = (id: string) => BLUEPRINTS.find(blueprint => blueprint.id === id)
@@ -80,6 +121,7 @@ export function validateBuildingCatalog(catalog: ProductionCatalog) {
   for (const blueprint of BLUEPRINTS) {
     if (ids.has(blueprint.id) || blueprint.width < 1 || blueprint.height < 1) throw new Error('建筑配置：蓝图 ID 或尺寸无效')
     ids.add(blueprint.id)
+    validateBlueprintShape(blueprint)
     const prior = new Set<string>()
     for (const part of blueprint.parts) {
       if (prior.has(part.id) || part.requires.some(id => !prior.has(id)) || !part.work.length

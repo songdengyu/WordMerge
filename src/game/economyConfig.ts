@@ -31,6 +31,8 @@ export const SHOP_PRODUCTS: readonly ShopProduct[] = [
   { id: 'meadow-blueprint', name: '苔原草顶屋图纸', category: 'blueprint', currency: 'gold', price: 100, reward: 'meadow-hut', description: '简朴 · 3×2。草编屋顶与原木墙，主要使用三级木料。' },
   { id: 'cedar-blueprint', name: '暖杉小筑图纸', category: 'blueprint', currency: 'gold', price: 280, reward: 'cedar-home', description: '温馨 · 4×3。木板地面与青绿瓦顶，主要使用四级精选木材。' },
   { id: 'manor-blueprint', name: '蔷薇庄园图纸', category: 'blueprint', currency: 'gems', price: 40, reward: 'rose-manor', description: '精致 · 5×4。砖石外墙与紫色瓦顶，主要使用六级精工建材。' },
+  { id: 'corner-blueprint', name: '森语转角屋图纸', category: 'blueprint', currency: 'gold', price: 320, reward: 'forest-corner', description: '温馨 · L 形 12 格。青绿屋顶与转角花窗，使用四级精选木材。' },
+  { id: 'court-blueprint', name: '花庭小院图纸', category: 'blueprint', currency: 'gems', price: 45, reward: 'flower-court', description: '精致 · 凹形 18 格。环抱入口的小院，使用六级精工建材。' },
   { id: 'chair', name: '藤编单椅', category: 'decor', currency: 'gold', price: 45, reward: 'chair', description: '可重复购买，放在屋内地板上。' },
   { id: 'table', name: '橡木圆桌', category: 'decor', currency: 'gold', price: 75, reward: 'table', description: '为午后的闲聊留一张小桌。' },
   { id: 'sofa', name: '奶油双人沙发', category: 'decor', currency: 'gold', price: 160, reward: 'sofa', description: '柔软靠垫与温暖的奶油色。' },
@@ -43,3 +45,6 @@ export const SHOP_PRODUCTS: readonly ShopProduct[] = [
 ]
 export const ECONOMY_VERSION = fingerprint(JSON.stringify([RESOURCE_RULES, SHOP_PRODUCTS, CLEAR_SECONDS,
   BLUEPRINTS.filter(b => SHOP_PRODUCTS.some(p => p.category === 'blueprint' && p.reward === b.id)), FLORA_KINDS, TOOL_CHAINS]))
+export const PRE_SHAPES_PRODUCTS = SHOP_PRODUCTS.filter(p => p.id !== 'corner-blueprint' && p.id !== 'court-blueprint')
+// Frozen predecessor fingerprint: future catalog edits must not silently change accepted history.
+export const PRE_SHAPES_ECONOMY_VERSION = '5723f3b5'

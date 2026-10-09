@@ -1,4 +1,4 @@
-import type { Blueprint, BuildingPartConfig } from './buildingConfig'
+import { blueprintCells, type Blueprint, type BuildingPartConfig } from './buildingConfig'
 import type { BuildingPart } from './construction'
 import type { Cell } from './world'
 
@@ -14,8 +14,7 @@ export function buildingSegments(blueprint: Blueprint, config: BuildingPartConfi
   if (config.kind === 'wall') return config.edges.map((edge, index) => ({
     id: `edge${index}`, name: `${config.name} ${index + 1}`, cell: edge.from, edge,
   }))
-  if (config.kind === 'foundation' || config.kind === 'roof') return Array.from({ length: blueprint.width * blueprint.height }, (_, index) => {
-    const cell = { x: index % blueprint.width, y: Math.floor(index / blueprint.width) }
+  if (config.kind === 'foundation' || config.kind === 'roof') return blueprintCells(blueprint).map(cell => {
     return { id: `tile${cell.x}-${cell.y}`, name: `${config.name} ${cell.x + 1},${cell.y + 1}`, cell }
   })
   return [{ id: 'whole', name: config.name, cell: config.work[0], edge: config.edges[0] }]

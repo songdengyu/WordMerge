@@ -1,13 +1,40 @@
 import { OUTFITS, type DecorId } from '../../game/progressionConfig'
 import { houseStyle, hexColor } from '../../scene/houseStyle'
+import { blueprintById } from '../../game/buildingConfig'
+import { useId, useState } from 'react'
+import { sceneArtUrl } from '../../scene/sceneArtCatalog'
 
 export function HouseArt({ id }: { id: string }) {
+  const patternId = useId().replace(/:/g, '')
   const s = houseStyle(id), fancy = s.tier === '精致'
+  const blueprint = blueprintById(id)
+  if (blueprint?.cells) {
+    const cells = blueprint.cells, project = (x: number, y: number, h = 0) => `${50 + (x - y) * 9},${18 + (x + y) * 5 - h}`
+    return <svg viewBox="0 0 100 84" aria-hidden="true">
+      <ellipse cx="50" cy="64" rx="42" ry="9" fill="#5c7358" opacity=".12" />
+      {cells.map(c => <g key={`${c.x},${c.y}`}>
+        {[[1, 0], [0, 1]].filter(([dx, dy]) => !cells.some(n => n.x === c.x + dx && n.y === c.y + dy)).map(([dx, dy]) => {
+          const a = [c.x + dx / 2 - dy / 2, c.y + dy / 2 + dx / 2], b = [c.x + dx / 2 + dy / 2, c.y + dy / 2 - dx / 2]
+          return <polygon key={`${dx},${dy}`} points={[project(a[0], a[1]), project(b[0], b[1]), project(b[0], b[1], -12), project(a[0], a[1], -12)].join(' ')} fill={hexColor(s.wall)} stroke={hexColor(s.trim)} strokeWidth=".6" />
+        })}
+        <polygon points={[[c.x - .5, c.y - .5], [c.x + .5, c.y - .5], [c.x + .5, c.y + .5], [c.x - .5, c.y + .5]].map(([x, y]) => project(x, y)).join(' ')} fill={hexColor(s.roof)} />
+        <path d={`M${project(c.x - .3, c.y)}L${project(c.x + .3, c.y)}`} stroke={hexColor(s.trim)} opacity=".45" strokeWidth=".6" />
+      </g>)}
+    </svg>
+  }
   return <svg viewBox="0 0 100 84" aria-hidden="true">
+    {id === 'cabin' && <defs>
+      <pattern id={`${patternId}-wall`} patternUnits="userSpaceOnUse" width="24" height="40">
+        <rect width="24" height="40" fill={hexColor(s.wall)} /><image href={sceneArtUrl('wall')} width="24" height="40" preserveAspectRatio="none" />
+      </pattern>
+      <pattern id={`${patternId}-roof`} patternUnits="userSpaceOnUse" width="70" height="55">
+        <rect width="70" height="55" fill={hexColor(s.roof)} /><image href={sceneArtUrl('roof')} width="70" height="55" preserveAspectRatio="none" />
+      </pattern>
+    </defs>}
     <ellipse cx="50" cy="74" rx="42" ry="7" fill="#5c7358" opacity=".12" />
-    <path d="M14 40 55 27 89 44v24L49 80 14 62Z" fill={hexColor(s.wall)} stroke={hexColor(s.trim)} strokeWidth="2" />
+    <path d="M14 40 55 27 89 44v24L49 80 14 62Z" fill={id === 'cabin' ? `url(#${patternId}-wall)` : hexColor(s.wall)} stroke={hexColor(s.trim)} strokeWidth="2" />
     <path d="M14 51 49 68 89 55M49 51v29" fill="none" stroke={hexColor(s.trim)} strokeWidth="1.5" />
-    <path d="m9 40 23-30 40 13 22 20-43 17Z" fill={hexColor(s.roof)} stroke={hexColor(s.trim)} strokeWidth="2" />
+    <path d="m9 40 23-30 40 13 22 20-43 17Z" fill={id === 'cabin' ? `url(#${patternId}-roof)` : hexColor(s.roof)} stroke={hexColor(s.trim)} strokeWidth="2" />
     <path d="m32 10 19 50 21-37M20 29l61 21M26 20l48 18" fill="none" stroke={hexColor(s.trim)} strokeWidth="1" opacity=".7" />
     <path d="M25 54 37 60v14l-12-6Z" fill="#966846" stroke={hexColor(s.trim)} />
     <path d="M62 60 77 55v12l-15 5Z" fill={hexColor(s.accent)} stroke={hexColor(s.trim)} strokeWidth="2" />
@@ -29,6 +56,10 @@ export function OutfitArt({ id }: { id: string }) {
 }
 
 export function DecorationArt({ kind }: { kind: DecorId }) {
+  const [failed, setFailed] = useState<string | null>(null)
+  if (failed !== kind) return <svg viewBox="0 0 80 80" aria-hidden="true">
+    <image href={sceneArtUrl(kind)} x="4" y="2" width="72" height="76" preserveAspectRatio="xMidYMid meet" onError={() => setFailed(kind)} />
+  </svg>
   return <svg viewBox="0 0 80 80" aria-hidden="true" strokeLinejoin="round" strokeLinecap="round">
     <ellipse cx="40" cy="68" rx="30" ry="6" fill="#5f7357" opacity=".12" />
     {kind === 'chair' ? <><path d="M22 47V18h36v29M24 54v16m32-16v16" fill="#d4b886" stroke="#91724f" strokeWidth="5" /><path d="M20 44h40v13H20Z" fill="#eee0bd" stroke="#aa8c64" strokeWidth="3" /><path d="M29 23v17m11-17v17m11-17v17" stroke="#f3deb0" strokeWidth="3" /></>
@@ -37,7 +68,7 @@ export function DecorationArt({ kind }: { kind: DecorId }) {
       : kind === 'bookshelf' ? <><rect x="15" y="9" width="50" height="61" rx="3" fill="#ad875d" stroke="#775b41" strokeWidth="3" /><path d="M19 36h42M19 59h42" stroke="#e3c496" strokeWidth="4" /><path d="M25 15v17m10-17v17m10-17v17m10-17v17" stroke="#8ea4a2" strokeWidth="7" /><path d="M26 43v12m11-12v12m14-12 4 12" stroke="#c78f87" strokeWidth="8" /></>
       : kind === 'tea-set' ? <><ellipse cx="40" cy="56" rx="31" ry="12" fill="#cda678" /><path d="M19 36h22v16H19Zm28 10h15v12H47Z" fill="#d6e2d6" stroke="#7e9c95" strokeWidth="3" /><path d="M41 38h8v8h-8m21 2h7v7h-7" fill="none" stroke="#7e9c95" strokeWidth="3" /><path d="M25 28q-5-7 1-13m9 13q-5-7 1-13" fill="none" stroke="#b7b69c" strokeWidth="2" /></>
       : kind === 'flowerstand' ? <><path d="M20 68V15h40v53M20 32h40M20 49h40m-30-34v48m20-48v48" fill="none" stroke="#b18d61" strokeWidth="4" /><path d="M14 57h52l-6 15H20Z" fill="#b7896f" /><path d="M26 60q-8-34 18-40m4 41q18-30-1-40" fill="none" stroke="#80a171" strokeWidth="5" />{[[24,31],[46,20],[57,40],[34,49]].map(([x,y])=><g key={`${x}-${y}`}><circle cx={x} cy={y} r="7" fill="#cd92a1" /><circle cx={x} cy={y} r="3" fill="#f1d89a" /></g>)}</>
-      : kind === 'rug' ? <><path d="m7 45 33-25 33 25-33 25Z" fill="#bd927d" stroke="#eed7a4" strokeWidth="4" /><path d="m23 45 17-12 17 12-17 12Z" fill="#efd7a8" /></>
+      : kind === 'rug' ? <><ellipse cx="40" cy="45" rx="33" ry="21" fill="#c69487" stroke="#eed7a4" strokeWidth="3" /><ellipse cx="40" cy="45" rx="24" ry="14" fill="none" stroke="#efd7a8" strokeWidth="2" /><ellipse cx="40" cy="45" rx="13" ry="7" fill="none" stroke="#a7766a" /></>
       : kind === 'planter' ? <><path d="M24 47h32l-5 23H29Z" fill="#bb8e70" /><path d="M40 49V21m0 20-12-9m12 4 11-11" stroke="#82a071" strokeWidth="5" /><circle cx="40" cy="19" r="11" fill="#e4b9bd" /><circle cx="40" cy="19" r="4" fill="#e4c575" /></>
       : <><circle cx="40" cy="42" r="28" fill="#f3df9e" opacity=".35" /><path d="M29 23q0-20 11-20t11 20" fill="none" stroke="#a48258" strokeWidth="4" /><rect x="23" y="22" width="34" height="46" rx="7" fill="#eed798" stroke="#a48258" strokeWidth="4" /><path d="M40 30v30" stroke="#fff3be" strokeWidth="8" /></>}
   </svg>

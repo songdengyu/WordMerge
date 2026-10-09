@@ -1,0 +1,380 @@
+{
+  "source": "User-provided Gossip Android package",
+  "assets": [
+    {
+      "file": "tree.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outtree_B",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 56949,
+      "sha256": "4eaaafd85da2a4b89cce52859d50c7312f21d463013fec6e7cc91676860d9e5b"
+    },
+    {
+      "file": "chair.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "patiochaira_1",
+      "originalSize": [
+        128,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        128,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 30798,
+      "sha256": "406e9028fa5593d56658eb11f95f3fcb413ade1e6075482db93c359fee65fa30"
+    },
+    {
+      "file": "planter.png",
+      "bundle": "map-localslots_assets_assets/map/area2_b64c561af852d0adb39aba2d2a3f1a58.bundle",
+      "bundleSha256": "b8653c43260817024b40d3c0e07bf9bb2d6b912fdf7492a885396204e81dc028",
+      "texture": "canteenplants_1",
+      "originalSize": [
+        256,
+        512
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        512
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 139621,
+      "sha256": "c0232dd5234c474f0ee0ac226dcbaa8b11d56c5c3096d8cf77748fbf6d26812b"
+    },
+    {
+      "file": "wall.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "housewood_01",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": [
+        96,
+        0,
+        192,
+        256
+      ],
+      "outputSize": [
+        96,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 15060,
+      "sha256": "2f178992b2a60f72abf0d672ad09aaf0dbe2552eb1793dab75c2dccba88785c5"
+    },
+    {
+      "file": "floor.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "Wood2_1",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": [
+        0,
+        0,
+        256,
+        128
+      ],
+      "outputSize": [
+        256,
+        128
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 23391,
+      "sha256": "6d5882c011626ed3a6badb655f9966278385a634c5c55b7dbb4b7905c7fb75ac"
+    },
+    {
+      "file": "roof.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "houseroof_01",
+      "originalSize": [
+        512,
+        512
+      ],
+      "crop": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 83005,
+      "sha256": "8d9a4f8dc7facf9533bbc7210128197656a7daaa8f39cc8ca5b11cccee875274"
+    },
+    {
+      "file": "shrub.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outflower_D",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 74525,
+      "sha256": "ef595f6c9b9cbc86cb1a585f39a5f5a975d606a0c78bb0b3709e4766288755f7"
+    },
+    {
+      "file": "fruit-tree.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outcoconuttree_c01",
+      "originalSize": [
+        256,
+        512
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        512
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 86078,
+      "sha256": "451cedab006f3a0440029092cf97c35204cc7a74edc4541d83793bd4a17912b5"
+    },
+    {
+      "file": "boulder.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outstone_B",
+      "originalSize": [
+        512,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        512,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 92179,
+      "sha256": "5ddaad65ae7c6d033011adf3ad096345b4919d649d49e4a52e1e06f8efcdbc50"
+    },
+    {
+      "file": "campfire.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outrock_b01",
+      "originalSize": [
+        256,
+        128
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        128
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 23918,
+      "sha256": "a39b441db0698b91e256d55b50c91e4216f415347840a75a4d7fb764220a3c55"
+    },
+    {
+      "file": "bed.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outchair_C",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 59305,
+      "sha256": "e208775fcb7ecdc95561eff9dab9886781f1ee49ad31ec620adb658f095a8f14"
+    },
+    {
+      "file": "lantern.png",
+      "bundle": "map-main_assets_all_e9d09e4e86bfbde3d4669bf9a7859d9d.bundle",
+      "bundleSha256": "fb519afddb4e8109b163a76781bdaead7be97f90c3e60296199ebcf60a441e6e",
+      "texture": "outlight_A",
+      "originalSize": [
+        256,
+        512
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        512
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 66871,
+      "sha256": "1089adc5c6d91d5c10b821a7b79ab83307dae5aa2787390f2e21be1f92e4d5a5"
+    },
+    {
+      "file": "sign.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "patiobrand_1",
+      "originalSize": [
+        128,
+        128
+      ],
+      "crop": null,
+      "outputSize": [
+        128,
+        128
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 19146,
+      "sha256": "f8c711b70165319ce04991bde901c6cea896315bde37b365416a12379319c810"
+    },
+    {
+      "file": "statue.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "patiorobject_3",
+      "originalSize": [
+        64,
+        64
+      ],
+      "crop": null,
+      "outputSize": [
+        64,
+        64
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 8292,
+      "sha256": "a8d7e380c74fab389eacb07285504941b4a646d85ecf2882a2668af702c9babd"
+    },
+    {
+      "file": "table.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "patiotable_1",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 64918,
+      "sha256": "2330c273927fdc933965d18dcc4f6710b8b61b0c66084e8c985e155bf8765567"
+    },
+    {
+      "file": "flowerstand.png",
+      "bundle": "map-localslots_assets_assets/map/area1_e507b7720edec27193cc6997330e3342.bundle",
+      "bundleSha256": "7d00e91843c2f45f5c6dd2795761b423a1585f15363c73603780635ca216a8f3",
+      "texture": "shrubsC_1",
+      "originalSize": [
+        512,
+        512
+      ],
+      "crop": null,
+      "outputSize": [
+        512,
+        512
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 243425,
+      "sha256": "48a8fb1d4678f6444e7aeaa3a96b9e9a8e1e7ed347f5588f233d9f9feb1d913e"
+    },
+    {
+      "file": "rug.png",
+      "bundle": "map-localslots_assets_assets/map/area2_b64c561af852d0adb39aba2d2a3f1a58.bundle",
+      "bundleSha256": "b8653c43260817024b40d3c0e07bf9bb2d6b912fdf7492a885396204e81dc028",
+      "texture": "canteencarpet_1",
+      "originalSize": [
+        512,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        512,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 176914,
+      "sha256": "0879de0d0b3ade3e56db33dc74cbcc33494969db820498172887cb6f0b97ce82"
+    },
+    {
+      "file": "sofa.png",
+      "bundle": "map-localslots_assets_assets/map/area2_b64c561af852d0adb39aba2d2a3f1a58.bundle",
+      "bundleSha256": "b8653c43260817024b40d3c0e07bf9bb2d6b912fdf7492a885396204e81dc028",
+      "texture": "canteenchairc_2",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 67774,
+      "sha256": "4847d542f8d060fbd3bbf17bb2f54ea921cfc1735aa1276b14dad6b075983658"
+    },
+    {
+      "file": "bookshelf.png",
+      "bundle": "map-localslots_assets_assets/map/area3_fe13ed7dc05b03bd353f3274e61930e9.bundle",
+      "bundleSha256": "b52bac1c0d67694a521c561711c01d2fb71bc0241ad94855b380019e597cb389",
+      "texture": "kitchenrack_1",
+      "originalSize": [
+        512,
+        512
+      ],
+      "crop": null,
+      "outputSize": [
+        512,
+        512
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 228167,
+      "sha256": "3f8416cffde48bbb132f76b32454dacab2f3e697623f64e1ee1f66561185d577"
+    },
+    {
+      "file": "tea-set.png",
+      "bundle": "map-localslots_assets_assets/map/area3_fe13ed7dc05b03bd353f3274e61930e9.bundle",
+      "bundleSha256": "b52bac1c0d67694a521c561711c01d2fb71bc0241ad94855b380019e597cb389",
+      "texture": "kitchenutensilsb_2",
+      "originalSize": [
+        256,
+        256
+      ],
+      "crop": null,
+      "outputSize": [
+        256,
+        256
+      ],
+      "processing": "UnityPy RGBA decode; optional material swatch crop; no resizing",
+      "bytes": 74017,
+      "sha256": "41c66c4cf659a9a73c180cafb743413ee5aca41c0dc0c5590489ec148d0c0613"
+    }
+  ]
+}

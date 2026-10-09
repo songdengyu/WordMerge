@@ -1,7 +1,8 @@
+import { sceneText } from '../../scene/contentPresentation'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
 import { currentChapter, chapterReady } from '../../game/progression'
-import { CHAPTERS, DECORATIONS, OUTFITS, type StoryChapter } from '../../game/progressionConfig'
+import { CHAPTERS, DECORATIONS, OUTFITS, type StoryChapter } from '../../scene/contentPresentation'
 import { availableItems } from '../../game/inventory'
 import { MergePiece } from '../../components/MergePiece'
 import styles from './CampJournal.module.css'
@@ -21,8 +22,8 @@ export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime
       <button key={id} aria-pressed={tab === id} onClick={() => { setTab(id); setNotice('') }}>{name}</button>)}</nav>
     {tab === 'story' && <>
       <div className={styles.chapter} data-testid="chapter-card"><small>{progress.completed.length} / {CHAPTERS.length} 段回忆</small>
-        <h3>{chapter?.title ?? '这里，也是你的家'}</h3><p>{chapter?.goal ?? '首章试玩已完成。继续建设和照护，等待新的来信。'}</p>
-        {chapter && <><p className={styles.muted}>{chapter.hint}</p>
+        <h3>{chapter?.title ?? '这里，也是你的家'}</h3><p>{sceneText(chapter?.goal ?? '首章试玩已完成。继续建设和照护，等待新的来信。')}</p>
+        {chapter && <><p className={styles.muted}>{sceneText(chapter.hint)}</p>
           {!!chapter.requirements.length && <div className={styles.supplies}>{chapter.requirements.map((id, i) => <span key={i}>
             <MergePiece item={catalog.itemById.get(id)!} compact /><small>{catalog.itemById.get(id)!.name} {availableItems(state.production!.inventory).filter(item => item.itemId === id).length}/1</small>
           </span>)}</div>}
@@ -41,7 +42,7 @@ export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime
       {progress.completed.map(id => { const chapter = CHAPTERS.find(c => c.id === id)!, choice = chapter.choices.find(c => c.id === progress.choices[id])!
         return <article className={styles.memory} key={id}><h3>{chapter.title}</h3><p>你说：“{choice.text}”</p><p className={styles.muted}>{choice.reply}</p></article> })}
     </>}
-    <p role="status" className={styles.notice}>{notice}</p>
+    <p role="status" className={styles.notice}>{sceneText(notice)}</p>
   </dialog>
 }
 
@@ -57,9 +58,9 @@ export function StoryDialogue({ runtime }: { runtime: GameRuntime }) {
     <header><small>营地暂停 · {reading.line + 1}/{chapter.lines.length}</small><button ref={focus} disabled={disabled} onClick={() => void send({ type: 'story-close' })}>稍后再读</button></header>
     <div className={styles.storyArt} aria-hidden="true">{line.speaker === '林岚' ? '❀' : line.speaker === '你' ? '☘' : '✉'}</div>
     <small>第一章 · 有人等你回来</small><h2 id="story-title">{chapter.title}</h2>
-    <div className={styles.line}><strong>{line.speaker}</strong><p>{line.text}</p></div>
+    <div className={styles.line}><strong>{line.speaker}</strong><p>{sceneText(line.text)}</p></div>
     {reading.line < chapter.lines.length - 1 ? <button className={styles.primary} disabled={disabled} onClick={() => void send({ type: 'story-next', chapterId: chapter.id, line: reading.line })}>继续</button>
       : <div className={styles.choices}>{chapter.choices.map(choice => <button key={choice.id} disabled={disabled} onClick={() => void send({ type: 'story-choice', chapterId: chapter.id, choiceId: choice.id })}>{choice.text}</button>)}</div>}
-    <p role="status" className={styles.notice}>{notice}</p>
+    <p role="status" className={styles.notice}>{sceneText(notice)}</p>
   </section>
 }

@@ -6,6 +6,8 @@ import { footprint, localToWorld } from '../game/construction'
 import type { Cell } from '../game/world'
 import { gridToWorld } from './camera'
 import { houseStyle } from './houseStyle'
+import { drawShapedRoof } from './ShapedRoof'
+import { texturedSurface } from './SceneArt'
 
 type RoofView = { view: Container; art: Graphics; signature: string }
 type DoorView = RoofView & { amount: number; holdUntil: number }
@@ -53,6 +55,8 @@ export class BuildingAppearance {
         if (entry.signature !== signature) {
           entry.signature = signature
           const g = entry.art.clear()
+          if (blueprint.cells) drawShapedRoof(g, building, blueprint, style, anchor)
+          else {
           const ridge = (blueprint.height - 1) / 2
           const project = (x: number, y: number, level?: number) => {
             const p = gridToWorld(localToWorld(building, { x, y }))
@@ -76,18 +80,25 @@ export class BuildingAppearance {
             for (let i = 1; i < cuts.length; i++) {
               const low = cuts[i - 1], high = cuts[i], corners = [project(x0, low), project(x1, low), project(x1, high), project(x0, high)]
               g.poly(corners.flatMap(p => [p.x, p.y])).fill(segmentHp(roof, segment.id) < roofConfig.hp ? 0x96694f : style.roof)
-                .stroke({ width: 1, color: style.trim, alpha: .75 })
+              const materialRoof = building.blueprintId === 'cabin' && texturedSurface(g, 'roof', corners,
+                project(-.5, ridge), project(blueprint.width - .5, ridge), project(-.5, (low + high) / 2 < ridge ? -.5 : blueprint.height - .5),
+                segmentHp(roof, segment.id) < roofConfig.hp ? 0xb8a28b : (low + high) / 2 < ridge ? 0xffffff : 0xd2dfda)
               if ((low + high) / 2 < ridge) g.poly(corners.flatMap(p => [p.x, p.y])).fill({ color: 0xffffff, alpha: .08 })
+              for (const [a, b, exposed] of [[corners[0], corners[1], low === -.5], [corners[1], corners[2], x1 === blueprint.width - .5],
+                [corners[2], corners[3], high === blueprint.height - .5], [corners[3], corners[0], x0 === -.5]] as const) {
+                if (exposed) g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ color: style.trim, width: style.roofType === 'thatch' ? 3.5 : 2 })
+              }
               if (style.roofType === 'thatch') {
                 for (const t of [.2, .4, .6, .8]) {
                   const a = project(x0 + t, low), b = project(x0 + t, high)
                   g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: 1, color: style.trim, alpha: .6 })
                 }
-              } else {
+              } else if (!materialRoof) {
                 const a = project(x0, (low + high) / 2), b = project(x1, (low + high) / 2)
-                g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: .8, color: style.trim, alpha: .5 })
+                g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({ width: .8, color: style.trim, alpha: .32 })
               }
             }
+          }
           }
         }
       }
@@ -128,6 +139,10 @@ export class BuildingAppearance {
           const g = entry.art.clear(), h = 24
           for (const p of [a, opposite]) g.moveTo(p.x, p.y).lineTo(p.x, p.y - h - 2).stroke({ width: 3, color: 0x806247 })
           g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill(0xb6814e).stroke({ width: 1.5, color: style.trim })
+          if (building.blueprintId === 'cabin') {
+            const topA = { x: a.x, y: a.y - h }, topB = { x: b.x, y: b.y - h }
+            texturedSurface(g, 'wall', [a, b, topB, topA], topA, topB, a, hp < config.hp ? 0xc1ab8f : 0xe4cbb0)
+          }
           g.circle(a.x + (b.x - a.x) * .82, a.y + (b.y - a.y) * .82 - h / 2, 2).fill(0xf1d59a)
           if (hp < config.hp) g.moveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - h)
             .lineTo((a.x + b.x) / 2 - 3, (a.y + b.y) / 2 - h / 2).stroke({ width: 2, color: 0x4e3c30 })

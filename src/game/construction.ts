@@ -1,4 +1,4 @@
-import { BLUEPRINTS, blueprintById, type Blueprint, type BuildingPartConfig } from './buildingConfig'
+import { BLUEPRINTS, blueprintById, blueprintCells, type Blueprint, type BuildingPartConfig } from './buildingConfig'
 import { matchRequirements, type InventoryState, type ProductionState } from './inventory'
 import { PathSearch, type NavigationGrid } from './navigation'
 import { edgeKey, sameCell, type Cell, type WorldMap } from './world'
@@ -39,7 +39,7 @@ export function localToWorld(building: Pick<Building, 'origin' | 'rotation'>, ce
   return { x: building.origin.x + rotated.x, y: building.origin.y + rotated.y }
 }
 export function footprint(building: Pick<Building, 'origin' | 'rotation'>, blueprint: Blueprint) {
-  return Array.from({ length: blueprint.width * blueprint.height }, (_, i) => localToWorld(building, { x: i % blueprint.width, y: Math.floor(i / blueprint.width) }))
+  return blueprintCells(blueprint).map(cell => localToWorld(building, cell))
 }
 export function buildingAt(state: ConstructionState, cell: Cell) {
   return state.buildings.find(building => footprint(building, blueprintById(building.blueprintId)!).some(other => sameCell(other, cell)))

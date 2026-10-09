@@ -1,3 +1,4 @@
+import { sceneText } from '../../scene/contentPresentation'
 import { companionById, companionLocked, companionName } from '../../game/survival'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameRuntime } from '../../game/GameRuntime'
@@ -21,7 +22,7 @@ import { TorchButton } from './TorchButton'
 import { DecorationPanel } from './DecorationPanel'
 import { currentChapter, decorError } from '../../game/progression'
 import { reachableRegionGate } from '../../game/regionUnlock'
-import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../game/progressionConfig'
+import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../scene/contentPresentation'
 import { footprint, localToWorld } from '../../game/construction'
 import { BLUEPRINTS, blueprintById } from '../../game/buildingConfig'
 import type { Rotation } from '../../game/construction'
@@ -222,7 +223,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
         <button aria-label="缩小地图" onClick={() => scene.current?.zoomBy(1 / 1.2)}>−</button>
       </div>
     </div>
-    {toast && !wheelOpen && <div className={styles.toast} role="status">{toast.text}</div>}
+    {toast && !wheelOpen && <div className={styles.toast} role="status">{sceneText(toast.text)}</div>}
     {placement ? <section className={styles.placement} data-testid="placement-panel">
       <strong>{BLUEPRINTS.find(blueprint => blueprint.id === placement.blueprintId)?.name} · 选择位置</strong>
       <p>轻点地图选址，拖动查看周围 · 朝向 {placement.rotation * 90}°</p>
@@ -237,7 +238,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </section> : decorationPlacement ? <section className={styles.placement} data-testid="decoration-placement">
       <strong>{DECORATIONS.find(d => d.id === decorationPlacement.kind)!.name} · 布置营地</strong>
       <p>轻点已建成的木屋地板选择位置，可随时移动或收回。</p>
-      <p>{decorationError ?? '这里可以摆放，不阻挡行走'}</p>
+      <p>{sceneText(decorationError ?? '这里可以摆放，不阻挡行走')}</p>
       <div><button onClick={() => setDecorationPlacement(null)}>取消</button><button disabled={!!decorationError || paused} onClick={async () => {
         const result = await runtime.dispatch({ type: 'decor-place', ...decorationPlacement })
         if (!result.accepted) message(result.reason)
@@ -249,7 +250,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </section> : <footer className={styles.footer}>
       <div className={styles.footerCard}>
         <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
-          <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{chapter?.goal ?? '首章完成 · 继续建设与装扮'}</p></div></button>
+          <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{sceneText(chapter?.goal ?? '首章完成 · 继续建设与装扮')}</p></div></button>
         <div className={styles.footerActions}>
           <button onClick={() => setShopOpen(true)}>商店</button>
           <button onClick={() => setDecorationOpen(true)}>装饰</button>

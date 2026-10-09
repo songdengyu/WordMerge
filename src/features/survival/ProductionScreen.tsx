@@ -1,3 +1,4 @@
+import { sceneText } from '../../scene/contentPresentation'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 import { MergePiece } from '../../components/MergePiece'
 import { WAREHOUSE_EXPANSION_COSTS } from '../../data/mergeRules'
@@ -10,7 +11,7 @@ import { SUPPLY_NAMES, type QuickSupplyCommand } from '../../game/quickSupply'
 import { SURVIVAL_RULES } from '../../game/survivalConfig'
 import { TAMING_ORDER, tamingName, type TamingCommand } from '../../game/taming'
 import { resourceOrderId, resourceTool, type EconomyCommand } from '../../game/economy'
-import { RESOURCE_RULES } from '../../game/economyConfig'
+import { RESOURCE_RULES } from '../../scene/contentPresentation'
 import { CurrencyIcon } from './Shop'
 import { StaminaValue } from './ResourceFeedback'
 import styles from './ProductionScreen.module.css'
@@ -196,7 +197,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
       else void send({ type: 'item-take', instanceId: item.id, targetIndex: index })
     }}>取回棋盘</button>}
     {config.itemType === 'normal' && <button className={styles.discard} onClick={() => {
-      if (window.confirm(`确定丢弃「${config.name}」吗？`)) void send({ type: 'item-discard', instanceId: item.id })
+      if (window.confirm(`确定丢弃「${sceneText(config.name)}」吗？`)) void send({ type: 'item-discard', instanceId: item.id })
     }}>丢弃</button>}
   </div>
 
@@ -279,7 +280,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
           const text = result.accepted ? result.message ?? '已安排工程' : result.reason
           setNotice(text); message(text)
           if (result.accepted) close()
-        }}><OrderTypeIcon kind={order.mode} /><strong>{config.name}</strong><div className={styles.requirements}>{materials.map((id, index) => <span key={index} className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(id)!} compact /></span>)}</div>
+        }}><OrderTypeIcon kind={order.mode} /><strong>{sceneText(config.name)}</strong><div className={styles.requirements}>{materials.map((id, index) => <span key={index} className={ready ? styles.owned : ''}><MergePiece item={catalog.itemById.get(id)!} compact /></span>)}</div>
           <small>{[...counts].map(([id, needed]) => `${catalog.itemById.get(id)!.name} ${availableItems(inventory).filter(item => item.itemId === id).length}/${needed}`).join(' · ')}</small>
           <small>{job ? job.phase === 'building' ? '施工中 · 保护生效' : '已预留 · 可在建设页取消' : ready ? '领取工程 · 自动前往' : '合成备料 · 棋盘与仓库'}</small></button> }
       }),
@@ -309,7 +310,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
         return <button key={index} data-board-cell={index} data-testid={`board-cell-${index}`} data-instance-id={slot.instanceId ?? ''}
           data-item-id={item?.itemId ?? ''} data-lock={slot.lock} data-reserved={item?.reservedBy ?? ''}
           className={`${styles.cell} ${styles[`lock${slot.lock}`]} ${!item ? styles.empty : ''} ${target === index ? styles.target : ''}`}
-          aria-label={slot.lock === 2 ? `未探索格 ${index + 1}` : config ? `${config.name} 等级 ${config.level} 棋盘格 ${index + 1}` : `空格 ${index + 1}`}
+          aria-label={slot.lock === 2 ? `未探索格 ${index + 1}` : config ? `${sceneText(config.name)} 等级 ${config.level} 棋盘格 ${index + 1}` : `空格 ${index + 1}`}
           onPointerDown={event => item && down(event, item.id, false)}
           onClick={event => { if (event.detail === 0 && item) tap(item.id) }}>
           {slot.lock === 2 ? <span className={styles.fog}>✧</span> : config && <span className={ghost?.id === item?.id ? styles.hidden : ''}><MergePiece item={config} /></span>}
@@ -320,9 +321,9 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
         </button>
       })}
     </div></div>
-    <section className={styles.info}><div><strong>{config ? `${config.name} · Lv.${config.level}` : '准备好下一份物资'}</strong>
+    <section className={styles.info}><div><strong>{config ? `${sceneText(config.name)} · Lv.${config.level}` : '准备好下一份物资'}</strong>
       <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}
-      {!!notice && <p className={styles.feedback} role="status">{notice}</p>}
+      {!!notice && <p className={styles.feedback} role="status">{sceneText(notice)}</p>}
     </section>
     <nav className={styles.footer}><button onClick={() => setWarehouseOpen(true)}>▦ 仓库 {usedWarehouse}/{inventory.warehouse.length}</button>
       <button onClick={close}>返回营地</button></nav>
@@ -337,7 +338,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
             {item && <MergePiece item={catalog.itemById.get(item.itemId)!} compact />}{item?.reservedBy && <small className={styles.reserved}>预留</small>}</button>
         })}</div>
         {item?.location.kind === 'warehouse' && <div className={styles.warehouseInfo}><strong>{config?.name}</strong><p>{config?.description}</p>{selectedActions}</div>}
-        <p className={styles.notice}>{notice}</p>
+        <p className={styles.notice}>{sceneText(notice)}</p>
         <button className={styles.expand} disabled={expansionCost === undefined} onClick={() => void send({ type: 'warehouse-expand', expectedCapacity: inventory.warehouse.length })}>
           {expansionCost === undefined ? '已达最大容量' : `扩充 3 格 · ◇ ${expansionCost}`}</button>
       </section>

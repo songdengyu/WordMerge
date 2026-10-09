@@ -1,8 +1,9 @@
+import { sceneText } from '../../scene/contentPresentation'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
-import { SHOP_PRODUCTS, RESOURCE_RULES, type ShopProduct } from '../../game/economyConfig'
+import { SHOP_PRODUCTS, RESOURCE_RULES, type ShopProduct } from '../../scene/contentPresentation'
 import { ownsProduct } from '../../game/economy'
-import { DECORATIONS, OUTFITS } from '../../game/progressionConfig'
+import { DECORATIONS, OUTFITS } from '../../scene/contentPresentation'
 import { decorAvailable } from '../../game/progression'
 import { MergePiece } from '../../components/MergePiece'
 import { HouseArt, OutfitArt, DecorationArt } from './ContentArt'
@@ -68,7 +69,7 @@ export function Shop({ runtime, close, place, collection, merge }: { runtime: Ga
       <p className={styles.hint}>摆件可重复购买，每次获得 1 件。人物皮肤永久解锁；购买后在装饰系统中管理。</p>
       <button className={styles.collection} onClick={collection}>打开装饰收藏</button>
     </div>
-    <footer><p role="status">{notice || '图纸和皮肤永久解锁，摆件按件入库'}</p>
+    <footer><p role="status">{sceneText(notice || '图纸和皮肤永久解锁，摆件按件入库')}</p>
       <button className={styles.returnButton} onClick={close}>回到地图</button></footer>
   </dialog>
 }

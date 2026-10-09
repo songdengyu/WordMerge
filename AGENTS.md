@@ -14,6 +14,8 @@
 
 ## 实施要点
 
+- 包内素材后续已扩到 20 图，地图静态物件及九类家具都有 Sprite；床用 `outchair_C` 长椅替代但保留 `bed` 规则 / 存档身份。`contentPresentation.ts` 仅派生 UI 名称与剧情文字，不能用于替换 Runtime 指纹配置。`sceneArtCatalog` 共用锚点，地毯在地面层，其余家具和长椅参与墙体深度排序。映射与验证见 `docs/implementation/SCENE-ART-EXPANSION.md`。
+- 首轮图片素材仅替换普通树、`chair`、`planter` 及 `cabin` 表面。`sceneArtCatalog.ts` 管理比例、脚底和气泡锚点，`SceneArt.ts` 单次加载 / alpha 点击 / 投影材质，失败保留矢量回退。家具预览与场景共用容器并参与墙段深度排序；屋顶及地板保留逐格耐久缺口、共享 UV。来源在 `public/assets/survival/scene/sources.json`，只读提取脚本为 `scripts/extract_scene_samples.py`，不修改经济 / 建筑指纹或存档。验证与桌面性能局限见 `docs/implementation/SCENE-ART-SAMPLES.md`。
 - 深夜与火把见 `docs/implementation/NIGHT-LIGHTING.md`。`lighting.ts` 配置两根 201 木枝 / 60 在线模拟秒及光照半径；Runtime `torch-light` 原子扣料，`survival.torchRemaining` 保存剩余时间，旧 schema 4 缺失视为未点燃，校验有限 0～60，不清档。世界暂停时停烧，合成继续，跳时不补扣；重复点燃不扣料。`TorchButton` 位于定位右侧，仅显示和发命令。`Atmosphere` 软遮罩在深夜隐藏无光地图，用随镜头缩放的火把 / 提灯 / 营火光圈揭开；原营火现为常亮光源、场景提灯随摆放移除，暂不耗燃料或影响温度 / AI。照明动画不能参与燃料结算。
 - 高阶工具与林地奖励扩展见 `docs/implementation/GROVE-TOOLS-REWARDS.md`。工具链斧头 252→253→254、石镐 262→263→264，同链高阶可替代低阶且优先最低级，预留和气泡必须使用实际选中工具。林地大屋初始地基已完成并一次计入 20 经验；旧已建损伤保留、未开工订单释放、已扣料施工继续。雕像 `grove-statue` 坐标保存在 `regionContent.statue`，避开建筑 / 角色 / 工作位 / 已保存路径，用 264 拆除暂奖 30 钻石，移除复用经济记录。目录、经济和区域版本显式迁移，不能清档。Runtime 的临时 `LootFeedback` 只在实际拆除 / 待领领取成功后发出；`ResourceDrops` 负责场景图标、名称、数量与满仓“待领取”表现，不写存档或参与发奖。
 
@@ -35,6 +37,8 @@
 - 合成订单以 Runtime 的临时 `productionOrderFocus` 记住当前地图需求，ProductionScreen 排到首位、绘制绿色边框与类型角标；点击可换单，完成 / 取消后回退首单。选择不写存档、不更改库存。StatusIcons 观察 HP 下降显示红色飘字，动画只负责表现，不参与伤害结算。林岚位置与命中共享 CampScene 的 `RESIDENT_CELL`，当前为 `(11, 8)`。
 - 状态快捷补给由 `quickSupply.ts` 经 Runtime 提交，复用实际物品使用，不另建库存；补给订单放在 `production.supplyOrders`，按状态去重，schema 4 旧档缺少该字段时补空列表。当前支持生命 / 饱食 / 水分，温度道具待确认。详情见 `docs/implementation/QUICK-SUPPLY.md`。
 - M3 蓝图参数在 `src/game/buildingConfig.ts`，内容指纹参与存档兼容性。工程原位预留，到工作位才扣料；开工不可中断且主角 / 当前部件免伤。墙门格边导航由 Runtime 建筑状态派生，Pixi 不持有权威施工或耐久状态。
+- 异形图纸用可选 `Blueprint.cells` 保存本地占格，`blueprintCells` 为旧图纸生成原矩形并保留顺序；所有占地、室内、地板 / 屋顶分段与摆放检查使用实际占格，宽高仅为外包尺寸。森语转角屋 12 格 / 320 金币，花庭小院 18 格 / 45 钻石；新外围墙顺序固定，旧墙段 ID 不改变。凹口是室外，屋顶不能覆盖；旧经济指纹 `5723f3b5` 显式迁移，旧购买列表拒绝伪造新增商品，不清档。详见 `docs/implementation/FOREST-ART-SHAPED-HOUSES.md`。
+- 场景自然变体由 `objectAppearance` 按物件 ID 派生，绘制 / 命中 / 气泡共用尺寸；不要移动逻辑落地位置。`TerrainArt` 在基础地形之后画边缘与小细节；`ShapedRoof` 按真实占格共享顶点拼顶。墙段 / 床独立加入 actors 深度排序，家具同层、地毯在地面层，屋顶仍交由 BuildingAppearance 管理。静态图形仅在相关状态变化时重建。
 - 建造仍按图纸组一次完成；围墙按 `edgeN`、地基 / 屋顶按 `tileX-Y` 保存 `parts[id].segments` 独立耐久，组 `hp` 仅为最小值汇总。攻击和修复带 `segmentId`，修复订单为 `buildingId:partId:segmentId`；只恢复 / 保护目标段，首次建造保护整组。导航只阻挡尚存墙段。旧档先验证后补段耐久并迁移旧修复 ID / 工程 / 预留，不清档、不补扣或重发经验。新建与区域补入都用 `createBuildingParts`；不得直接写组 hp 代替段耐久。屋内点击走普通移动，不再拦截为建筑选择；完工进入气泡与照护页走进木屋按钮已移除。见 `docs/implementation/BUILDING-SEGMENTS.md`。
 - 小木屋 / 大屋单段墙耐久分别为 20 / 30；`migrations/wallDurability.ts` 兼容原建筑指纹 `d146dff6` 与区域指纹 `b3fb1516`，将旧 160 / 320 耐久按剩余比例迁移，已破坏的墙仍为 0，兼容旧整组和独立段存档。只转换墙体，不重置工程、预留或经验；原 M3 工期与旧 M4 / M5 迁移链仍保留。
 - 建造交互改为地图材料气泡：满足条件变绿、点击直接安排；缺料点击去合成，不开材料详情子界面。建造 / 修复统一 2 秒，旧 M3 工期按已完成比例迁移，不能清档或重发经验。

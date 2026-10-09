@@ -2,26 +2,26 @@ import { useRef, useState } from 'react'
 import type { GameRuntime, UiSnapshot } from '../../game/GameRuntime'
 import { dayCycle, TIME_PRESETS, type EnvironmentCommand } from '../../game/environment'
 import { WEATHER, type WeatherId } from '../../game/survivalConfig'
-import { TEST_VITAL_NAMES, type TestVital, type TestVitalCommand } from '../../game/testControls'
+import { TEST_VITAL_NAMES, TEST_CURRENCY_NAMES, type TestVital, type TestVitalCommand, type TestCurrency, type TestCurrencyCommand } from '../../game/testControls'
 import styles from './TestControls.module.css'
 
 export function TestControls({ runtime, state, message, reset }: {
   runtime: GameRuntime; state: UiSnapshot; message: (text: string) => void; reset: () => void
 }) {
-  const [panel, setPanel] = useState<'main' | 'environment' | 'vitals' | null>(null)
+  const [panel, setPanel] = useState<'main' | 'environment' | 'vitals' | 'currency' | null>(null)
   const [busy, setBusy] = useState(false), lock = useRef(false)
   const disabled = busy || state.pauseReasons.length > 0
-  const send = async (command: EnvironmentCommand | TestVitalCommand) => {
+  const send = async (command: EnvironmentCommand | TestVitalCommand | TestCurrencyCommand) => {
     if (lock.current) return
     lock.current = true; setBusy(true)
     try { const result = await runtime.dispatch(command); message(result.accepted ? result.message ?? '已调整' : result.reason) }
     finally { lock.current = false; setBusy(false) }
   }
-  const title = panel === 'environment' ? '时间与天气' : panel === 'vitals' ? '状态增减' : '测试'
+  const title = panel === 'environment' ? '时间与天气' : panel === 'vitals' ? '状态增减' : panel === 'currency' ? '金币与钻石' : '测试'
   return <div className={styles.tests}>
     <button type="button" className={styles.toggle} onClick={() => setPanel(panel ? null : 'main')}
       aria-expanded={panel !== null} aria-controls="game-test-panel">测试</button>
-    {panel && <section id="game-test-panel" className={styles.panel} aria-label={panel === 'main' ? '测试面板' : panel === 'environment' ? '时间与天气测试' : '状态增减测试'}
+    {panel && <section id="game-test-panel" className={styles.panel} aria-label={panel === 'main' ? '测试面板' : `${title}测试`}
       onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setPanel(null) } }}>
       <header>
         {panel !== 'main' && <button type="button" onClick={() => setPanel('main')} aria-label="返回测试面板">‹</button>}
@@ -31,6 +31,7 @@ export function TestControls({ runtime, state, message, reset }: {
       {panel === 'main' ? <div className={styles.menu}>
         <button type="button" onClick={() => setPanel('environment')}>时间与天气 <span aria-hidden="true">›</span></button>
         <button type="button" onClick={() => setPanel('vitals')}>状态增减 <span aria-hidden="true">›</span></button>
+        <button type="button" onClick={() => setPanel('currency')}>金币与钻石 <span aria-hidden="true">›</span></button>
         <button type="button" className={styles.danger} title="清除所有数据" onClick={reset}>删</button>
       </div> : panel === 'environment' ? <>
         <small>时段</small><div className={styles.presets}>{TIME_PRESETS.map(preset => <button type="button" key={preset.id} disabled={disabled}
@@ -38,6 +39,15 @@ export function TestControls({ runtime, state, message, reset }: {
         <small>天气</small><div className={styles.presets}>{(Object.keys(WEATHER) as WeatherId[]).map(weather => <button type="button" key={weather} disabled={disabled}
           aria-pressed={state.survival.weather === weather} onClick={() => void send({ type: 'test-weather', weather })}>{WEATHER[weather].icon} {WEATHER[weather].name}</button>)}</div>
         <p>切换到下一次该时段并保存，不补算跳过的消耗。天气持续到下次自然黎明。</p>
+      </> : panel === 'currency' ? <>
+        <div className={styles.vitals}>{(Object.keys(TEST_CURRENCY_NAMES) as TestCurrency[]).map(currency => <div className={`${styles.vitalRow} ${styles.currencyRow}`} key={currency}>
+          <span>{TEST_CURRENCY_NAMES[currency]} <b>{state.production!.inventory[currency]}</b></span>
+          <button type="button" disabled={disabled || state.production!.inventory[currency] <= 0} aria-label={`${TEST_CURRENCY_NAMES[currency]}减10000`}
+            onClick={() => void send({ type: 'test-currency', currency, delta: -10000 })}>−10000</button>
+          <button type="button" disabled={disabled} aria-label={`${TEST_CURRENCY_NAMES[currency]}加10000`}
+            onClick={() => void send({ type: 'test-currency', currency, delta: 10000 })}>+10000</button>
+        </div>)}</div>
+        <p>每次调整 10000，最低为 0，自动保存。</p>
       </> : <>
         <div className={styles.vitals}>{(Object.keys(TEST_VITAL_NAMES) as TestVital[]).map(stat => <div className={styles.vitalRow} key={stat}>
           <span>{TEST_VITAL_NAMES[stat]} <b>{Math.round(state.production!.vitals[stat])}</b></span>

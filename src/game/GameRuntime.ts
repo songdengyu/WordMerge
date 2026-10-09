@@ -19,7 +19,7 @@ import { acceptRescue, actorPosition, advanceSurvival, applySurvivalCommand, beg
 import { applyProgressionCommand, applyStoryCommand, createProgression, discoverRegions, progressedWorld, upgradeDecorInventory, type ProgressionCommand, type ProgressionState, type StoryCommand } from './progression'
 import { testEnvironment, type EnvironmentCommand } from './environment'
 import { applyQuickSupply, type QuickSupplyCommand } from './quickSupply'
-import { TEST_VITAL_NAMES, type TestVitalCommand } from './testControls'
+import { TEST_VITAL_NAMES, TEST_CURRENCY_NAMES, type TestVitalCommand, type TestCurrencyCommand } from './testControls'
 import { REGION_UNLOCK_SECONDS, requestRegionUnlock, type RegionUnlockCommand } from './regionUnlock'
 import { REGIONS } from './progressionConfig'
 import { createRegionContent } from './regionContentConfig'
@@ -31,7 +31,7 @@ import { burnTorch, lightTorch, type LightingCommand } from './lighting'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TestCurrencyCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -238,6 +238,17 @@ export class GameRuntime {
         }
         if (wasTravel) this.stopMovement()
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
+      }
+      if (command.type === 'test-currency') {
+        if (!Object.prototype.hasOwnProperty.call(TEST_CURRENCY_NAMES, command.currency) || (command.delta !== -10000 && command.delta !== 10000)) {
+          return { accepted: false, reason: '无效的货币测试参数' } as CommandResult
+        }
+        const inventory = this.production.inventory
+        const value = Math.max(0, inventory[command.currency] + command.delta)
+        if (!Number.isSafeInteger(value)) return { accepted: false, reason: '货币数量已达上限' } as CommandResult
+        this.production = { ...this.production, inventory: { ...inventory, [command.currency]: value } }
+        this.feedback = `${TEST_CURRENCY_NAMES[command.currency]}已调整为 ${value}`
+        return { accepted: true, message: this.feedback } as CommandResult
       }
       if (command.type === 'test-vital') {
         if (!Object.prototype.hasOwnProperty.call(TEST_VITAL_NAMES, command.stat) || (command.delta !== -10 && command.delta !== 10)) {

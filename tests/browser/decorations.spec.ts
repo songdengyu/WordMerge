@@ -59,15 +59,22 @@ test('new decoration focuses and defaults to the nearest house instead of the fi
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-visible-roofs', 'b1,b2')
 })
 
-for (const rotation of [0, 1]) test(`roof hides indoors and door swings both ways with rotation ${rotation}`, async ({ page }) => {
-  const inside = rotation === 0 ? { x: 8, y: 10 } : { x: 7, y: 12 }
-  const outside = rotation === 0 ? { x: 8, y: 13 } : { x: 4, y: 10 }
+for (const rotation of [0, 1, 2, 3]) test(`roof hides indoors and door swings both ways with rotation ${rotation}`, async ({ page }) => {
+  const project = (x: number, y: number) => {
+    const [rx, ry] = [[x, y], [-y, x], [-x, -y], [y, -x]][rotation]
+    return { x: 7 + rx, y: 10 + ry }
+  }
+  const inside = project(1, 0), outside = project(1, 3)
   await seed(page, save => {
+    // New tree artwork has a wider visible canopy. Keep door clicks clear of foreground
+    // objects in this navigation fixture; tree picking has separate real-pointer coverage.
+    save.data.economy.removedObjects = ['t13', 't14', 't17', 'r03', 'sign']
     save.data.construction.buildings[0].rotation = rotation
     save.data.cell = outside
     save.data.motion = { version: 1, position: outside }
   })
   const scene = page.getByTestId('camp-scene'), game = page.getByTestId('survival-game')
+  await expect(game).toHaveAttribute('data-building-count', '1')
   const doorAmount = async () => JSON.parse((await scene.getAttribute('data-door-amounts')) ?? '{}')['b1:door:whole']
   const walkTo = async (cell: { x: number; y: number }) => {
     const [x, y, zoom] = (await scene.getAttribute('data-camera'))!.split(',').map(Number)

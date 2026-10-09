@@ -1,3 +1,4 @@
+import { sceneText } from './contentPresentation'
 import { Container, Graphics, Text } from 'pixi.js'
 import type { GameCommand, GameRuntime, UiSnapshot } from '../game/GameRuntime'
 import { BLUEPRINTS, blueprintById } from '../game/buildingConfig'
@@ -10,9 +11,10 @@ import { TAMING_SECONDS } from '../game/taming'
 import { REGIONS } from '../game/progressionConfig'
 import { REGION_UNLOCK_SECONDS, regionGates } from '../game/regionUnlock'
 import { gridToWorld, type Camera, type Point } from './camera'
-import { CLEAR_SECONDS, RESOURCE_RULES, TOOL_CHAINS } from '../game/economyConfig'
+import { CLEAR_SECONDS, RESOURCE_RULES, TOOL_CHAINS } from './contentPresentation'
 import { resourceTool } from '../game/economy'
-import { objectHeight } from './worldObjectStyle'
+import { objectAppearance } from './worldObjectStyle'
+import { spriteMetrics } from './sceneArtCatalog'
 
 type Material = { id: number; owned: number; needed: number }
 type Bubble = Point & {
@@ -78,7 +80,7 @@ export class BuildingBubbles {
       const reserved = job?.reservedIds[0]
       const toolId = (reserved ? inventory.items[reserved]?.itemId : resourceTool(state.production!, rule.tool)?.itemId) ?? rule.tool
       const owned = job ? 1 : available.filter(i => i.itemId === toolId).length, ready = !job && owned > 0
-      const anchor = gridToWorld(object), x = anchor.x - RADIUS, y = anchor.y - Math.max(48, objectHeight(object.kind) + 8) - MATERIAL_HEIGHT
+      const anchor = gridToWorld(object), x = anchor.x - RADIUS, y = anchor.y - Math.max(48, objectAppearance(object).bubbleHeight) - MATERIAL_HEIGHT
       result.push({ id: `resource-bubble-${object.id}`, x, y, width: SIZE, height: MATERIAL_HEIGHT, kind: 'materials',
         materials: [{ id: toolId, owned, needed: 1 }], ready, phase: job?.phase ?? 'materials', disabled: !!job,
         progress: job?.phase === 'clearing' ? 1 - job.remaining / CLEAR_SECONDS : 0,
@@ -112,7 +114,7 @@ export class BuildingBubbles {
         const visualSegment = segment ?? (part.built ? buildingSegments(blueprint, config)[0] : undefined)
         const point = visualSegment ? gridToWorld(localToWorld(building, visualSegment.edge
           ? { x: (visualSegment.edge.from.x + visualSegment.edge.to.x) / 2, y: (visualSegment.edge.from.y + visualSegment.edge.to.y) / 2 } : visualSegment.cell)) : anchor
-        const height = visualSegment ? { foundation: 4, wall: 28, door: 18, roof: 54, bed: 16 }[config.kind] : rise
+        const height = visualSegment ? { foundation: 4, wall: 28, door: 18, roof: 54, bed: spriteMetrics('bed').bubbleHeight }[config.kind] : rise
         return { id: `build-bubble-${orderId}`, x: point.x - (materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP) / 2, y: point.y - height - MATERIAL_HEIGHT - 5,
           width: materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP, height: MATERIAL_HEIGHT, kind: 'materials', materials,
           ready, phase: job?.phase ?? 'materials', disabled: !!job,
@@ -217,7 +219,7 @@ export class BuildingBubbles {
     }
     view.addChild(ring, focus); this.view.addChild(view)
     const button = document.createElement('button')
-    button.type = 'button'; button.setAttribute('aria-label', model.label); button.disabled = model.disabled
+    button.type = 'button'; button.setAttribute('aria-label', sceneText(model.label)); button.disabled = model.disabled
     button.dataset.testid = model.id; button.dataset.ready = String(model.ready); button.dataset.phase = model.phase
     button.dataset.color = color.toString(16); button.dataset.renderer = 'pixi'
     button.style.cssText = 'position:absolute;left:0;top:0;margin:0;padding:0;border:0;opacity:0;pointer-events:none;transform-origin:0 0'
