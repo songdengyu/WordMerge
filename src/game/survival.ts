@@ -10,7 +10,7 @@ import { ENEMIES, SURVIVAL_RULES as RULES, WEATHER, type EnemyKind, type Weather
 import { sameCell, type Cell, type WorldMap } from './world'
 import { BOAR_AGGRO_RANGE, REGION_BOARS } from './regionContentConfig'
 import { combatResult, COMBAT_SECONDS, COMBAT_RESULT_SECONDS, type CompanionCombat } from './companionCombat'
-import { canWalkLine, moveTarget, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
+import { canWalkLine, manualMovePath, moveTarget, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
 
 export type ActorTarget = { kind: 'player' } | { kind: 'companion'; id?: string } | { kind: 'enemy'; id: string }
   | ({ kind: 'part'; stand: Cell } & BuildingTarget) | { kind: 'point'; cell: Cell }
@@ -29,6 +29,8 @@ export interface Failure {
   id: number; day: number; cause: 'enemy' | 'environment'; losses: { id: string; itemId: number }[]
 }
 export interface SurvivalState {
+  /** Missing in older schema 4 saves means unlit. */
+  torchRemaining?: number
   weather: WeatherId; forecast: WeatherId; weatherDay: number; randomState: number
   environmentRemaining: number; decisionRemaining: number; spawnRemaining: number; raidNight: number
   nextEnemyId: number; enemies: Enemy[]; companion: Companion; recruits?: Companion[]; taming: TamingState
@@ -457,9 +459,12 @@ export function applySurvivalCommand(original: SurvivalState, source: Production
   if (buddy.status !== 'active') return reject(`${companionName(buddy)}还不能参战，请先救助或治疗`)
   if (companionLocked(state, buddy)) return reject(`${companionName(buddy)}正在战斗，请等战斗结束`)
   if (command.type === 'companion-move') {
-    const grid = constructionNavigation(world, construction), target = moveTarget(grid, command.target)
-    if (!target || !setRoute(buddy, { kind: 'point', cell: { ...target } }, target, grid, world)) return reject('伙伴无法到达该位置')
-    buddy.mode = 'move'; buddy.guard = { ...target }; buddy.orderedEnemy = null
+    const grid = constructionNavigation(world, construction), position = actorPosition(buddy)
+    const route = manualMovePath(grid, position, command.target, world.config.chunks.length * 256)
+    if (!route) return reject('伙伴当前位置暂时无法移动')
+    buddy.motion = { version: 1, position: { ...position } }; buddy.cell = pointCell(position)
+    buddy.route = route.path; buddy.progress = 0; buddy.target = { kind: 'point', cell: { ...route.destination } }
+    buddy.mode = 'move'; buddy.guard = { ...route.destination }; buddy.orderedEnemy = null
     state.decisionRemaining = 0
     return accept(`${companionName(buddy)}正在前往指定位置`)
   }

@@ -2,7 +2,7 @@ import type { SpawnVisibility } from './encounters'
 import { requestTaming, releaseTaming, tamingAnimal, tamingName, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
 import { SURVIVAL_RULES } from './survivalConfig'
 import type { NavigationGrid } from './navigation'
-import { canWalkLine, finitePoint, moveTarget, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
+import { canWalkLine, finitePoint, manualMovePath, moveTarget, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { applyInventoryCommand, createProduction, type InventoryCommand, type ProductionState } from './inventory'
 import type { ProductionCatalog } from './productionConfig'
@@ -27,10 +27,11 @@ import { populateRegionContent } from './regionContent'
 import { applyEconomyCommand, createEconomy, releaseClearing, resourceOrderId, spendActionNeeds, spendMovementNeeds, type EconomyCommand, type EconomyState } from './economy'
 import { CLEAR_SECONDS, RESOURCE_RULES, toolMeets } from './economyConfig'
 import { exchangeItems } from './inventory'
+import { burnTorch, lightTorch, type LightingCommand } from './lighting'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand | EconomyCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -192,6 +193,10 @@ export class GameRuntime {
     const priorDay = Math.floor((this.gameMinutes() - 360) / 1440)
     let timeJumped = false
     this.elapsedSeconds += FIXED_STEP_MS / 1000
+    const burning = this.survival.torchRemaining ?? 0
+    const torchExpired = burning > 0 && burnTorch(burning, FIXED_STEP_MS / 1000) === 0
+    if (burning > 0) this.survival = { ...this.survival, torchRemaining: burnTorch(burning, FIXED_STEP_MS / 1000) }
+    if (torchExpired) this.feedback = '火把已熄灭，消耗 2 根木枝可再次点亮'
     const pending = this.commands.splice(0)
     this.constructionChanged = false
     const results = pending.map(({ command }) => {
@@ -205,9 +210,17 @@ export class GameRuntime {
         if (this.construction.jobs[0]?.phase === 'building') return { accepted: false, reason: '正在施工，完成后才能移动' } as CommandResult
         if (this.construction.jobs.length) return { accepted: false, reason: '已安排工程，请先取消前往或排队中的工程' } as CommandResult
         this.survival = { ...this.survival, resting: false }
-        return this.move(command.target)
+        return this.move(command.target, true)
       }
       if (!this.catalog || !this.production) return { accepted: false, reason: '物品配置尚未就绪' } as CommandResult
+      if (command.type === 'torch-light') {
+        const result = lightTorch(this.production, this.survival.torchRemaining ?? 0, this.catalog)
+        if (!result.accepted) return result
+        this.production = result.production
+        this.survival = { ...this.survival, torchRemaining: result.remaining }
+        this.feedback = result.message
+        return { accepted: true, message: result.message } as CommandResult
+      }
       if (command.type === 'resource-interact' || command.type === 'resource-cancel' || command.type === 'shop-buy' || command.type === 'loot-claim') {
         const wasTravel = this.economy.clearing?.phase === 'travel' && command.type === 'resource-cancel' && command.objectId === this.economy.clearing.objectId
         const result = applyEconomyCommand(this.economy, this.production, this.construction, this.progression, this.world, this.point, this.catalog,
@@ -374,7 +387,7 @@ export class GameRuntime {
     this.sceneSnapshot = this.makeSceneSnapshot(previous, previousCompanion, previousEnemies)
     this.tick++
     if (pending.length || survivalChanged || this.constructionChanged || this.tick % 2 === 0) this.publish()
-    const critical = this.constructionChanged || survivalChanged || results.some(result => result.accepted)
+    const critical = torchExpired || this.constructionChanged || survivalChanged || results.some(result => result.accepted)
     if (critical || this.elapsedSeconds - this.lastAutomaticSave >= 2) {
       this.lastAutomaticSave = this.elapsedSeconds
       const saved = this.checkpoint()
@@ -386,8 +399,15 @@ export class GameRuntime {
     } else pending.forEach((entry, index) => entry.resolve(results[index]))
   }
 
-  private move(target: Cell): CommandResult {
+  private move(target: Cell, manual = false): CommandResult {
     if (!finitePoint(target)) return { accepted: false, reason: '请选择有效的地图位置' }
+    if (manual) {
+      const result = manualMovePath(this.navigation, this.point, target, this.world.config.chunks.length * 256)
+      if (!result) return { accepted: false, reason: '当前位置暂时无法移动' }
+      this.route = result.path; this.destination = result.destination; this.search = null
+      this.feedback = this.route.length ? '正在前往，遇到不可通行区域会停下' : '已到达当前可通行范围的边缘'
+      return { accepted: true }
+    }
     const cell = pointCell(target), chunk = this.world.chunkAt(cell)
     if (!chunk?.unlocked) return { accepted: false, reason: chunk ? '这片区域还未开放' : '这里是营地地图的边界' }
     if (!this.world.isWalkable(cell)) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }

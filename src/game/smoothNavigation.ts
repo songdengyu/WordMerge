@@ -115,6 +115,41 @@ export class SmoothPathSearch {
   }
 }
 
+/** Manual clicks accept solid/locked/outside goals. Save only the reachable stopping point.
+ * Exact work positions and AI searches intentionally keep using SmoothPathSearch. */
+export function manualMovePath(grid: NavigationGrid, from: Cell, target: Cell, maxCells: number) {
+  if (!target || !finitePoint(target) || !canWalkLine(grid, from, from)) return null
+  const exact = moveTarget(grid, target)
+  if (exact) {
+    const result = new SmoothPathSearch(grid, from, exact).advance(maxCells * 8 + 1)
+    if (result.status === 'found') return { destination: exact, path: result.path }
+  }
+  // Search only the actor's connected component, never a nearby but isolated shore.
+  type Node = { cell: Cell; parent?: Node }
+  const start: Node = { cell: pointCell(from) }, queue: Node[] = [start], seen = new Set([cellKey(start.cell)])
+  let best: Node = start, destination = { ...from }, distance = pointDistance(from, target)
+  const clearance = .5 - PLAYER_RADIUS - .001
+  for (let index = 0; index < queue.length && index < maxCells; index++) {
+    const node = queue[index], cell = node.cell
+    const point = { x: Math.max(cell.x - clearance, Math.min(cell.x + clearance, target.x)),
+      y: Math.max(cell.y - clearance, Math.min(cell.y + clearance, target.y)) }
+    const nextDistance = pointDistance(point, target)
+    if (nextDistance < distance - EPSILON && canWalkLine(grid, cell, point)) {
+      best = node; destination = point; distance = nextDistance
+    }
+    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const next = { x: cell.x + dx, y: cell.y + dy }, key = cellKey(next)
+      if (seen.has(key) || !grid.isWalkable(next) || !grid.canStep(cell, next)) continue
+      seen.add(key); queue.push({ cell: next, parent: node })
+    }
+  }
+  if (sameCell(destination, from)) return { destination, path: [] }
+  const route: Cell[] = []
+  for (let node: Node | undefined = best; node; node = node.parent) route.push(node.cell)
+  const path = smoothPath(grid, from, [...route.reverse(), destination])
+  return path ? { destination, path } : { destination: { ...from }, path: [] }
+}
+
 /** Consume real distance, carrying unused movement across waypoints instead of stopping at each one. */
 export function walkPath(start: Cell, path: readonly Cell[], distance: number) {
   const budget = distance

@@ -1,0 +1,6 @@
+.button { position: relative; width: 48px; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 0; border: 0; background: none; color: #f4ead1; cursor: pointer; }
+.button svg { width: 36px; height: 36px; flex: none; }
+.button small { font-size: 9px; font-weight: 600; line-height: 12px; color: #efe6c8; text-shadow: 0 1px 3px #233527, 0 0 2px #233527; white-space: nowrap; }
+.button[data-lit="true"] svg { filter: drop-shadow(0 0 4px #e8aa4a66); }
+.button[data-lit="false"][data-ready="false"] small { color: #dfb3a1; }
+.button:disabled { cursor: default; opacity: .65; }

@@ -120,7 +120,7 @@ describe('independent runtime', () => {
     runtime.advanceFrame(10_800)
     expect(runtime.getSceneSnapshot().elapsedSeconds).toBeCloseTo(0.25)
   })
-  it('copies commands, rejects blocked targets and leaves an accepted route intact', async () => {
+  it('copies commands and replaces a route with an approach to the locked-region boundary', async () => {
     const runtime = new GameRuntime(parseWorld(config()))
     const pump = clock(runtime)
     const target = { x: 4, y: 1 }
@@ -128,11 +128,13 @@ describe('independent runtime', () => {
     target.x = 15
     pump(100)
     expect(await command).toEqual({ accepted: true })
+    expect(runtime.getSceneSnapshot().destination).toEqual({ x: 4, y: 1 })
     const invalid = runtime.dispatch({ type: 'move', target: { x: 16, y: 0 } })
     pump(100)
-    expect(await invalid).toMatchObject({ accepted: false })
-    pump(2000)
-    expect(runtime.getUiSnapshot().player).toEqual({ x: 4, y: 1 })
+    expect(await invalid).toMatchObject({ accepted: true })
+    pump(7000)
+    expect(runtime.getUiSnapshot().player).toEqual({ x: 15, y: 0 })
+    expect(runtime.getSceneSnapshot().position.x).toBeCloseTo(15.349)
   })
   it('turns from its exact position immediately when a move is replaced mid-step', async () => {
     const runtime = new GameRuntime(parseWorld(config()))

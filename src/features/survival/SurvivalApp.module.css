@@ -19,7 +19,7 @@
 .chapter > span:nth-child(2) { font-weight: 600; }
 .chapterDot { width: 5px; height: 5px; background: #9b7e48; transform: rotate(45deg); }
 .chapterLine { width: 17px; height: 1px; background: #97a082; }
-.cameraControls { position: absolute; left: 16px; bottom: calc(152px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; }
+.cameraControls { position: absolute; left: 16px; bottom: calc(152px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 0; }
 .iconButton, .zoomButtons { border: 1px solid #f3eed08f; background: #f5f0dfe6; color: #536b4c; box-shadow: 0 3px 12px #37513314; }
 .iconButton { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
 .zoomButtons { border-radius: 22px; width: 44px; display: none; flex-direction: column; align-items: center; }

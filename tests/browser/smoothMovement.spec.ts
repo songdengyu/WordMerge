@@ -1,5 +1,40 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test.use({ baseURL: process.env.WORDMERGE_GAME_URL ?? 'http://127.0.0.1:5178' })
+
+test('rapid mouse clicks with small drift retain following, but crossing the drag threshold pans without clicking', async ({ page }) => {
+  await enter(page)
+  await page.clock.install()
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  const scene = page.getByTestId('camp-scene'), game = page.getByTestId('survival-game')
+  await tapPoint(page, 10, 10)
+  await page.clock.runFor(100)
+  for (const drift of [12, 18, 10]) {
+    const [cx, cy, zoom] = (await scene.getAttribute('data-camera'))!.split(',').map(Number)
+    const bounds = (await page.getByTestId('camp-canvas').boundingBox())!
+    const x = bounds.x + cx, y = bounds.y + cy + 20 * 16 * zoom
+    await page.mouse.move(x, y); await page.mouse.down()
+    await page.mouse.move(x + drift, y, { steps: 3 }); await page.mouse.up()
+    await page.clock.runFor(100)
+    await expect(scene).toHaveAttribute('data-camera-follow', 'player')
+    const expectedX = Number((10 + drift / (64 * zoom)).toFixed(4))
+    const expectedY = Number((10 - drift / (64 * zoom)).toFixed(4))
+    const [actualX, actualY] = (await game.getAttribute('data-destination'))!.split(',').map(Number)
+    expect(actualX).toBeCloseTo(expectedX, 3); expect(actualY).toBeCloseTo(expectedY, 3)
+  }
+  const destination = await game.getAttribute('data-destination')
+  await page.mouse.move(170, 380); await page.mouse.down()
+  await page.mouse.move(190, 380, { steps: 4 }); await page.clock.runFor(50)
+  await expect(scene).toHaveAttribute('data-camera-follow', '')
+  const panned = await scene.getAttribute('data-camera')
+  await page.clock.runFor(100)
+  expect(await scene.getAttribute('data-camera')).toBe(panned)
+  // Once dragging, returning inside the threshold must not turn release into a click.
+  await page.mouse.move(171, 380); await page.mouse.up(); await page.clock.runFor(50)
+  expect(await game.getAttribute('data-destination')).toBe(destination)
+  await expect(scene).toHaveAttribute('data-camera-follow', '')
+})
+
 async function enter(page: Page) {
   await page.goto('/?game=survival')
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
@@ -14,6 +49,30 @@ async function position(page: Page) {
   const [x, y] = (await page.getByTestId('camp-scene').getAttribute('data-position'))!.split(',').map(Number)
   return { x, y }
 }
+
+test('a water tap replaces an ongoing walk and stops at the reachable shore after reload', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
+  await enter(page)
+  await page.clock.install()
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  await tapPoint(page, 9.3, 10.3)
+  await page.clock.runFor(150)
+  await tapPoint(page, 4, 3)
+  await page.clock.runFor(100)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-destination', '4.651,3')
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
+  await page.clock.runFor(50)
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
+  await page.reload()
+  await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
+  await page.clock.runFor(6000)
+  expect(await position(page)).toEqual({ x: 4.651, y: 3 })
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'idle')
+  await tapPoint(page, 4, 3)
+  await page.clock.runFor(500)
+  expect(await position(page)).toEqual({ x: 4.651, y: 3 })
+  expect(errors).toEqual([])
+})
 
 test('camera follows walking, manual drag suspends it, locating and walking resume it', async ({ page }) => {
   await enter(page)

@@ -17,6 +17,7 @@ import { CompanionWheel } from './CompanionWheel'
 import { CurrencyIcon, Shop } from './Shop'
 import { StaminaValue } from './ResourceFeedback'
 import { HealthScreenEffect } from './HealthScreenEffect'
+import { TorchButton } from './TorchButton'
 import { DecorationPanel } from './DecorationPanel'
 import { currentChapter, decorError } from '../../game/progression'
 import { reachableRegionGate } from '../../game/regionUnlock'
@@ -104,7 +105,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   useEffect(() => { void runtime.checkpoint() }, [runtime])
   useEffect(() => { if (notice) message(notice) }, [notice, message])
   useEffect(() => {
-    if (state.feedback.startsWith('清理完成：')) message(state.feedback)
+    if (state.feedback.startsWith('清理完成：') || state.feedback.startsWith('火把已熄灭')) message(state.feedback)
   }, [state.feedback, message])
   useEffect(() => {
     runtime.setPauseReason('renderer-loading', true)
@@ -214,6 +215,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     {!placing && <SurvivalHud state={state} runtime={runtime} openMerge={openMerge} message={message} />}
     <div className={styles.cameraControls}>
       <button aria-label="定位主角" className={styles.iconButton} onClick={() => scene.current?.centerPlayer()}><Icon kind="compass" /></button>
+      <TorchButton runtime={runtime} state={state} message={message} />
       <div className={styles.zoomButtons}>
         <button aria-label="放大地图" onClick={() => scene.current?.zoomBy(1.2)}>+</button>
         <span />

@@ -1,6 +1,8 @@
-import { Container, Graphics } from 'pixi.js'
+import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import type { SceneSnapshot } from '../game/GameRuntime'
 import { environmentLight } from '../game/environment'
+
+export interface SceneLight { x: number; y: number; radius: number; strength?: number }
 
 /** Screen-space presentation; motion follows the world's pausable simulation clock. */
 export class Atmosphere {
@@ -8,15 +10,21 @@ export class Atmosphere {
   private readonly shade = new Graphics()
   private readonly air = new Graphics()
   private readonly glow = new Graphics()
+  private readonly darknessCanvas = document.createElement('canvas')
+  private readonly darknessTexture = Texture.from(this.darknessCanvas)
+  private readonly darkness = new Sprite(this.darknessTexture)
+  private lastDraw = -1
+  private lastGeometry = ''
   constructor() {
     this.view.eventMode = 'none'
     this.glow.blendMode = 'add'
-    this.view.addChild(this.shade, this.air, this.glow)
+    this.view.addChild(this.shade, this.air, this.darkness, this.glow)
   }
-  draw(snapshot: SceneSnapshot, width: number, height: number, lights: { x: number; y: number }[]) {
+  draw(snapshot: SceneSnapshot, width: number, height: number, lights: SceneLight[]) {
     const light = environmentLight(snapshot.gameMinutes, snapshot.survival.weather), time = snapshot.elapsedSeconds
     const shade = this.shade.clear(), air = this.air.clear(), glow = this.glow.clear()
-    shade.rect(0, 0, width, height).fill({ color: 0x0c1738, alpha: light.darkness })
+    // Keep daylight/twilight tinting, but use actual transparent light pools at night.
+    if (light.isDay) shade.rect(0, 0, width, height).fill({ color: 0x0c1738, alpha: light.darkness })
     if (light.warmth > 0) shade.rect(0, 0, width, height).fill({ color: light.color, alpha: light.warmth })
     if (light.overcast > 0) shade.rect(0, 0, width, height).fill({ color: 0x435667, alpha: light.overcast })
     if (snapshot.survival.weather === 'sunny') {
@@ -56,10 +64,45 @@ export class Atmosphere {
         air.ellipse((i * 137 + 41) % width, (i * 193 + 67) % height, 2 + age * 7, 1 + age * 3).stroke({ color: 0xc5dfe4, alpha: (1 - age) * .15, width: .8 })
       }
     }
-    // Warm pools around the campfire and placed lanterns keep home readable at night.
-    for (const point of lights) for (let layer = 6; layer >= 1; layer--) {
-      glow.ellipse(point.x, point.y, 12 + layer * 9, 8 + layer * 6).fill({ color: 0xf8b75e, alpha: light.darkness * .045 * (1 + Math.sin(time * 2.5) * .06) })
+    this.darkness.visible = !light.isDay
+    const visibleLights = lights.filter(p => p.x + p.radius > 0 && p.x - p.radius < width && p.y + p.radius > 0 && p.y - p.radius < height)
+    if (!light.isDay) this.drawDarkness(width, height, light.darkness, visibleLights, time)
+    // A little amber at the center, not an opaque additive disk over hidden terrain.
+    for (const point of visibleLights) for (let layer = 5; layer >= 1; layer--) {
+      glow.circle(point.x, point.y, point.radius * layer / 12).fill({ color: 0xf8b75e,
+        alpha: light.darkness * .018 * (point.strength ?? 1) * (1 + Math.sin(time * 2.5) * .06) })
     }
     return light
   }
+
+  private drawDarkness(width: number, height: number, opacity: number, lights: SceneLight[], time: number) {
+    // Half-resolution soft mask keeps mobile upload cost small; camera movement updates immediately.
+    const geometry = JSON.stringify([width, height, lights.map(p => [p.x, p.y, p.radius, p.strength])])
+    if (geometry === this.lastGeometry && time >= this.lastDraw && time - this.lastDraw < 1 / 30) return
+    this.lastDraw = time; this.lastGeometry = geometry
+    const canvas = this.darknessCanvas, w = Math.max(1, Math.ceil(width / 2)), h = Math.max(1, Math.ceil(height / 2))
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; this.darknessTexture.source.resize(w, h) }
+    const ctx = canvas.getContext('2d')!
+    ctx.setTransform(w / width, 0, 0, h / height, 0, 0)
+    ctx.clearRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.fillStyle = `rgba(3,7,15,${opacity})`; ctx.fillRect(0, 0, width, height)
+    ctx.globalCompositeOperation = 'destination-out'
+    for (const [index, point] of lights.entries()) {
+      const radius = point.radius * (1 + Math.sin(time * 3.3 + index * 1.7) * .012)
+      const strength = .98 * (point.strength ?? 1)
+      const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius)
+      gradient.addColorStop(0, `rgba(0,0,0,${strength})`)
+      gradient.addColorStop(.32, `rgba(0,0,0,${strength})`)
+      gradient.addColorStop(.62, `rgba(0,0,0,${strength * .8})`)
+      gradient.addColorStop(.82, `rgba(0,0,0,${strength * .35})`)
+      gradient.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = gradient; ctx.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2)
+    }
+    ctx.globalCompositeOperation = 'source-over'
+    this.darknessTexture.source.update()
+    this.darkness.width = width; this.darkness.height = height
+  }
+
+  dispose() { this.darkness.destroy(); this.darknessTexture.destroy(true) }
 }

@@ -1,5 +1,6 @@
 import { type Camera, type Point, worldToGrid } from './camera'
 import type { Cell } from '../game/world'
+import { CAMERA_CONFIG } from './cameraConfig'
 
 type Pointer = { start: Point; last: Point }
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
@@ -28,7 +29,7 @@ export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap:
     event.preventDefault()
     const point = local(event)
     if (pointers.size === 1) {
-      if (distance(pointer.start, point) > 8) suppressTap = true
+      if (distance(pointer.start, point) > CAMERA_CONFIG.dragThreshold) suppressTap = true
       if (suppressTap) { onCameraGesture(); camera.pan(point.x - pointer.last.x, point.y - pointer.last.y) }
       pointer.last = point
     } else {
@@ -49,7 +50,7 @@ export function attachMapInput(canvas: HTMLCanvasElement, camera: Camera, onTap:
     pointers.delete(event.pointerId)
     const point = local(event)
     if (cancelled) suppressTap = true
-    if (!cancelled && !suppressTap && pointers.size === 0 && distance(pointer.start, point) <= 8) {
+    if (!cancelled && !suppressTap && pointers.size === 0 && distance(pointer.start, point) <= CAMERA_CONFIG.dragThreshold) {
       const world = camera.toWorld(point)
       onTap(worldToGrid(world), world)
     }

@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 深夜与火把见 `docs/implementation/NIGHT-LIGHTING.md`。`lighting.ts` 配置两根 201 木枝 / 60 在线模拟秒及光照半径；Runtime `torch-light` 原子扣料，`survival.torchRemaining` 保存剩余时间，旧 schema 4 缺失视为未点燃，校验有限 0～60，不清档。世界暂停时停烧，合成继续，跳时不补扣；重复点燃不扣料。`TorchButton` 位于定位右侧，仅显示和发命令。`Atmosphere` 软遮罩在深夜隐藏无光地图，用随镜头缩放的火把 / 提灯 / 营火光圈揭开；原营火现为常亮光源、场景提灯随摆放移除，暂不耗燃料或影响温度 / AI。照明动画不能参与燃料结算。
 - 高阶工具与林地奖励扩展见 `docs/implementation/GROVE-TOOLS-REWARDS.md`。工具链斧头 252→253→254、石镐 262→263→264，同链高阶可替代低阶且优先最低级，预留和气泡必须使用实际选中工具。林地大屋初始地基已完成并一次计入 20 经验；旧已建损伤保留、未开工订单释放、已扣料施工继续。雕像 `grove-statue` 坐标保存在 `regionContent.statue`，避开建筑 / 角色 / 工作位 / 已保存路径，用 264 拆除暂奖 30 钻石，移除复用经济记录。目录、经济和区域版本显式迁移，不能清档。Runtime 的临时 `LootFeedback` 只在实际拆除 / 待领领取成功后发出；`ResourceDrops` 负责场景图标、名称、数量与满仓“待领取”表现，不写存档或参与发奖。
 
 - 一天时长在 `world.json` 改为 600 秒，保留中午 12:00 开局及 06:00–19:00 白天。`saveData.ts` 仅对原 1200 秒中午地图指纹 `54404a5a` 显式迁移，将 `elapsedSeconds` 减半以保留日期时刻；施工、交战、警觉与刷怪等相对秒数不缩放，不补算、不清档。原清晨删档授权仍只匹配 1200 秒 / 06:00 的旧地图。
@@ -26,6 +27,7 @@
 - 建造、修复、驯服、开地、清理开工扣 1 饱食度和水分；`walkPath.distance` 按主角实际距离每满 10 格扣各 1，经济状态保存余数。区域野猪无目标时在出生点 2 格范围巡逻、到点停 2 秒，优先原有索敌；保存可选 `patrol`。移除静态场景物体名称与地图建设经验保存文字，存档功能仍在设置。
 - React 18 + TypeScript + Vite 5，样式为 CSS Modules。旧 Demo 使用 Context / reducer；新模式由 `src/game/GameRuntime.ts` 管理权威状态，React 用 `useSyncExternalStore` 订阅，Pixi 仅负责地图表现。
 - 主角、伙伴与敌人移动已统一为 `smoothNavigation.ts` 连续坐标：直达优先，八向 A* 绕行，再做视线简化与安全拐角圆滑；沿路径按实际距离推进，途中改点立即从当前位置重规划。碰撞检查含地形、墙边与角色半径，不能仅检查端点。敌人仍用敌方墙门规则和自身速度，区域野猪的寻路 / 步进 / 存档共用区域边界；Runtime 按敌人 ID 保存上一模拟步位置供 Pixi 插值，交战只冻结双方。交互 / 建造仍用格坐标，工作位必须精确到达才扣料。保存 `motion.version = 1` 与精确位置，兼容旧 cell / progress 存档；细节见 `docs/implementation/SMOOTH-MOVEMENT.md`。
+- 手动移动命令使用 `manualMovePath`：普通目标保留原平滑寻路；水面、障碍、未开放 / 地图外及不连通目标，在当前连通区域内寻找靠近点击处的安全终点。主角和指定移动伙伴共用，仅保存可达终点 / 路线，重复点击边缘不后退。施工、驯服、清理、开地与 AI 仍用严格目的地，不允许以靠近工作位代替抵达。
 - 伙伴指定移动 / 跟随 / 回位 / 追敌也复用 `SmoothPathSearch`、`moveTarget`、`walkPath`，速度仍由伙伴配置决定。伙伴保存可选 `motion.version = 1` 与精确位置，旧 cell / progress 从实际中途位置转换；路线按友方墙门验证，交战期间冻结路线恢复时重新检查。场景用 `previousCompanionPosition` 插值。主角不显示路径，只显示终点，伙伴手动移动显示绿色终点。
 - 合成运行配置是 `public/config/` 下英文表头 CSV；M3 蓝图、M4 生存参数、M5 剧情与区域扩展暂用版本化 TypeScript 目录，基础地图用 JSON。桌面原表和归档表不是运行输入。
 - 新合成配置在 `public/config/survival/merge/`，复用原棋子表头，`open_cost` 在新模式表示体力；物品使用效果和委托奖励独立配置，不接旧装备奖励。详情见 `docs/implementation/M2-PRODUCTION-SAVE.md`。

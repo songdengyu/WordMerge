@@ -18,12 +18,21 @@ import { resourceApproach } from '../game/economy'
 import { houseStyle } from './houseStyle'
 import { objectHeight } from './worldObjectStyle'
 import { ResourceDrops } from './ResourceDrops'
+import { LIGHTING } from '../game/lighting'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
 const diamond = (graphics: Graphics, x: number, y: number, color: number, alpha = 1) =>
   graphics.poly([x, y - 16, x + 32, y, x, y + 16, x - 32, y]).fill({ color, alpha })
 const noise = (x: number, y: number) => Math.abs((x * 7919 + y * 104729) % 17)
+
+function flame(g: Graphics, x: number, y: number, size = 1) {
+  g.moveTo(x, y).bezierCurveTo(x - 14 * size, y - 8 * size, x - 4 * size, y - 18 * size, x - 1 * size, y - 27 * size)
+    .bezierCurveTo(x + 3 * size, y - 22 * size, x + 4 * size, y - 17 * size, x + 3 * size, y - 13 * size)
+    .lineTo(x + 8 * size, y - 19 * size).bezierCurveTo(x + 16 * size, y - 7 * size, x + 8 * size, y + 1 * size, x, y).fill(0xed9650)
+  g.moveTo(x, y - size).bezierCurveTo(x - 6 * size, y - 5 * size, x + size, y - 9 * size, x + size, y - 15 * size)
+    .bezierCurveTo(x + 8 * size, y - 7 * size, x + 5 * size, y, x, y - size).fill(0xffdc87)
+}
 
 function makeObject(object: WorldObject): Container {
   const root = new Container()
@@ -71,10 +80,11 @@ function makeObject(object: WorldObject): Container {
     g.ellipse(0, 0, 17, 8).fill(0x645749)
     g.moveTo(-13, -4).lineTo(13, 5).stroke({ color: 0x755740, width: 6 })
     g.moveTo(13, -4).lineTo(-13, 5).stroke({ color: 0x8b6544, width: 6 })
-    // An unlit old firepit: no survival or warmth effect in this milestone.
+    // Existing campfires now provide a steady home light; no temperature/combat bonus.
     for (const [x, y] of [[-21, 0], [-12, -8], [10, -8], [21, 0], [10, 9], [-11, 9]]) {
       g.ellipse(x, y, 5, 3).fill(0xc4c4af)
     }
+    flame(g, 0, -5)
   } else {
     g.roundRect(-3, -36, 6, 37, 2).fill(0x7e6448)
     g.poly([-18, -40, 14, -40, 23, -32, 14, -24, -18, -24]).fill(0xc5ac7b)
@@ -141,6 +151,7 @@ export class CampScene {
   private buildingSignature = ''
   private previewSignature = ''
   private player = makePlayer()
+  private readonly carriedTorch = new Graphics()
   private readonly atmosphere = new Atmosphere()
   private readonly survivalActors = new SurvivalActors(this.actors)
   private readonly chunks: { view: Container; left: number; right: number; top: number; bottom: number }[] = []
@@ -200,7 +211,7 @@ export class CampScene {
       canvas.addEventListener('webglcontextrestored', this.onContextRestored)
       this.root.addChild(this.ground, this.buildings, this.progressionViews.view, this.survivalActors.guard, this.preview, this.decorPreview, this.route, this.protection, this.actors, this.buildingBubbles.view, this.resourceDrops.view)
       this.actors.sortableChildren = true
-      this.actors.addChild(this.player)
+      this.actors.addChild(this.player, this.carriedTorch)
       this.app.stage.addChild(this.root, this.atmosphere.view)
       this.buildMap()
       this.resize()
@@ -333,12 +344,11 @@ export class CampScene {
       const snapshot = this.runtime.getSceneSnapshot()
       const target = resourceApproach(this.runtime.world, snapshot.construction, snapshot.position, object)
       const intent = ++this.cameraIntent
-      if (target) void this.runtime.dispatch({ type: 'move', target }).then(result => {
+      void this.runtime.dispatch({ type: 'move', target: target ?? point }).then(result => {
         if (this.disposed) return
         if (!result.accepted) this.onMessage(result.reason)
         else if (intent === this.cameraIntent) this.followTarget = 'player'
       })
-      else this.onMessage('暂时无法走到物体旁边，请先清理通路')
       return
     }
     this.movePlayerTo(point)
@@ -545,6 +555,13 @@ export class CampScene {
     this.host.dataset.doorAmounts = JSON.stringify(appearance.doorAmounts)
     this.player.position.set(foot.x, foot.y)
     this.player.zIndex = foot.y + 0.1
+    const torchRemaining = snapshot.survival.torchRemaining ?? 0
+    this.carriedTorch.clear(); this.carriedTorch.visible = torchRemaining > 0
+    if (torchRemaining > 0) {
+      this.carriedTorch.position.set(foot.x, foot.y); this.carriedTorch.zIndex = foot.y + .2
+      this.carriedTorch.moveTo(8, -12).lineTo(13, -25).stroke({ width: 3, color: 0xa57e4a })
+      flame(this.carriedTorch, 13, -24, .58 + Math.sin(snapshot.elapsedSeconds * 8) * .025)
+    }
     // A pre-drag command may only appear in a later snapshot. Manual panning stays
     // authoritative until a new tap or locate action explicitly allows following again.
     const destination = snapshot.destination ? `${snapshot.destination.x},${snapshot.destination.y}` : ''
@@ -557,9 +574,17 @@ export class CampScene {
       if (buddy) this.camera.follow(worldToPosition(buddy), cameraSeconds, this.followTarget)
     }
     const lights = [
-      ...this.runtime.world.allObjects().filter(o => o.kind === 'campfire'),
-      ...snapshot.progression.decorations.filter(d => d.kind === 'lantern').map(d => d.cell),
-    ].map(cell => this.camera.toScreen(gridToWorld(cell)))
+      ...this.runtime.world.allObjects().filter(o => o.kind === 'campfire' && this.runtime.world.chunkAt(o)?.unlocked)
+        .map(cell => ({ cell, lift: 12, radius: LIGHTING.campfire.radius, strength: 1 })),
+      ...snapshot.progression.decorations.filter(d => d.kind === 'lantern')
+        .map(d => ({ cell: d.cell, lift: 15, radius: LIGHTING.lantern.radius, strength: 1 })),
+      ...(torchRemaining > 0 ? [{ cell: position, lift: 28, radius: LIGHTING.torch.radius, strength: Math.min(1, torchRemaining / 2) }] : []),
+    ].map(source => {
+      const p = gridToWorld(source.cell)
+      return { ...this.camera.toScreen({ x: p.x, y: p.y - source.lift }), radius: source.radius * this.camera.zoom, strength: source.strength }
+    })
+    this.host.dataset.lights = JSON.stringify(lights)
+    this.host.dataset.torch = String(torchRemaining > 0)
     const light = this.atmosphere.draw(snapshot, this.lastWidth, this.lastHeight, lights)
     this.runtime.setSpawnVisibility(cell => {
       const p = this.camera.toScreen(gridToWorld(cell)), margin = 120 * this.camera.zoom
@@ -635,6 +660,7 @@ export class CampScene {
     this.assetAbort.abort()
     this.buildingBubbles.dispose()
     this.resourceDrops.dispose()
+    this.atmosphere.dispose()
     this.detachInput?.()
     this.resizeObserver?.disconnect()
     this.destroyApplication()

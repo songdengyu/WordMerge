@@ -50,7 +50,7 @@ describe('companion uses shared continuous navigation', () => {
     expect(h.position().x).toBeLessThan(before.x)
     expect(h.position().y).toBeGreaterThan(before.y)
     expect(pointDistance(before, h.position())).toBeCloseTo(SURVIVAL_RULES.companion.speed * .05)
-    expect(await h.send({ type: 'companion-move', target: { x: -300, y: 100 } })).toMatchObject({ accepted: false })
+    expect(await h.send({ type: 'companion-move', target: { x: NaN, y: 100 } })).toMatchObject({ accepted: false })
     expect(h.valid().survival.companion.guard).toEqual(target)
     h.pump(2); expect(h.position()).toEqual(target)
   })

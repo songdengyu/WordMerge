@@ -13,6 +13,7 @@ import { REGION_BOARS } from './regionContentConfig'
 import { combatResult, COMBAT_SECONDS, COMBAT_RESULT_SECONDS } from './companionCombat'
 import type { Enemy } from './survival'
 import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
+import { LIGHTING } from './lighting'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -22,6 +23,7 @@ const has = (object: object, key: string) => Object.prototype.hasOwnProperty.cal
 export function validateSurvival(raw: unknown, data: RuntimeData, world: WorldMap, catalog: ProductionCatalog, check: Check,
   rescueItems: readonly number[] = RULES.companion.rescueItems): asserts raw is SurvivalState {
   check(record(raw), '昼夜生存状态缺失')
+  check(raw.torchRemaining === undefined || finite(raw.torchRemaining) && raw.torchRemaining <= LIGHTING.torch.seconds, '火把燃烧时间')
   const lockedCombat = !!raw.duel
   const duelEnemyId = record(raw.duel) && record(raw.duel.enemy) ? raw.duel.enemy.id : null
   check(typeof raw.weather === 'string' && has(WEATHER, raw.weather) && typeof raw.forecast === 'string' && has(WEATHER, raw.forecast), '天气')

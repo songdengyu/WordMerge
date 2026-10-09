@@ -20,16 +20,19 @@ export function dayCycle(minutes: number) {
 
 // Smooth, periodic art values; these do not change temperature or the saved content catalog.
 const LIGHT_KEYS = [
-  { hour: 0, dark: .58, warmth: 0, color: 0xffd99a },
-  { hour: 5, dark: .56, warmth: .02, color: 0xffd99a },
+  { hour: 0, dark: 1, warmth: 0, color: 0xffd99a },
+  { hour: 4.5, dark: 1, warmth: 0, color: 0xffd99a },
+  { hour: 5, dark: .94, warmth: .02, color: 0xffd99a },
   { hour: 6, dark: .24, warmth: .22, color: 0xffd38a },
   { hour: 7.5, dark: .03, warmth: .10, color: 0xffe1a0 },
   { hour: 12, dark: 0, warmth: .025, color: 0xffedbc },
   { hour: 16, dark: .02, warmth: .09, color: 0xffd69a },
   { hour: 18, dark: .14, warmth: .32, color: 0xf79a57 },
   { hour: 19, dark: .36, warmth: .16, color: 0xec9064 },
-  { hour: 20.5, dark: .54, warmth: 0, color: 0xffd99a },
-  { hour: 24, dark: .58, warmth: 0, color: 0xffd99a },
+  { hour: 20.5, dark: .8, warmth: 0, color: 0xffd99a },
+  { hour: 22, dark: .97, warmth: 0, color: 0xffd99a },
+  { hour: 23, dark: 1, warmth: 0, color: 0xffd99a },
+  { hour: 24, dark: 1, warmth: 0, color: 0xffd99a },
 ]
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 function mixColor(a: number, b: number, t: number) {
