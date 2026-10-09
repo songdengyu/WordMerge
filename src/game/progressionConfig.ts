@@ -1,5 +1,6 @@
 import { fingerprint } from './productionConfig'
 import type { RegionExtension } from './world'
+import { EXPANSION_EXTENSIONS, EXPANSION_REGIONS } from './mapExpansionConfig'
 
 // First-chapter prototype content. Choice IDs and reward ownership are persistent.
 export const OUTFITS = [
@@ -25,9 +26,11 @@ export type DecorId = typeof DECORATIONS[number]['id']
 export const REGIONS = [
   { id: 'brook', name: '溪谷深处', xp: 30, point: { x: 7, y: -5 }, landmark: '溪边的行李' },
   { id: 'grove', name: '静谧林地', xp: 70, point: { x: 21, y: 8 }, landmark: '树下的信匣' },
+  ...EXPANSION_REGIONS,
 ] as const
-// Extension layers keep the original M1–M4 map fingerprint stable for explicit migrations.
+// Terrain/resource layers are versioned with progression; chunk topology has its own explicit map migration.
 export const REGION_EXTENSIONS: readonly RegionExtension[] = [
+  ...EXPANSION_EXTENSIONS,
   { id: 'brook', patches: [
     { x: 6, y: 8, width: 3, height: 8, terrain: 'path' },
     { x: 10, y: 3, width: 3, height: 10, terrain: 'water' },

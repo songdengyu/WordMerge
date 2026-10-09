@@ -16,7 +16,13 @@
       ]
     },
     { "id": "brook", "name": "溪谷深处", "x": 0, "y": -1, "unlocked": false, "patches": [] },
-    { "id": "grove", "name": "静谧林地", "x": 1, "y": 0, "unlocked": false, "patches": [] }
+    { "id": "grove", "name": "静谧林地", "x": 1, "y": 0, "unlocked": false, "patches": [] },
+    { "id": "meadow", "name": "暖风草甸", "x": -1, "y": 0, "unlocked": false, "patches": [] },
+    { "id": "fern", "name": "蕨叶坡地", "x": 0, "y": 1, "unlocked": false, "patches": [] },
+    { "id": "mist", "name": "晨雾林隙", "x": -1, "y": -1, "unlocked": false, "patches": [] },
+    { "id": "pine", "name": "松影高地", "x": 1, "y": -1, "unlocked": false, "patches": [] },
+    { "id": "flower", "name": "花溪原野", "x": -1, "y": 1, "unlocked": false, "patches": [] },
+    { "id": "lake", "name": "映月湖畔", "x": 1, "y": 1, "unlocked": false, "patches": [] }
   ],
   "objects": [
     { "id": "fire", "kind": "campfire", "name": "旧营火", "x": 8, "y": 7 },

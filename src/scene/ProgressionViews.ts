@@ -93,7 +93,7 @@ export class ProgressionViews {
         this.actors.addChild(art); this.decorViews.push(art)
       }
     }
-    for (const region of REGIONS.filter(r => progress.unlockedRegions.includes(r.id))) {
+    for (const region of REGIONS.filter(r => r.landmark && progress.unlockedRegions.includes(r.id))) {
       const p = gridToWorld(region.point), found = progress.discoveries.includes(region.id)
       g.ellipse(p.x, p.y, 20, 10).fill({ color: 0xffedb6, alpha: .35 }).stroke({ color: 0xf9f1d1, width: 1 })
       g.roundRect(p.x - 9, p.y - 18, 18, 14, 3).fill(0xb58c63).stroke({ color: 0xf7e9c7, width: 1.5 })

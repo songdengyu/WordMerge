@@ -31,7 +31,8 @@ describe('versioned atomic IndexedDB saves', () => {
   it('clears the old morning start once, invalidates open writers, and preserves new noon progress', async () => {
     const repo = await repository(), old = await repo.save(dataFixture())
     old.configVersion = old.configVersion.replace(fingerprint(JSON.stringify(world.config)),
-      fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6 })))
+      fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6,
+        chunks: world.config.chunks.filter(c => ['camp', 'brook', 'grove'].includes(c.id)) })))
     await writeRecord('current', old); await writeRecord('previous', old)
     expect(await clearMorningStartSave(world)).toBe(true)
     expect(await readRecord('current')).toBeUndefined()

@@ -23,6 +23,7 @@ import { terrainColor, terrainDetail, terrainTransitionFill, terrainTransitionBo
 import { loadSceneArt, loadedSceneArt, sceneSprite, sceneSpriteContains, texturedSurface } from './SceneArt'
 import { buildingModel, completeModelBuilding } from './buildingModel'
 import { drawBuildingMesh } from './BuildingModelView'
+import { lockedRegionFog } from './LockedRegionFog'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
@@ -545,6 +546,7 @@ export class CampScene {
     this.ground.removeChildren().forEach(child => child.destroy({ children: true }))
     this.chunks.length = 0
     const state = this.runtime.getUiSnapshot()
+    this.host.dataset.fogRegions = this.runtime.world.config.chunks.filter(c => !this.runtime.world.chunkAt({ x: c.x * CHUNK_SIZE, y: c.y * CHUNK_SIZE })?.unlocked).map(c => c.id).join(',')
     this.regionSignature = `${state.progression.unlockedRegions.join(',')}|${state.economy.removedObjects.join(',')}|${JSON.stringify(state.progression.regionContent.statue)}`
     const transitionFills: Container[] = [], transitionBorders: Container[] = []
     for (const config of this.runtime.world.config.chunks) {
@@ -574,15 +576,16 @@ export class CampScene {
           left: left - 8, right: right + 8, top: top - 8, bottom: bottom + 8 })
       }
       if (!chunk.unlocked) {
+        view.addChild(lockedRegionFog(this.runtime.world, chunk))
         const center = gridToWorld({ x: chunk.x * CHUNK_SIZE + 7.5, y: chunk.y * CHUNK_SIZE + 7.5 })
         const title = new Text({ text: `${chunk.name}\n尚未探索`, style: {
-          fontFamily: 'sans-serif', fontSize: 18, lineHeight: 28, fill: 0xdfebd6, align: 'center', letterSpacing: 2,
+          fontFamily: 'sans-serif', fontSize: 18, lineHeight: 28, fill: 0x6b8177, align: 'center', letterSpacing: 2,
         } })
         title.anchor.set(0.5); title.position.set(center.x, center.y)
         view.addChild(title)
       }
       this.ground.addChild(view)
-      this.chunks.push({ view, left, right, top, bottom })
+      this.chunks.push({ view, left: left - 32, right: right + 32, top: top - 20, bottom: bottom + 20 })
     }
     // All base chunks, then all fill corrections, then outlines: no neighboring chunk can erase a seam.
     this.ground.addChild(...transitionFills, ...transitionBorders)

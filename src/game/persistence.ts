@@ -2,6 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { fingerprint, type ProductionCatalog } from './productionConfig'
 import { configVersion, SaveError, validateSave, type RuntimeData, type SaveEnvelope } from './saveData'
 import type { WorldMap } from './world'
+import { EXPANDED_WORLD_VERSION, PRE_EXPANSION_WORLD_VERSION } from './migrations/mapExpansion'
 
 interface SaveDatabase extends DBSchema { snapshots: { key: string; value: unknown } }
 export const DATABASE_NAME = 'wordmerge-survival'
@@ -35,7 +36,9 @@ export async function clearGameData() {
 /** User-authorized reset for the noon-start release; never erase a new noon save on reload. */
 export async function clearMorningStartSave(world: WorldMap) {
   if (world.config.initialHour !== 12) return false
-  const morningVersion = fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6 }))
+  if (![PRE_EXPANSION_WORLD_VERSION, EXPANDED_WORLD_VERSION].includes(fingerprint(JSON.stringify(world.config)))) return false
+  const morningVersion = fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200, initialHour: 6,
+    chunks: world.config.chunks.filter(c => ['camp', 'brook', 'grove'].includes(c.id)) }))
   const db = await openSaveDatabase()
   try {
     const tx = db.transaction('snapshots', 'readwrite')

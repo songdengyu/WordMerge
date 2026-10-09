@@ -21,6 +21,8 @@ import type { EconomyState } from './economy'
 import { economyForWorld, validateEconomy } from './economyValidation'
 import { CONTENT_CATALOG_VERSIONS, PRE_CONTENT_PROGRESSION_VERSION, PRE_CONTENT_ITEMS } from './migrations/contentExpansion'
 import { NEW_TOOL_IDS, PRE_TOOLS_REGION_VERSION, TOOL_CATALOG_VERSIONS } from './migrations/groveTools'
+import { EXPANDED_PROGRESSION_VERSION, EXPANDED_WORLD_VERSION, ORIGINAL_REGION_IDS,
+  PRE_EXPANSION_PROGRESSION_VERSION, PRE_EXPANSION_WORLD_VERSION } from './migrations/mapExpansion'
 
 export interface RuntimeData {
   elapsedSeconds: number
@@ -68,10 +70,18 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   const versionParts = raw.configVersion.split('-'), oldWalls = versionParts[3] === PRE_WALL_BUILDING_VERSION
   const preToolsCatalog = CONTENT_CATALOG_VERSIONS.includes(versionParts[2])
   const supportedCatalogs = [...CONTENT_CATALOG_VERSIONS, ...TOOL_CATALOG_VERSIONS]
+  const currentMapVersion = fingerprint(JSON.stringify(world.config))
+  const previousRegionCatalog = raw.schemaVersion === 4 && (versionParts[1] === PRE_EXPANSION_WORLD_VERSION
+    || versionParts[1] === '54404a5a' || versionParts[5] !== PROGRESSION_VERSION)
   // Only the released 20-minute noon map may migrate to its 10-minute equivalent.
+  const originalChunks = world.config.chunks.filter(chunk => ['camp', ...ORIGINAL_REGION_IDS].includes(chunk.id))
   const shorterDay = world.config.dayDurationSeconds === 600 && versionParts[1] === '54404a5a'
-    && fingerprint(JSON.stringify({ ...world.config, dayDurationSeconds: 1200 })) === '54404a5a'
-  if (shorterDay) versionParts[1] = fingerprint(JSON.stringify(world.config))
+    && [PRE_EXPANSION_WORLD_VERSION, EXPANDED_WORLD_VERSION].includes(currentMapVersion)
+    && fingerprint(JSON.stringify({ ...world.config, chunks: originalChunks, dayDurationSeconds: 1200 })) === '54404a5a'
+  if (shorterDay || versionParts[1] === PRE_EXPANSION_WORLD_VERSION && currentMapVersion === EXPANDED_WORLD_VERSION)
+    versionParts[1] = currentMapVersion
+  if (versionParts[5] === PRE_EXPANSION_PROGRESSION_VERSION && PROGRESSION_VERSION === EXPANDED_PROGRESSION_VERSION)
+    versionParts[5] = PROGRESSION_VERSION
   // Explicit additive catalog migration: existing item IDs/recipes remain unchanged.
   const economyCatalogVersions = ['6e361e33', '726dea98', '30008215'] // Equivalent LF / CRLF checkouts.
   const preContentCatalog = ['e98b4c81', '9da8a62d', ...economyCatalogVersions].includes(versionParts[2])
@@ -92,6 +102,11 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   check(record(data), '游戏数据')
   if (raw.schemaVersion === 4) {
     check(record(data.progression) && Array.isArray(data.progression.unlockedRegions) && data.progression.unlockedRegions.every(id => REGIONS.some(r => r.id === id)), '区域数据')
+    if (previousRegionCatalog) {
+      check(data.progression.unlockedRegions.every(id => (ORIGINAL_REGION_IDS as readonly unknown[]).includes(id)), '旧版区域来源')
+      const job = data.progression.regionUnlock
+      check(job === undefined || job === null || record(job) && (ORIGINAL_REGION_IDS as readonly unknown[]).includes(job.regionId), '旧版区域开放作业')
+    }
     world = progressedWorld(world, data.progression as unknown as ProgressionState)
   } else world = progressedWorld(world, createProgression())
   const economy = economyForWorld(data.economy, world, check)

@@ -12,7 +12,8 @@ describe('ten-minute days', () => {
     expect(worldMinutes(world, 175)).toBe(19 * 60)
   })
   it.each([350, 900, 3400])('preserves calendar and state when migrating %s old elapsed seconds', elapsed => {
-    const oldWorld = parseWorld({ ...world.config, dayDurationSeconds: 1200 }), data = dataFixture()
+    const oldWorld = parseWorld({ ...world.config, dayDurationSeconds: 1200,
+      chunks: world.config.chunks.filter(c => ['camp', 'brook', 'grove'].includes(c.id)) }), data = dataFixture()
     data.elapsedSeconds = elapsed; data.survival = createSurvival(oldWorld, elapsed)
     data.survival.spawnRemaining = 37; data.production.stamina.value = 140
     const old = envelopeFixture(data); old.configVersion = configVersion(oldWorld, catalog)

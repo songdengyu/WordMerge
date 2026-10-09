@@ -6,7 +6,8 @@ import { boundaryTerrain, terrainCorners, terrainEdges, terrainSeed as noise, ty
 
 const COLORS: Record<Terrain, number> = { grass: 0xa7b68a, path: 0xcdbd98, water: 0x82aaa5, rock: 0x9ca598 }
 export function terrainColor(world: WorldMap, cell: Cell, unlocked: boolean) {
-  if (!unlocked) return 0x728777
+  // Match the opaque fog base so cached mask antialiasing cannot reveal dark chunk seams.
+  if (!unlocked) return 0xd0ddd5
   return COLORS[world.terrainAt(cell) ?? 'grass']
 }
 
