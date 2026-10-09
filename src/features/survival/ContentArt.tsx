@@ -1,46 +1,21 @@
+import { buildingModel, completeModelBuilding, visibleModelFaces } from '../../scene/buildingModel'
 import { OUTFITS, type DecorId } from '../../game/progressionConfig'
-import { houseStyle, hexColor } from '../../scene/houseStyle'
+import { hexColor } from '../../scene/houseStyle'
 import { blueprintById } from '../../game/buildingConfig'
-import { useId, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { sceneArtUrl } from '../../scene/sceneArtCatalog'
 
 export function HouseArt({ id }: { id: string }) {
-  const patternId = useId().replace(/:/g, '')
-  const s = houseStyle(id), fancy = s.tier === '精致'
-  const blueprint = blueprintById(id)
-  if (blueprint?.cells) {
-    const cells = blueprint.cells, project = (x: number, y: number, h = 0) => `${50 + (x - y) * 9},${18 + (x + y) * 5 - h}`
-    return <svg viewBox="0 0 100 84" aria-hidden="true">
-      <ellipse cx="50" cy="64" rx="42" ry="9" fill="#5c7358" opacity=".12" />
-      {cells.map(c => <g key={`${c.x},${c.y}`}>
-        {[[1, 0], [0, 1]].filter(([dx, dy]) => !cells.some(n => n.x === c.x + dx && n.y === c.y + dy)).map(([dx, dy]) => {
-          const a = [c.x + dx / 2 - dy / 2, c.y + dy / 2 + dx / 2], b = [c.x + dx / 2 + dy / 2, c.y + dy / 2 - dx / 2]
-          return <polygon key={`${dx},${dy}`} points={[project(a[0], a[1]), project(b[0], b[1]), project(b[0], b[1], -12), project(a[0], a[1], -12)].join(' ')} fill={hexColor(s.wall)} stroke={hexColor(s.trim)} strokeWidth=".6" />
-        })}
-        <polygon points={[[c.x - .5, c.y - .5], [c.x + .5, c.y - .5], [c.x + .5, c.y + .5], [c.x - .5, c.y + .5]].map(([x, y]) => project(x, y)).join(' ')} fill={hexColor(s.roof)} />
-        <path d={`M${project(c.x - .3, c.y)}L${project(c.x + .3, c.y)}`} stroke={hexColor(s.trim)} opacity=".45" strokeWidth=".6" />
-      </g>)}
-    </svg>
-  }
-  return <svg viewBox="0 0 100 84" aria-hidden="true">
-    {id === 'cabin' && <defs>
-      <pattern id={`${patternId}-wall`} patternUnits="userSpaceOnUse" width="24" height="40">
-        <rect width="24" height="40" fill={hexColor(s.wall)} /><image href={sceneArtUrl('wall')} width="24" height="40" preserveAspectRatio="none" />
-      </pattern>
-      <pattern id={`${patternId}-roof`} patternUnits="userSpaceOnUse" width="70" height="55">
-        <rect width="70" height="55" fill={hexColor(s.roof)} /><image href={sceneArtUrl('roof')} width="70" height="55" preserveAspectRatio="none" />
-      </pattern>
-    </defs>}
-    <ellipse cx="50" cy="74" rx="42" ry="7" fill="#5c7358" opacity=".12" />
-    <path d="M14 40 55 27 89 44v24L49 80 14 62Z" fill={id === 'cabin' ? `url(#${patternId}-wall)` : hexColor(s.wall)} stroke={hexColor(s.trim)} strokeWidth="2" />
-    <path d="M14 51 49 68 89 55M49 51v29" fill="none" stroke={hexColor(s.trim)} strokeWidth="1.5" />
-    <path d="m9 40 23-30 40 13 22 20-43 17Z" fill={id === 'cabin' ? `url(#${patternId}-roof)` : hexColor(s.roof)} stroke={hexColor(s.trim)} strokeWidth="2" />
-    <path d="m32 10 19 50 21-37M20 29l61 21M26 20l48 18" fill="none" stroke={hexColor(s.trim)} strokeWidth="1" opacity=".7" />
-    <path d="M25 54 37 60v14l-12-6Z" fill="#966846" stroke={hexColor(s.trim)} />
-    <path d="M62 60 77 55v12l-15 5Z" fill={hexColor(s.accent)} stroke={hexColor(s.trim)} strokeWidth="2" />
-    <path d="m69 58 1 12M62 66l15-5" stroke={hexColor(s.trim)} />
-    {fancy && <><path d="M67 22V10h9v18" fill="#afaaa0" stroke={hexColor(s.trim)} strokeWidth="2" /><path d="m9 41 42 19 43-17" fill="none" stroke="#f6e9d3" strokeWidth="3" /></>}
-    {s.roofType === 'thatch' && <path d="m15 37 7-11m1 16 8-14m1 18 8-13m13 23 9-15m1 11 10-14m1 9 10-12" stroke="#e0cf94" strokeWidth="2" />}
+  const model = useMemo(() => {
+    const blueprint = blueprintById(id)
+    if (!blueprint) return null
+    const faces = visibleModelFaces(buildingModel(completeModelBuilding(blueprint), blueprint))
+    const points = faces.flatMap(f => f.points), xs = points.map(p => p.x), ys = points.map(p => p.y)
+    const minX = Math.min(...xs) - 8, minY = Math.min(...ys) - 8
+    return { faces, box: `${minX} ${minY} ${Math.max(...xs) - minX + 8} ${Math.max(...ys) - minY + 8}` }
+  }, [id])
+  return <svg viewBox={model?.box ?? '0 0 100 84'} aria-hidden="true" data-model="low-poly-3d">
+    {model?.faces.map((face, i) => <polygon key={i} points={face.points.map(p => `${p.x},${p.y}`).join(' ')} fill={hexColor(face.color)} />)}
   </svg>
 }
 

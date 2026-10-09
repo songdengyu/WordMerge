@@ -215,3 +215,25 @@ test('rest bench retains bed repair identity and display name after save reload'
   expect(data.construction.xp).toBe(70)
   await page.screenshot({ path: 'test-results/expanded-art-bench-repaired.png' })
 })
+
+test('dismantle decoration delivers pieces and preserves other stock across refresh', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await seed(page, data => {
+    data.economy.purchases = ['table']; data.progression.ownedDecor = ['table']
+    data.progression.decorStock = { table: 1 }; data.progression.nextDecorationId = 2
+    data.progression.decorations = [{ id: 'd1', kind: 'table', buildingId: 'b1', cell: { x: 8, y: 10 } }]
+  })
+  const before = (await saved(page)).data
+  const count = (data: any) => Object.values(data.production.inventory.items).filter((i: any) => i.itemId === 201).length
+  await page.getByRole('button', { name: '装饰', exact: true }).click()
+  await page.getByRole('button', { name: '已摆放', exact: true }).click()
+  await page.screenshot({ path: 'test-results/decor-dismantle-panel.png' })
+  await page.getByTestId('placed-d1').getByRole('button', { name: '拆除', exact: true }).click()
+  await expect(page.getByTestId('placed-d1')).toHaveCount(0)
+  await expect(page.getByTestId('decoration-panel').getByRole('status')).toContainText('木枝 ×2')
+  await ready(page); await page.reload(); await ready(page)
+  const after = (await saved(page)).data
+  expect(after.progression.decorations).toEqual([])
+  expect(after.progression.decorStock.table).toBe(1)
+  expect(count(after)).toBe(count(before) + 2)
+})

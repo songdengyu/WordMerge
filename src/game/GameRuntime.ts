@@ -1,4 +1,5 @@
 import type { SpawnVisibility } from './encounters'
+import { dismantleDecoration, type DecorDismantleCommand } from './decorSalvage'
 import { requestTaming, releaseTaming, tamingAnimal, tamingName, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
 import { SURVIVAL_RULES } from './survivalConfig'
 import type { NavigationGrid } from './navigation'
@@ -31,7 +32,7 @@ import { burnTorch, lightTorch, type LightingCommand } from './lighting'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TestCurrencyCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | DecorDismantleCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TestCurrencyCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -289,6 +290,13 @@ export class GameRuntime {
           this.survival = { ...this.survival, resting: false }
           this.move(this.progression.regionUnlock.workCell)
         } else if (wasTravel) this.stopMovement()
+        return { accepted: true, message: result.message } as CommandResult
+      }
+      if (command.type === 'decor-dismantle') {
+        const result = dismantleDecoration(this.progression, this.production, this.catalog!, command.decorationId)
+        if (!result.accepted) return result
+        this.progression = result.state; this.production = result.production; this.feedback = result.message
+        this.recordLoot(result.cell, 0, 0, result.rewards, false)
         return { accepted: true, message: result.message } as CommandResult
       }
       if (command.type === 'outfit-equip' || command.type === 'decor-place' || command.type === 'decor-remove') {

@@ -103,6 +103,8 @@ unlock_level,upgrade_cost,per_level_increase,effect_stat,shape,color,accent
 
 ## 本地开发与针对性验证
 
+建筑 XYZ 低模入口为 `src/scene/buildingModel.ts`，Pixi 投影在 `BuildingModelView.ts`；图纸预览共用模型。`node scripts/export-building-models.mjs` 导出九套 OBJ / MTL 至 `public/assets/survival/models/`。装饰拆除通过 Runtime 的 `decor-dismantle` 原子发放材料，配置入口 `decorSalvage.ts`。详见 [DECOR-SALVAGE-LOWPOLY.md](implementation/DECOR-SALVAGE-LOWPOLY.md)。
+
 素材目录已扩展为 20 图，覆盖地图静态物件和全部家具。显示名称改用 `src/scene/contentPresentation.ts` 派生目录与 `sceneText`，不要为了显示别名修改参与存档指纹的原目录。后续资源映射见 [SCENE-ART-EXPANSION.md](implementation/SCENE-ART-EXPANSION.md)。
 
 新游戏首轮场景图片位于 `public/assets/survival/scene/`，来源与哈希见其中的 `sources.json`。`scripts/extract_scene_samples.py` 只读定向提取六张纹理，UnityPy / Pillow 只在提取时使用，运行时无此依赖。`sceneArtCatalog.ts` 统一尺度和锚点，`SceneArt.ts` 负责共享加载、alpha 点击检查和投影面材质；加载失败回退矢量。接入约定、重复提取命令及验证数据见 [SCENE-ART-SAMPLES.md](implementation/SCENE-ART-SAMPLES.md)。

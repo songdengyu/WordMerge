@@ -6,6 +6,7 @@ import { DECORATIONS, OUTFITS, type DecorId } from '../../scene/contentPresentat
 import styles from './CampJournal.module.css'
 import decorStyles from './DecorationPanel.module.css'
 import { DecorationArt, OutfitArt } from './ContentArt'
+import { salvageSummary } from '../../game/decorSalvage'
 
 export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: GameRuntime; close: () => void;
   decorate: (kind: DecorId, decorationId?: string) => void; shop: () => void }) {
@@ -46,9 +47,13 @@ export function DecorationPanel({ runtime, close, decorate, shop }: { runtime: G
       const decor = DECORATIONS.find(d => d.id === placed.kind)!
       return <article key={placed.id} className={decorStyles.placed} data-testid={`placed-${placed.id}`}>
         <span aria-hidden="true"><DecorationArt kind={decor.id} /></span>
-        <div><strong>{decor.name}</strong><small>位置 {placed.cell.x}, {placed.cell.y}</small></div>
+        <div><strong>{decor.name}</strong><small>位置 {placed.cell.x}, {placed.cell.y}</small>
+          <small>拆除返还：{salvageSummary(placed.kind, runtime.catalog!)}</small></div>
+        <div className={decorStyles.actions}>
         <button disabled={disabled} onClick={() => place(placed.kind, placed.id)}>移动</button>
+        <button disabled={disabled} onClick={() => void send({ type: 'decor-dismantle', decorationId: placed.id! })}>拆除</button>
         <button disabled={disabled} onClick={() => void send({ type: 'decor-remove', kind: placed.kind, decorationId: placed.id })}>收回</button>
+        </div>
       </article>
     })}{!progress.decorations.length && <p className={styles.muted}>尚未摆放装饰，先选一件喜欢的摆件吧。</p>}</>}
     <button className={styles.secondary} onClick={shop}>去商店添置</button>

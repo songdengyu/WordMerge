@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 装饰拆除 `decor-dismantle` 要求具体实例 ID，`decorSalvage.ts` 先克隆生产状态试发全部一级棋子，空间不足不删摆件；成功后同步删实例、不返摆件库存，保留来源记录和递增 ID，反馈复用 `recordLoot`。建筑现由 `buildingModel.ts` XYZ 实体几何 / `BuildingModelView.ts` 固定投影，墙 / 地板 / 门有厚度、屋顶按原段保留破损，重复内面剔除；不得把图纸外包矩形重新当作异形实际占格。九套 OBJ 可用 `scripts/export-building-models.mjs` 重生。见 `docs/implementation/DECOR-SALVAGE-LOWPOLY.md`。
 - 包内素材后续已扩到 20 图，地图静态物件及九类家具都有 Sprite；床用 `outchair_C` 长椅替代但保留 `bed` 规则 / 存档身份。`contentPresentation.ts` 仅派生 UI 名称与剧情文字，不能用于替换 Runtime 指纹配置。`sceneArtCatalog` 共用锚点，地毯在地面层，其余家具和长椅参与墙体深度排序。映射与验证见 `docs/implementation/SCENE-ART-EXPANSION.md`。
 - 首轮图片素材仅替换普通树、`chair`、`planter` 及 `cabin` 表面。`sceneArtCatalog.ts` 管理比例、脚底和气泡锚点，`SceneArt.ts` 单次加载 / alpha 点击 / 投影材质，失败保留矢量回退。家具预览与场景共用容器并参与墙段深度排序；屋顶及地板保留逐格耐久缺口、共享 UV。来源在 `public/assets/survival/scene/sources.json`，只读提取脚本为 `scripts/extract_scene_samples.py`，不修改经济 / 建筑指纹或存档。验证与桌面性能局限见 `docs/implementation/SCENE-ART-SAMPLES.md`。
 - 深夜与火把见 `docs/implementation/NIGHT-LIGHTING.md`。`lighting.ts` 配置两根 201 木枝 / 60 在线模拟秒及光照半径；Runtime `torch-light` 原子扣料，`survival.torchRemaining` 保存剩余时间，旧 schema 4 缺失视为未点燃，校验有限 0～60，不清档。世界暂停时停烧，合成继续，跳时不补扣；重复点燃不扣料。`TorchButton` 位于定位右侧，仅显示和发命令。`Atmosphere` 软遮罩在深夜隐藏无光地图，用随镜头缩放的火把 / 提灯 / 营火光圈揭开；原营火现为常亮光源、场景提灯随摆放移除，暂不耗燃料或影响温度 / AI。照明动画不能参与燃料结算。

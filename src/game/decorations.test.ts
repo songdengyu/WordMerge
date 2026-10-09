@@ -4,6 +4,7 @@ import { BLUEPRINTS } from './buildingConfig'
 import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 import { validateSave } from './saveData'
 import { CHAPTERS } from './progressionConfig'
+import { exchangeItems } from './inventory'
 
 const world = worldFixture(), catalog = productionFixture()
 function harness(data = dataFixture()) {
@@ -21,6 +22,35 @@ function ready() {
   return data
 }
 describe('decoration stock and individual placements', () => {
+  it('dismantles one placed instance into low-tier pieces atomically and cannot reward it again after reload', async () => {
+    const h = harness(ready())
+    await h.send({ type: 'shop-buy', productId: 'table' }); await h.send({ type: 'shop-buy', productId: 'table' })
+    await h.send({ type: 'decor-place', kind: 'table', cell: { x: 8, y: 10 } })
+    const before = h.saved(), count = (data: typeof before) => Object.values(data.production.inventory.items).filter(i => i.itemId === 201).length
+    expect(await h.send({ type: 'decor-dismantle', decorationId: 'd1' })).toMatchObject({ accepted: true })
+    const after = h.saved()
+    expect(after.progression.decorations).toEqual([])
+    expect(after.progression.decorStock!.table).toBe(1)
+    expect(count(after)).toBe(count(before) + 2)
+    expect(after.production.inventory.gold).toBe(before.production.inventory.gold)
+    const restored = harness(after)
+    expect(await restored.send({ type: 'decor-dismantle', decorationId: 'd1' })).toMatchObject({ accepted: false })
+    expect(restored.saved().production.inventory).toEqual(after.production.inventory)
+  })
+  it('leaves furniture and all pieces unchanged when there is only room for part of the salvage', async () => {
+    const h = harness(ready())
+    await h.send({ type: 'shop-buy', productId: 'table' }); await h.send({ type: 'decor-place', kind: 'table', cell: { x: 8, y: 10 } })
+    const data = h.saved()
+    while (exchangeItems(data.production.inventory, catalog, [], [201])) { /* fill board and warehouse */ }
+    const full = harness(data)
+    expect(await full.send({ type: 'decor-dismantle', decorationId: 'd1' })).toMatchObject({ accepted: false })
+    const twig = Object.values(data.production.inventory.items).find(i => i.itemId === 201 && i.location.kind === 'board')!
+    await full.send({ type: 'item-discard', instanceId: twig.id })
+    const before = full.saved()
+    expect(await full.send({ type: 'decor-dismantle', decorationId: 'd1' })).toMatchObject({ accepted: false })
+    expect(full.saved().production.inventory).toEqual(before.production.inventory)
+    expect(full.saved().progression).toEqual(before.progression)
+  })
   it('buys multiple copies, places two independently, moves without cost and returns exactly one on removal', async () => {
     const h = harness(ready())
     for (let i = 0; i < 3; i++) expect(await h.send({ type: 'shop-buy', productId: 'rug' })).toMatchObject({ accepted: true })

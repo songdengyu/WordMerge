@@ -11,5 +11,6 @@
 .placed strong { font-size: 12px; }
 .placed small { display: block; margin-top: 5px; }
 .placed button { padding: 9px; }
+.placed > .actions { display: flex; justify-content: flex-end; gap: 7px; flex-basis: 100%; }
 .returnBar { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d6ddc6; }
 .returnBar button { width: 100%; padding: 10px 12px; border: 1px solid #c9d3ba; border-radius: 8px; color: #f8f0d9; background: #617b55; font: inherit; font-size: 12px; cursor: pointer; }

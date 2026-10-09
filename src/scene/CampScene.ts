@@ -21,6 +21,8 @@ import { ResourceDrops } from './ResourceDrops'
 import { LIGHTING } from '../game/lighting'
 import { terrainColor, terrainDetail } from './TerrainArt'
 import { loadSceneArt, loadedSceneArt, sceneSprite, sceneSpriteContains, texturedSurface } from './SceneArt'
+import { buildingModel, completeModelBuilding } from './buildingModel'
+import { drawBuildingMesh } from './BuildingModelView'
 
 const RESIDENT_CELL: Cell = { x: 11, y: 8 }
 
@@ -408,10 +410,12 @@ export class CampScene {
       for (const building of snapshot.construction.buildings) {
         const blueprint = blueprintById(building.blueprintId)!
         const style = houseStyle(building.blueprintId)
+        const model = buildingModel(building, blueprint)
         const foundation = building.parts.foundation, floorConfig = blueprint.parts.find(part => part.kind === 'foundation')!
         for (const segment of buildingSegments(blueprint, floorConfig)) {
           const p = gridToWorld(localToWorld(building, segment.cell)), hp = segmentHp(foundation, segment.id)
-          diamond(g, p.x, p.y, foundation.built ? hp > 0 ? style.floor : 0x756951 : 0xeee5be, foundation.built ? hp > 0 ? 1 : .45 : .38)
+          if (foundation.built && hp > 0) drawBuildingMesh(g, model.filter(f => f.partId === floorConfig.id && f.segmentId === segment.id))
+          else diamond(g, p.x, p.y, foundation.built ? 0x756951 : 0xeee5be, foundation.built ? .45 : .38)
           if (building.blueprintId === 'cabin' && foundation.built && hp > 0) {
             const project = (x: number, y: number) => gridToWorld(localToWorld(building, { x, y }))
             const { x, y } = segment.cell
@@ -444,8 +448,7 @@ export class CampScene {
             const b = gridToWorld({ x: (from.x + to.x) / 2 + dy / 2, y: (from.y + to.y) / 2 - dx / 2 })
             const h = 29
             layers.push({ depth: (a.y + b.y) / 2, draw: g => {
-            g.poly([a.x, a.y, b.x, b.y, b.x, b.y - h, a.x, a.y - h]).fill(style.wall)
-              .stroke({ width: .8, color: style.trim })
+            drawBuildingMesh(g, model.filter(f => f.partId === config.id && f.segmentId === segment.id))
             if (building.blueprintId === 'cabin') {
               const topA = { x: a.x, y: a.y - h }, topB = { x: b.x, y: b.y - h }
               texturedSurface(g, 'wall', [a, b, topB, topA], topA, topB, a,
@@ -454,10 +457,6 @@ export class CampScene {
             g.moveTo(a.x, a.y - h).lineTo(b.x, b.y - h).stroke({ width: 2.5, color: style.trim })
             for (const row of [1, 2, 3]) g.moveTo(a.x, a.y - row * 7).lineTo(b.x, b.y - row * 7)
               .stroke({ width: .7, color: 0x806f5d, alpha: .22 })
-            if (style.tier === '精致') for (const row of [0, 1, 2, 3]) {
-              const t = row % 2 ? .33 : .66, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t
-              g.moveTo(x, y - row * 7).lineTo(x, y - (row + 1) * 7).stroke({ width: .7, color: style.trim })
-            }
             if (Number(segment.id.replace('edge', '')) % 3 === 1) {
               const l = { x: a.x + (b.x - a.x) * .3, y: a.y + (b.y - a.y) * .3 }, r = { x: a.x + (b.x - a.x) * .7, y: a.y + (b.y - a.y) * .7 }
               g.moveTo(l.x, l.y - 8).lineTo(r.x, r.y - 8).lineTo(r.x, r.y - 19)
@@ -515,9 +514,11 @@ export class CampScene {
       if (this.placement) {
       const valid = !this.runtime.placementError(this.placement.blueprintId, this.placement.origin, this.placement.rotation)
       const blueprint = blueprintById(this.placement.blueprintId)!
+      this.preview.alpha = .7
+      const ghost = buildingModel({ ...completeModelBuilding(blueprint), ...this.placement }, blueprint)
+      drawBuildingMesh(this.preview, valid ? ghost : ghost.map(face => ({ ...face, color: 0xb97062 })))
       for (const cell of footprint(this.placement, blueprint)) {
         const p = gridToWorld(cell)
-        diamond(this.preview, p.x, p.y, valid ? 0xf0edb0 : 0xce7767, .6)
         this.preview.poly([p.x, p.y - 16, p.x + 32, p.y, p.x, p.y + 16, p.x - 32, p.y]).stroke({ color: valid ? 0xfff9ca : 0xefada0, width: 2 })
       }
       const edge = blueprint.parts.find(part => part.kind === 'door')!.edges[0]
