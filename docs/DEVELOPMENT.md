@@ -2,6 +2,8 @@
 
 ## 新游戏模块（M1–M3）
 
+地形视觉轮廓由 `src/scene/terrainContours.ts` 生成，`TerrainArt.ts` 共用圆角填色与边线；`CampScene` 分层绘制并按地块裁剪。该层不能参与碰撞或地图配置指纹，详见 [地形交界圆角](implementation/TERRAIN-CONTOURS.md)。
+
 默认入口 `/` 启动新游戏，兼容 `/?game=survival`；旧 Demo 仅通过 `/?game=legacy` 互斥启动。新游戏使用独立规则状态，不能从旧 store 向新 Runtime 双向同步。
 
 | 入口 | 职责 |

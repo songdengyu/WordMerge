@@ -19,7 +19,7 @@ import { houseStyle } from './houseStyle'
 import { objectAppearance } from './worldObjectStyle'
 import { ResourceDrops } from './ResourceDrops'
 import { LIGHTING } from '../game/lighting'
-import { terrainColor, terrainDetail } from './TerrainArt'
+import { terrainColor, terrainDetail, terrainTransitionFill, terrainTransitionBorder } from './TerrainArt'
 import { loadSceneArt, loadedSceneArt, sceneSprite, sceneSpriteContains, texturedSurface } from './SceneArt'
 import { buildingModel, completeModelBuilding } from './buildingModel'
 import { drawBuildingMesh } from './BuildingModelView'
@@ -546,6 +546,7 @@ export class CampScene {
     this.chunks.length = 0
     const state = this.runtime.getUiSnapshot()
     this.regionSignature = `${state.progression.unlockedRegions.join(',')}|${state.economy.removedObjects.join(',')}|${JSON.stringify(state.progression.regionContent.statue)}`
+    const transitionFills: Container[] = [], transitionBorders: Container[] = []
     for (const config of this.runtime.world.config.chunks) {
       const chunk = this.runtime.world.chunkAt({ x: config.x * CHUNK_SIZE, y: config.y * CHUNK_SIZE })!
       const view = new Container()
@@ -561,6 +562,17 @@ export class CampScene {
       if (chunk.unlocked) for (let y = 0; y < CHUNK_SIZE; y++) for (let x = 0; x < CHUNK_SIZE; x++)
         terrainDetail(g, this.runtime.world, { x: chunk.x * CHUNK_SIZE + x, y: chunk.y * CHUNK_SIZE + y })
       view.addChild(g)
+      if (chunk.unlocked) {
+        const fills = new Graphics(), borders = new Graphics()
+        for (let y = 0; y < CHUNK_SIZE; y++) for (let x = 0; x < CHUNK_SIZE; x++) {
+          const cell = { x: chunk.x * CHUNK_SIZE + x, y: chunk.y * CHUNK_SIZE + y }
+          terrainTransitionFill(fills, this.runtime.world, cell)
+          terrainTransitionBorder(borders, this.runtime.world, cell)
+        }
+        transitionFills.push(fills); transitionBorders.push(borders)
+        for (const overlay of [fills, borders]) this.chunks.push({ view: overlay,
+          left: left - 8, right: right + 8, top: top - 8, bottom: bottom + 8 })
+      }
       if (!chunk.unlocked) {
         const center = gridToWorld({ x: chunk.x * CHUNK_SIZE + 7.5, y: chunk.y * CHUNK_SIZE + 7.5 })
         const title = new Text({ text: `${chunk.name}\n尚未探索`, style: {
@@ -572,6 +584,8 @@ export class CampScene {
       this.ground.addChild(view)
       this.chunks.push({ view, left, right, top, bottom })
     }
+    // All base chunks, then all fill corrections, then outlines: no neighboring chunk can erase a seam.
+    this.ground.addChild(...transitionFills, ...transitionBorders)
     const objects = this.runtime.world.allObjects().filter(object => this.runtime.world.chunkAt(object)?.unlocked)
     const visible = new Set(objects.map(object => object.id))
     for (const [id, view] of this.objectViews) if (!visible.has(id)) { view.destroy({ children: true }); this.objectViews.delete(id) }
