@@ -10,6 +10,8 @@ import { EXPANDED_PROGRESSION_VERSION, EXPANDED_WORLD_VERSION, PRE_EXPANSION_PRO
 import { regionGates, requestRegionUnlock } from './regionUnlock'
 import { configVersion, validateSave, type SaveEnvelope } from './saveData'
 import { fingerprint } from './productionConfig'
+import { ECONOMY_VERSION } from './economyConfig'
+import { REGION_CONTENT_VERSION } from './regionContentConfig'
 import { WorldMap } from './world'
 import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 
@@ -54,7 +56,10 @@ describe('three by three map expansion', () => {
   it('upgrades a real previous save without changing inventory, time, progress or repeatedly awarding anything', () => {
     const old = prior(), before = structuredClone(old)
     const upgraded = validateSave(old, world, catalog)
-    expect(upgraded.data).toEqual(old.data)
+    const expected = structuredClone(old.data)
+    expected.economy!.version = ECONOMY_VERSION
+    expected.progression.regionContent.version = REGION_CONTENT_VERSION
+    expect(upgraded.data).toEqual(expected)
     expect(upgraded.configVersion).toBe(configVersion(world, catalog))
     expect(validateSave(upgraded, world, catalog)).toEqual(upgraded)
     expect(old).toEqual(before)

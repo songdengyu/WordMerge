@@ -12,7 +12,7 @@ const integer = (v: unknown): v is number => Number.isSafeInteger(v) && Number(v
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
 
 export function validateConstruction(raw: unknown, data: RuntimeData, world: WorldMap, check: Check,
-  duration = orderSeconds): asserts raw is ConstructionState {
+  duration = orderSeconds, materials = orderMaterials): asserts raw is ConstructionState {
   const blueprints = [BLUEPRINTS[0].id, ...SHOP_PRODUCTS.filter(p => p.category === 'blueprint' && data.economy?.purchases.includes(p.id)).map(p => p.reward)]
   check(record(raw) && Array.isArray(raw.unlockedBlueprints), '蓝图来源')
   const unlocked = raw.unlockedBlueprints
@@ -81,7 +81,7 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
         && !data.searching && data.destination === null && entry.remaining > 0 && entry.remaining <= duration(config, order) && !entry.reservedIds.length, '开工位置、计时或扣料异常')
     }
     if (entry.phase !== 'building') {
-      const requirements = orderMaterials(state, order)
+      const requirements = materials(state, order)
       check(entry.reservedIds.length === requirements.length, '预留数量')
       entry.reservedIds.forEach((id, i) => {
         check(typeof id === 'string' && !reserved.has(id), '重复预留')

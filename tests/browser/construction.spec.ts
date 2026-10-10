@@ -312,7 +312,10 @@ test('separate wall repair bubbles restore one segment and persist the neighbori
   data.construction.buildings[0].parts.walls.segments = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`edge${i}`, i === 0 ? 10 : i === 2 ? 0 : 20]))
   data.construction.xp = 70
   const inv = data.production.inventory
-  inv.items[inv.board[7].instanceId].itemId = 202
+  // Exactly one cheap wall repair, with higher-tier planks left untouched.
+  for (const item of Object.values(inv.items) as any[]) if (item.itemId === 201) item.itemId = 202
+  const repairItemId = inv.board[7].instanceId
+  inv.items[repairItemId].itemId = 201
   await page.evaluate(async value => {
     const db = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open('wordmerge-survival', 1); request.onsuccess = () => resolve(request.result) })
     const tx = db.transaction('snapshots', 'readwrite'); tx.objectStore('snapshots').put(value, 'current')
@@ -331,6 +334,10 @@ test('separate wall repair bubbles restore one segment and persist the neighbori
   const after = await readSave(page)
   expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge2: 0 })
   expect(after.data.construction.xp).toBe(70)
+  expect(after.data.production.inventory.items[repairItemId]).toBeUndefined()
+  for (const item of Object.values(inv.items) as any[]) if (item.id !== repairItemId) {
+    expect(after.data.production.inventory.items[item.id]).toEqual(item)
+  }
   await page.reload(); await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await expect(first).toHaveCount(0); await expect(second).toBeVisible()
   await tapSceneControl(page, second)

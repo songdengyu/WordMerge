@@ -4,6 +4,7 @@ import { CLEAR_SECONDS, ECONOMY_VERSION, PRE_SHAPES_ECONOMY_VERSION, PRE_SHAPES_
 import { sameCell, type Cell, type WorldMap } from './world'
 import { PRE_CONTENT_ECONOMY_VERSION, PRE_CONTENT_PRODUCTS } from './migrations/contentExpansion'
 import { PRE_TOOLS_ECONOMY_VERSION } from './migrations/groveTools'
+import { PRE_REPAIR_ECONOMY_VERSION } from './migrations/wallRepairCost'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -14,12 +15,13 @@ export function economyForWorld(raw: unknown, world: WorldMap, check: Check): Ec
   const legacy = record(raw) && raw.version === PRE_CONTENT_ECONOMY_VERSION
   const oldTools = record(raw) && raw.version === PRE_TOOLS_ECONOMY_VERSION
   const oldShapes = record(raw) && raw.version === PRE_SHAPES_ECONOMY_VERSION
-  check(record(raw) && (raw.version === ECONOMY_VERSION || legacy || oldTools || oldShapes) && list(raw.removedObjects, objects), '经济版本或清理记录')
+  const oldRepairCost = record(raw) && raw.version === PRE_REPAIR_ECONOMY_VERSION
+  check(record(raw) && (raw.version === ECONOMY_VERSION || legacy || oldTools || oldShapes || oldRepairCost) && list(raw.removedObjects, objects), '经济版本或清理记录')
   const removed = raw.removedObjects
   check(list(raw.clearingOrders, objects.filter(id => !removed.includes(id)))
     && list(raw.pendingLoot, raw.removedObjects) && list(raw.purchases, legacy ? PRE_CONTENT_PRODUCTS : (oldShapes || oldTools ? PRE_SHAPES_PRODUCTS : SHOP_PRODUCTS).map(p => p.id)), '清理订单、待领物资或购买记录')
   check(typeof raw.distanceRemainder === 'number' && Number.isFinite(raw.distanceRemainder) && raw.distanceRemainder >= 0 && raw.distanceRemainder < 10, '移动消耗累计距离')
-  return (legacy || oldTools || oldShapes ? { ...raw, version: ECONOMY_VERSION } : raw) as unknown as EconomyState
+  return (legacy || oldTools || oldShapes || oldRepairCost ? { ...raw, version: ECONOMY_VERSION } : raw) as unknown as EconomyState
 }
 export function validateEconomy(state: EconomyState, data: RuntimeData, world: WorldMap, check: Check) {
   for (const id of state.purchases) {

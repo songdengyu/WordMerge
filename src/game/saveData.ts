@@ -17,6 +17,7 @@ import { releaseTaming } from './taming'
 import { createRegionContent, REGION_CONTENT_VERSION } from './regionContentConfig'
 import { grantLodgeFoundation, populateRegionContent } from './regionContent'
 import { migrateWallDurability, PRE_WALL_BUILDING_VERSION } from './migrations/wallDurability'
+import { migrateWallRepairJobs, previousRepairMaterials, PRE_REPAIR_BUILDING_VERSION, PRE_REPAIR_REGION_VERSION } from './migrations/wallRepairCost'
 import type { EconomyState } from './economy'
 import { economyForWorld, validateEconomy } from './economyValidation'
 import { CONTENT_CATALOG_VERSIONS, PRE_CONTENT_PROGRESSION_VERSION, PRE_CONTENT_ITEMS } from './migrations/contentExpansion'
@@ -90,7 +91,8 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (supportedCatalogs.includes(versionParts[2]) && supportedCatalogs.includes(catalog.fingerprint)) versionParts[2] = catalog.fingerprint
   if (versionParts[5] === PRE_CONTENT_PROGRESSION_VERSION) versionParts[5] = PROGRESSION_VERSION
   const oldTiming = raw.schemaVersion === 2 && versionParts.join('-') === `m3-${fingerprint(JSON.stringify(world.config))}-${catalog.fingerprint}-${M3_INITIAL_BUILDING_VERSION}`
-  if (oldWalls) versionParts[3] = BUILDING_VERSION
+  const oldRepairCost = oldWalls || oldTiming || versionParts[3] === PRE_REPAIR_BUILDING_VERSION
+  if (oldWalls || versionParts[3] === PRE_REPAIR_BUILDING_VERSION) versionParts[3] = BUILDING_VERSION
   const compatibleVersion = versionParts.join('-')
   const oldMapTab = raw.schemaVersion === 4 && compatibleVersion === `${m4ConfigVersion(world, catalog).replace(/^m4-/, 'm5-')}-${MAP_TAB_PROGRESSION_VERSION}`
   const preMealM4 = `${m3ConfigVersion(world, catalog).replace(/^m3-/, 'm4-')}-${PRE_MEAL_SURVIVAL_VERSION}`
@@ -197,7 +199,9 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
     migrated.data.construction = createConstruction()
   }
   migrateWallDurability(migrated.data, oldWalls || oldTiming, check)
-  validateConstruction(migrated.data.construction, migrated.data, world, check, oldTiming ? initialConstructionSeconds : orderSeconds)
+  validateConstruction(migrated.data.construction, migrated.data, world, check, oldTiming ? initialConstructionSeconds : orderSeconds,
+    oldRepairCost ? previousRepairMaterials : undefined)
+  if (oldRepairCost) migrateWallRepairJobs(migrated.data)
   if (oldTiming) {
     for (const job of migrated.data.construction.jobs) {
       if (job.phase !== 'building') continue
@@ -241,6 +245,7 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   if (record(migrated.data.progression) && migrated.data.progression.regionUnlock === undefined) migrated.data.progression.regionUnlock = null
   if (record(migrated.data.progression) && migrated.data.progression.regionContent === undefined) migrated.data.progression.regionContent = createRegionContent()
   const regionContent = migrated.data.progression.regionContent
+  if (regionContent.version === PRE_REPAIR_REGION_VERSION) regionContent.version = REGION_CONTENT_VERSION
   const oldRegion = regionContent.version === PRE_TOOLS_REGION_VERSION
   if (oldRegion) {
     check(regionContent.statue === undefined || regionContent.statue === null, '旧版雕像来源')

@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 墙面修复配方已统一降低一级（小木屋 201、大屋 202），仅改墙体，仍逐段 2 秒。`migrations/wallRepairCost.ts` 明确迁移建筑 / 经济 / 区域旧指纹，必须先按旧配方验证预留，再释放未开工高阶材料、保留订单；已支付工程保留计时。不要将旧配方直接替换后拒绝有效旧档。见 `docs/implementation/WALL-REPAIR-COST.md`。
 - 寻路缓存 `navigationCache.ts` 只面向不可变通行拓扑，`constructionNavigation` 以 `WorldMap` / 实际墙门阻挡边复用；普通扣血不失效，破坏 / 修复 / 新建必须切换边拓扑，开地 / 清理须派生新地图。常驻怪区域使用独立连通缓存；动态自定义地图方法回退原检查。不将缓存写入存档，不降低 AI 决策频率。性能复现脚本及边界见 `docs/implementation/ENEMY-NAVIGATION-PERFORMANCE.md`。
 - 九宫格地图：`world.json` 为 (-1～1, -1～1) 共九个地块，新增六区与 60 资源由 `mapExpansionConfig.ts` 提供。`migrations/mapExpansion.ts` 明确迁移地图 `cc0401b` → `8ceb237a`、剧情目录 `dad671cf` → `5c677ab8`；不清档、不发奖，保留旧 20 分钟折算，原清晨删档授权仍只匹配三地块历史图。`LockedRegionFog.ts` 云雾固定世界坐标采样、按块缓存半分辨率纹理，地块开放销毁；不得恢复为每帧混合大量云团。见 `docs/implementation/MAP-EXPANSION-FOG.md`。
 - 装饰拆除 `decor-dismantle` 要求具体实例 ID，`decorSalvage.ts` 先克隆生产状态试发全部一级棋子，空间不足不删摆件；成功后同步删实例、不返摆件库存，保留来源记录和递增 ID，反馈复用 `recordLoot`。建筑现由 `buildingModel.ts` XYZ 实体几何 / `BuildingModelView.ts` 固定投影，墙 / 地板 / 门有厚度、屋顶按原段保留破损，重复内面剔除；不得把图纸外包矩形重新当作异形实际占格。九套 OBJ 可用 `scripts/export-building-models.mjs` 重生。见 `docs/implementation/DECOR-SALVAGE-LOWPOLY.md`。

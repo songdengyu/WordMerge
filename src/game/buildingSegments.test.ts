@@ -88,8 +88,8 @@ describe('group construction, individual damage and repair', () => {
   it('migrates old reserved and paid group repairs without losing timing, inventory, position or XP', () => {
     for (const phase of ['queued', 'building'] as const) {
       const data = home(); data.construction.buildings[0].parts.walls.hp = 10
-      add(data, 202)
-      const item = Object.values(data.production.inventory.items).find(item => item.itemId === 202)!
+      add(data, 201)
+      const item = Object.values(data.production.inventory.items).find(item => item.itemId === 201)!
       data.construction.orders = [{ id: 'b1:walls', buildingId: 'b1', partId: 'walls', mode: 'repair' }]
       if (phase === 'queued') item.reservedBy = 'b1:walls'
       else {
