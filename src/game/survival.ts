@@ -5,6 +5,7 @@ import { buildingAt, buildingSummary, constructionDamage, constructionNavigation
 import { buildingSegments, segmentHp } from './buildingSegments'
 import { availableItems, matchRequirements, type ProductionState } from './inventory'
 import type { NavigationGrid } from './navigation'
+import { CachedNavigation } from './navigationCache'
 import type { ProductionCatalog } from './productionConfig'
 import { ENEMIES, SURVIVAL_RULES as RULES, WEATHER, type EnemyKind, type WeatherId } from './survivalConfig'
 import { sameCell, type Cell, type WorldMap } from './world'
@@ -100,13 +101,14 @@ function routeClear(grid: NavigationGrid, position: Cell, route: readonly Cell[]
   for (const next of route) { if (!canWalkLine(grid, from, next)) return false; from = next }
   return true
 }
-function setRoute(actor: Actor, target: ActorTarget, destination: Cell, grid: NavigationGrid, world: WorldMap) {
+function setRoute(actor: Actor, target: ActorTarget, destination: Cell, grid: NavigationGrid, world: WorldMap,
+  planned?: () => Cell[] | null) {
   const position = actorPosition(actor)
   const last = actor.route[actor.route.length - 1] ?? position
   if (actor.motion && sameCell(last, destination) && routeClear(grid, position, actor.route)) {
     actor.target = target; return true
   }
-  const route = path(grid, position, destination, world)
+  const route = planned ? planned() : path(grid, position, destination, world)
   if (!route) return false
   actor.motion = { version: 1, position: { ...position } }; actor.cell = pointCell(position)
   actor.route = route; actor.progress = 0; actor.target = target
@@ -135,12 +137,19 @@ function moveActor(actor: Actor, grid: NavigationGrid, world: WorldMap, speed: n
   actor.motion!.position = moved.position; actor.cell = pointCell(moved.position); actor.route = moved.route
 }
 /** The same territory restriction is used for search, swept movement and save validation. */
+const residentNavigation = new WeakMap<NavigationGrid, Map<string, NavigationGrid>>()
 export function enemyNavigation(world: WorldMap, grid: NavigationGrid, residentId?: string): NavigationGrid {
   const spawn = REGION_BOARS.find(s => s.id === residentId)
   if (!spawn) return grid
+  let cached = residentNavigation.get(grid)
+  if (!cached) { cached = new Map(); residentNavigation.set(grid, cached) }
+  const existing = cached.get(spawn.regionId)
+  if (existing) return existing
   const inside = (cell: Cell) => world.chunkAt(cell)?.id === spawn.regionId
-  return { isWalkable: cell => inside(cell) && grid.isWalkable(cell),
-    canStep: (a, b) => inside(a) && inside(b) && grid.canStep(a, b) }
+  const restricted = new CachedNavigation(world, { isWalkable: cell => inside(cell) && grid.isWalkable(cell),
+    canStep: (a, b) => inside(a) && inside(b) && grid.canStep(a, b) })
+  cached.set(spawn.regionId, restricted)
+  return restricted
 }
 function targetCell(target: ActorTarget | null, state: SurvivalState, player: Cell, construction: ConstructionState, extraProtection = false): Cell | null {
   if (!target) return null
@@ -168,11 +177,24 @@ function targetCell(target: ActorTarget | null, state: SurvivalState, player: Ce
   return segmentHp(part, target.segmentId) > 0 && !protectedBuildingTarget(construction, target) ? target.stand : null
 }
 function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, construction: ConstructionState, world: WorldMap, grid: NavigationGrid, extraProtection: boolean) {
+  // Several wall/floor/roof segments share the same stand cell. Compute each route only once
+  // per decision, including failed player/interior searches, and reuse the winning route.
+  const planned = new Map<NavigationGrid, Map<string, Cell[] | null>>()
+  const position = actorPosition(enemy)
+  const plannedPath = (destination: Cell, nav = grid) => {
+    let paths = planned.get(nav)
+    if (!paths) { paths = new Map(); planned.set(nav, paths) }
+    const key = `${destination.x},${destination.y}`
+    if (!paths.has(key)) paths.set(key, path(nav, position, destination, world))
+    return paths.get(key)!
+  }
+  const routeTo = (target: ActorTarget, destination: Cell, nav = grid) =>
+    setRoute(enemy, target, destination, nav, world, () => plannedPath(destination, nav))
   if (state.taming.targetId === enemy.id && state.taming.job) { stop(enemy); return }
   if (enemy.tameable) {
     if (pointDistance(actorPosition(enemy), player) <= 2.5) { stop(enemy); return }
     const destination = moveTarget(grid, player)
-    if (!destination || !setRoute(enemy, { kind: 'point', cell: destination }, destination, grid, world)) stop(enemy)
+    if (!destination || !routeTo({ kind: 'point', cell: destination }, destination)) stop(enemy)
     return
   }
   if (enemy.residentId) {
@@ -183,7 +205,7 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
     for (const candidate of targets) {
       const destination = moveTarget(grid, candidate.cell)
       if (destination && distance(enemy.cell, pointCell(candidate.cell)) <= BOAR_AGGRO_RANGE
-        && setRoute(enemy, candidate.target, destination, grid, world)) return
+        && routeTo(candidate.target, destination)) return
     }
     enemy.patrol ??= { index: 0, remaining: 0 }
     if (enemy.patrol.remaining > 0) { stop(enemy); return }
@@ -197,15 +219,15 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
     const patrolGrid: NavigationGrid = { isWalkable: cell => nearHome(cell) && grid.isWalkable(cell),
       canStep: (a, b) => nearHome(a) && nearHome(b) && grid.canStep(a, b) }
     if (!nearHome(enemy.cell)) {
-      if (!setRoute(enemy, { kind: 'point', cell: spawn.cell }, spawn.cell, grid, world)) stop(enemy)
+      if (!routeTo({ kind: 'point', cell: spawn.cell }, spawn.cell)) stop(enemy)
       return
     }
     for (let i = 0; i < offsets.length; i++) {
       const index = (enemy.patrol.index + i) % offsets.length, [x, y] = offsets[index]
       const destination = { x: spawn.cell.x + x, y: spawn.cell.y + y }
-      if (setRoute(enemy, { kind: 'point', cell: destination }, destination, patrolGrid, world)) { enemy.patrol.index = index; return }
+      if (routeTo({ kind: 'point', cell: destination }, destination, patrolGrid)) { enemy.patrol.index = index; return }
     }
-    if (!setRoute(enemy, { kind: 'point', cell: spawn.cell }, spawn.cell, grid, world)) stop(enemy)
+    if (!routeTo({ kind: 'point', cell: spawn.cell }, spawn.cell)) stop(enemy)
     return
   }
   // Keep actor engagements, but reconsider structures when a defender comes within reach.
@@ -216,15 +238,15 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
   if (!extraProtection && construction.jobs[0]?.phase !== 'building' && state.taming.job?.phase !== 'taming' && (enemy.roaming || distance(enemy.cell, pointCell(player)) <= ENEMIES[enemy.kind].sight)) targets.push({ target: { kind: 'player' }, cell: player })
   for (const candidate of targets) {
     const destination = moveTarget(grid, candidate.cell)
-    if (destination && setRoute(enemy, candidate.target, destination, grid, world)) return
+    if (destination && routeTo(candidate.target, destination)) return
   }
   const home = buildingAt(construction, pointCell(player)) ?? construction.buildings.find(building => building.parts.foundation.built)
   const goal = enemy.roaming ? player : home ? localToWorld(home, { x: 1, y: 1 }) : world.config.spawn
   // Use an existing opening before breaking additional walls.
-  if (distance(enemy.cell, goal) > 1 && setRoute(enemy, { kind: 'point', cell: goal }, goal, grid, world)) return
+  if (distance(enemy.cell, goal) > 1 && routeTo({ kind: 'point', cell: goal }, goal)) return
   // At an intact segment the route cost is already zero; retain it after reconsidering nearby actors/openings.
   if (current && enemy.target?.kind === 'part' && sameCell(actorPosition(enemy), current)) return
-  const candidates: { target: Extract<ActorTarget, { kind: 'part' }>; cost: number }[] = []
+  let best: { target: Extract<ActorTarget, { kind: 'part' }>; cost: number; route: Cell[] } | undefined
   for (const building of home ? [home] : []) for (const config of blueprintById(building.blueprintId)!.parts) {
     const part = building.parts[config.id]
     if (!part.built) continue
@@ -234,15 +256,17 @@ function planEnemy(enemy: Enemy, state: SurvivalState, player: Cell, constructio
       const stands = segment.edge ? [segment.edge.from, segment.edge.to] : [segment.cell]
       for (const cell of stands) {
         const stand = localToWorld(building, cell)
-        const position = actorPosition(enemy), route = path(grid, position, stand, world)
-        if (route) candidates.push({ target: { ...target, stand },
-          cost: route.reduce((sum, point, index) => sum + pointDistance(index ? route[index - 1] : position, point), 0) })
+        if (!grid.isWalkable(stand) || best && pointDistance(position, stand) > best.cost + 1e-8) continue
+        const route = plannedPath(stand)
+        if (route) {
+          const cost = route.reduce((sum, point, index) => sum + pointDistance(index ? route[index - 1] : position, point), 0)
+          if (!best || cost < best.cost) best = { target: { ...target, stand }, cost, route }
+        }
       }
     }
   }
-  candidates.sort((a, b) => a.cost - b.cost)
-  if (candidates[0]) { setRoute(enemy, candidates[0].target, candidates[0].target.stand, grid, world); return }
-  if (!setRoute(enemy, { kind: 'point', cell: goal }, goal, grid, world)) stop(enemy)
+  if (best) { setRoute(enemy, best.target, best.target.stand, grid, world, () => best!.route); return }
+  if (!routeTo({ kind: 'point', cell: goal }, goal)) stop(enemy)
 }
 function planCompanion(state: SurvivalState, buddy: Companion, player: Cell, world: WorldMap, grid: NavigationGrid) {
   if (buddy.status !== 'active') { stopCompanion(buddy); return }

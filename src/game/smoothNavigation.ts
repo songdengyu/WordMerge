@@ -102,7 +102,8 @@ export class SmoothPathSearch {
   private readonly search?: PathSearch
   private result: SearchResult = { status: 'pending' }
   constructor(private readonly grid: NavigationGrid, private readonly from: Cell, private readonly goal: Cell) {
-    if (!canWalkLine(grid, from, from) || !canWalkLine(grid, goal, goal)) this.result = { status: 'unreachable' }
+    if (grid.connected?.(pointCell(from), pointCell(goal)) === false
+      || !canWalkLine(grid, from, from) || !canWalkLine(grid, goal, goal)) this.result = { status: 'unreachable' }
     else if (canWalkLine(grid, from, goal)) this.result = { status: 'found', path: sameCell(from, goal) ? [] : [goal] }
     else this.search = new PathSearch(grid, pointCell(from), pointCell(goal), true)
   }

@@ -2,6 +2,8 @@
 
 ## 新游戏模块（M1–M3）
 
+通行拓扑缓存位于 `navigationCache.ts`：`constructionNavigation` 按地图实例 / 真实墙门阻挡边复用，破坏、修复、清理、开地必须切换对应拓扑；派生缓存不写存档。怪物每次决策按目的地复用路径，可用 `node scripts/benchmark-enemy-navigation.mjs` 重现屋内追击压力测试。见 [寻路性能记录](implementation/ENEMY-NAVIGATION-PERFORMANCE.md)。
+
 九宫格地图的新增区域目录 / 资源层在 `mapExpansionConfig.ts`，地图与目录的明确存档升级在 `migrations/mapExpansion.ts`；探索云雾在 `LockedRegionFog.ts`，静态生成并缓存纹理。见 [九宫格地图与探索云雾](implementation/MAP-EXPANSION-FOG.md)。
 
 地形视觉轮廓由 `src/scene/terrainContours.ts` 生成，`TerrainArt.ts` 共用圆角填色与边线；`CampScene` 分层绘制并按地块裁剪。该层不能参与碰撞或地图配置指纹，详见 [地形交界圆角](implementation/TERRAIN-CONTOURS.md)。

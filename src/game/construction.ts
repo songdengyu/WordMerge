@@ -3,6 +3,7 @@ import { matchRequirements, type InventoryState, type ProductionState } from './
 import { PathSearch, type NavigationGrid } from './navigation'
 import { edgeKey, sameCell, type Cell, type WorldMap } from './world'
 import { buildingSegments, createBuildingParts, ensureSegments, segmentHp, setSegmentHp } from './buildingSegments'
+import { CachedNavigation } from './navigationCache'
 
 export type Rotation = 0 | 1 | 2 | 3
 export interface BuildingPart { hp: number; built: boolean; xpGranted: boolean; segments?: Record<string, number> }
@@ -88,6 +89,7 @@ export const orderMaterials = (state: ConstructionState, order: BuildingOrder) =
 export const orderSeconds = (config: BuildingPartConfig, order: BuildingOrder) => order.mode === 'repair' ? config.repairSeconds : config.seconds
 
 /** Derived navigation only. Buildings and HP remain owned by the runtime. */
+const navigationCache = new WeakMap<WorldMap, Map<string, NavigationGrid>>()
 export function constructionNavigation(world: WorldMap, state: ConstructionState, actor: 'friendly' | 'enemy' = 'friendly'): NavigationGrid {
   const blocked = new Set<string>()
   for (const building of state.buildings) for (const config of blueprintById(building.blueprintId)!.parts) {
@@ -97,7 +99,18 @@ export function constructionNavigation(world: WorldMap, state: ConstructionState
       if (segment.edge && segmentHp(part, segment.id) > 0) blocked.add(edgeKey(localToWorld(building, segment.edge.from), localToWorld(building, segment.edge.to)))
     }
   }
-  return { isWalkable: cell => world.isWalkable(cell), canStep: (from, to) => world.canStep(from, to) && !blocked.has(edgeKey(from, to)) }
+  // Key only actual blocking edges, not HP, construction timers or object identity.
+  // Damage that leaves a wall standing reuses the grid; breaking/repairing it gets a new one.
+  const signature = [...blocked].sort().join(';')
+  let cached = navigationCache.get(world)
+  if (!cached) { cached = new Map(); navigationCache.set(world, cached) }
+  const existing = cached.get(signature)
+  if (existing) return existing
+  const grid = new CachedNavigation(world, { isWalkable: cell => world.isWalkable(cell),
+    canStep: (from, to) => world.canStep(from, to) && !blocked.has(edgeKey(from, to)) })
+  if (cached.size >= 4) cached.delete(cached.keys().next().value!)
+  cached.set(signature, grid)
+  return grid
 }
 export function reachable(grid: NavigationGrid, from: Cell, to: Cell, world: WorldMap) {
   return new PathSearch(grid, from, to).advance(world.config.chunks.length * 256 + 1).status === 'found'

@@ -1,6 +1,6 @@
 import { cellKey, sameCell, type Cell, type WorldMap } from './world'
 
-export type NavigationGrid = Pick<WorldMap, 'isWalkable' | 'canStep'>
+export type NavigationGrid = Pick<WorldMap, 'isWalkable' | 'canStep'> & { connected?: (from: Cell, to: Cell) => boolean | undefined }
 
 interface Node { cell: Cell; cost: number; score: number; parent?: Node }
 export type SearchResult = { status: 'pending' } | { status: 'found'; path: Cell[] } | { status: 'unreachable' }
@@ -17,7 +17,7 @@ export class PathSearch {
   private result: SearchResult = { status: 'pending' }
 
   constructor(private readonly world: NavigationGrid, from: Cell, private readonly goal: Cell, private readonly diagonal = false) {
-    if (!world.isWalkable(from) || !world.isWalkable(goal)) {
+    if (!world.isWalkable(from) || !world.isWalkable(goal) || world.connected?.(from, goal) === false) {
       this.result = { status: 'unreachable' }
     } else {
       this.open.push({ cell: from, cost: 0, score: distance(from, goal, diagonal) })
