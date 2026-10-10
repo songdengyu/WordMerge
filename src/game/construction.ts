@@ -90,24 +90,25 @@ export const orderSeconds = (config: BuildingPartConfig, order: BuildingOrder) =
 
 /** Derived navigation only. Buildings and HP remain owned by the runtime. */
 const navigationCache = new WeakMap<WorldMap, Map<string, NavigationGrid>>()
-export function constructionNavigation(world: WorldMap, state: ConstructionState, actor: 'friendly' | 'enemy' = 'friendly'): NavigationGrid {
+export function constructionNavigation(world: WorldMap, state: ConstructionState, actor: 'friendly' | 'enemy' | 'player' = 'friendly'): NavigationGrid {
   const blocked = new Set<string>()
   for (const building of state.buildings) for (const config of blueprintById(building.blueprintId)!.parts) {
     const part = building.parts[config.id]
-    if (!part.built || !config.edges.length || (config.kind === 'door' && actor === 'friendly')) continue
+    if (!part.built || !config.edges.length || (config.kind === 'door' && actor !== 'enemy')) continue
     for (const segment of buildingSegments(blueprintById(building.blueprintId)!, config)) {
       if (segment.edge && segmentHp(part, segment.id) > 0) blocked.add(edgeKey(localToWorld(building, segment.edge.from), localToWorld(building, segment.edge.to)))
     }
   }
   // Key only actual blocking edges, not HP, construction timers or object identity.
   // Damage that leaves a wall standing reuses the grid; breaking/repairing it gets a new one.
-  const signature = [...blocked].sort().join(';')
+  const allowWater = actor === 'player'
+  const signature = `${allowWater ? 'water' : 'land'}:${[...blocked].sort().join(';')}`
   let cached = navigationCache.get(world)
   if (!cached) { cached = new Map(); navigationCache.set(world, cached) }
   const existing = cached.get(signature)
   if (existing) return existing
-  const grid = new CachedNavigation(world, { isWalkable: cell => world.isWalkable(cell),
-    canStep: (from, to) => world.canStep(from, to) && !blocked.has(edgeKey(from, to)) })
+  const grid = new CachedNavigation(world, { isWalkable: cell => world.isWalkable(cell, allowWater),
+    canStep: (from, to) => world.canStep(from, to, allowWater) && !blocked.has(edgeKey(from, to)) })
   if (cached.size >= 4) cached.delete(cached.keys().next().value!)
   cached.set(signature, grid)
   return grid
@@ -130,7 +131,7 @@ export function placementError(world: WorldMap, state: ConstructionState, bluepr
   if (cells.some(cell => occupied.some(other => Math.max(Math.abs(other.x - cell.x), Math.abs(other.y - cell.y)) <= 1))) return '建筑之间需要留出一格通道'
   const complete = { ...state, buildings: [...state.buildings.map(building => ({ ...building,
     parts: Object.fromEntries(blueprintById(building.blueprintId)!.parts.map(part => [part.id, { hp: part.hp, built: true, xpGranted: true }])) })), candidate] }
-  const grid = constructionNavigation(world, complete)
+  const grid = constructionNavigation(world, complete, 'player')
   for (const building of complete.buildings) for (const part of blueprintById(building.blueprintId)!.parts) {
     if (!part.work.some(cell => reachable(grid, player, localToWorld(building, cell), world))) return '建成后工作位不可达，请为木门留出通往营地的小径'
   }

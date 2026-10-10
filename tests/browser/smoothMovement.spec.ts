@@ -50,7 +50,7 @@ async function position(page: Page) {
   return { x, y }
 }
 
-test('a water tap replaces an ongoing walk and stops at the reachable shore after reload', async ({ page }) => {
+test('a water tap replaces an ongoing walk and reaches the water destination after reload', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await enter(page)
   await page.clock.install()
@@ -59,18 +59,18 @@ test('a water tap replaces an ongoing walk and stops at the reachable shore afte
   await page.clock.runFor(150)
   await tapPoint(page, 4, 3)
   await page.clock.runFor(100)
-  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-destination', '4.651,3')
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-destination', '4,3')
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide')))
   await page.clock.runFor(50)
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
   await page.reload()
   await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
   await page.clock.runFor(6000)
-  expect(await position(page)).toEqual({ x: 4.651, y: 3 })
+  expect(await position(page)).toEqual({ x: 4, y: 3 })
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-activity', 'idle')
   await tapPoint(page, 4, 3)
   await page.clock.runFor(500)
-  expect(await position(page)).toEqual({ x: 4.651, y: 3 })
+  expect(await position(page)).toEqual({ x: 4, y: 3 })
   expect(errors).toEqual([])
 })
 

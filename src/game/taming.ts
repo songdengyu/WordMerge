@@ -49,10 +49,10 @@ export function requestTaming(original: SurvivalState, source: ProductionState, 
   state.taming = { ordered: true, job: null, ...(targetId ? { targetId } : {}) }
   const ids = matchRequirements(production.inventory, SURVIVAL_RULES.companion.rescueItems)
   if (!ids) return accept('已添加驯服订单，去合成所需物资吧', true)
-  const grid = constructionNavigation(world, construction), at = pointCell(actorPosition(animal))
+  const grid = constructionNavigation(world, construction, 'player'), at = pointCell(actorPosition(animal))
   const work = [{ x: at.x - 1, y: at.y }, { x: at.x + 1, y: at.y },
     { x: at.x, y: at.y - 1 }, { x: at.x, y: at.y + 1 }]
-    .filter(cell => grid.canStep(cell, at))
+    .filter(cell => world.isWalkable(cell) && grid.canStep(cell, at))
     .sort((a, b) => pointDistance(a, player) - pointDistance(b, player))
     .concat([{ ...at }])
     .find(cell => reachable(grid, pointCell(player), cell, world))

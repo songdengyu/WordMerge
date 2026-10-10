@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 主角可进入已开放水域，`constructionNavigation(..., 'player')` 使用独立的水陆缓存；默认 friendly / enemy 仍只走陆地，建筑占地仍按 `world.isWalkable(cell)` 限陆地。`waterMovement.ts` 按每段穿越格界的实际时间推进，水中默认速度 50%；入水立即清零火把，水中点火拒绝且不扣料，上岸不自动复燃。主角路径及读档必须使用玩家导航，不能重新用陆地校验拒绝水中存档。见 `docs/implementation/WATER-MOVEMENT.md`。
 - 合成“测试”按钮通过 `test-complete-order` 完成当前绿色订单，列表顺序由 `productionOrders.ts` 共用；必须验证命令里的订单仍是当前任务，不能将过期点击作用于下一张。免材料 / 路程 / 等待，正常结算且保存，未支付预留释放、已支付不退款；建造 / 驯服 / 清理复用完成方法，普通流程不免成本。见 `docs/implementation/MERGE-TEST-COMPLETE.md`。
 - 墙面修复配方已统一降低一级（小木屋 201、大屋 202），仅改墙体，仍逐段 2 秒。`migrations/wallRepairCost.ts` 明确迁移建筑 / 经济 / 区域旧指纹，必须先按旧配方验证预留，再释放未开工高阶材料、保留订单；已支付工程保留计时。不要将旧配方直接替换后拒绝有效旧档。见 `docs/implementation/WALL-REPAIR-COST.md`。
 - 寻路缓存 `navigationCache.ts` 只面向不可变通行拓扑，`constructionNavigation` 以 `WorldMap` / 实际墙门阻挡边复用；普通扣血不失效，破坏 / 修复 / 新建必须切换边拓扑，开地 / 清理须派生新地图。常驻怪区域使用独立连通缓存；动态自定义地图方法回退原检查。不将缓存写入存档，不降低 AI 决策频率。性能复现脚本及边界见 `docs/implementation/ENEMY-NAVIGATION-PERFORMANCE.md`。
@@ -34,7 +35,7 @@
 - 建造、修复、驯服、开地、清理开工扣 1 饱食度和水分；`walkPath.distance` 按主角实际距离每满 10 格扣各 1，经济状态保存余数。区域野猪无目标时在出生点 2 格范围巡逻、到点停 2 秒，优先原有索敌；保存可选 `patrol`。移除静态场景物体名称与地图建设经验保存文字，存档功能仍在设置。
 - React 18 + TypeScript + Vite 5，样式为 CSS Modules。旧 Demo 使用 Context / reducer；新模式由 `src/game/GameRuntime.ts` 管理权威状态，React 用 `useSyncExternalStore` 订阅，Pixi 仅负责地图表现。
 - 主角、伙伴与敌人移动已统一为 `smoothNavigation.ts` 连续坐标：直达优先，八向 A* 绕行，再做视线简化与安全拐角圆滑；沿路径按实际距离推进，途中改点立即从当前位置重规划。碰撞检查含地形、墙边与角色半径，不能仅检查端点。敌人仍用敌方墙门规则和自身速度，区域野猪的寻路 / 步进 / 存档共用区域边界；Runtime 按敌人 ID 保存上一模拟步位置供 Pixi 插值，交战只冻结双方。交互 / 建造仍用格坐标，工作位必须精确到达才扣料。保存 `motion.version = 1` 与精确位置，兼容旧 cell / progress 存档；细节见 `docs/implementation/SMOOTH-MOVEMENT.md`。
-- 手动移动命令使用 `manualMovePath`：普通目标保留原平滑寻路；水面、障碍、未开放 / 地图外及不连通目标，在当前连通区域内寻找靠近点击处的安全终点。主角和指定移动伙伴共用，仅保存可达终点 / 路线，重复点击边缘不后退。施工、驯服、清理、开地与 AI 仍用严格目的地，不允许以靠近工作位代替抵达。
+- 手动移动命令使用 `manualMovePath`：普通目标保留原平滑寻路；障碍、未开放 / 地图外及不连通目标，在当前连通区域内寻找靠近点击处的安全终点。主角现可进入水面；指定移动伙伴仍在岸边停止，两者共用算法但传入各自通行网格。仅保存可达终点 / 路线，重复点击边缘不后退。施工、驯服、清理、开地与 AI 仍用严格目的地，不允许以靠近工作位代替抵达。
 - 伙伴指定移动 / 跟随 / 回位 / 追敌也复用 `SmoothPathSearch`、`moveTarget`、`walkPath`，速度仍由伙伴配置决定。伙伴保存可选 `motion.version = 1` 与精确位置，旧 cell / progress 从实际中途位置转换；路线按友方墙门验证，交战期间冻结路线恢复时重新检查。场景用 `previousCompanionPosition` 插值。主角不显示路径，只显示终点，伙伴手动移动显示绿色终点。
 - 合成运行配置是 `public/config/` 下英文表头 CSV；M3 蓝图、M4 生存参数、M5 剧情与区域扩展暂用版本化 TypeScript 目录，基础地图用 JSON。桌面原表和归档表不是运行输入。
 - 新合成配置在 `public/config/survival/merge/`，复用原棋子表头，`open_cost` 在新模式表示体力；物品使用效果和委托奖励独立配置，不接旧装备奖励。详情见 `docs/implementation/M2-PRODUCTION-SAVE.md`。

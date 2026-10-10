@@ -20,10 +20,10 @@ export const resourceTool = (production: ProductionState, required: number) => a
   .filter(item => toolMeets(item.itemId, required)).sort((a, b) => a.itemId - b.itemId)[0]
 /** A resource itself blocks movement; approach a reachable neighboring cell without starting work. */
 export function resourceApproach(world: WorldMap, construction: ConstructionState, player: Cell, object: Cell) {
-  const grid = constructionNavigation(world, construction)
+  const grid = constructionNavigation(world, construction, 'player')
   return [[-1, 0], [1, 0], [0, -1], [0, 1]].map(([x, y]) => ({ x: object.x + x, y: object.y + y }))
     .sort((a, b) => pointDistance(a, player) - pointDistance(b, player))
-    .find(point => new SmoothPathSearch(grid, player, point).advance(world.config.chunks.length * 256 + 1).status === 'found')
+    .find(point => world.isWalkable(point) && new SmoothPathSearch(grid, player, point).advance(world.config.chunks.length * 256 + 1).status === 'found')
 }
 export function spendActionNeeds(production: ProductionState, amount = 1) {
   production.vitals = { ...production.vitals, hunger: Math.max(0, production.vitals.hunger - amount), water: Math.max(0, production.vitals.water - amount) }

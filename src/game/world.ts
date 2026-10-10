@@ -74,15 +74,15 @@ export class WorldMap {
     return terrain
   }
 
-  isWalkable(cell: Cell) {
+  isWalkable(cell: Cell, allowWater = false) {
     if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y) || !this.chunkAt(cell)?.unlocked) return false
     const terrain = this.terrainAt(cell)
-    return terrain !== 'water' && terrain !== 'rock' && !this.objectAt(cell)
+    return (allowWater || terrain !== 'water') && terrain !== 'rock' && !this.objectAt(cell)
   }
 
-  canStep(from: Cell, to: Cell) {
+  canStep(from: Cell, to: Cell, allowWater = false) {
     return Math.abs(from.x - to.x) + Math.abs(from.y - to.y) === 1
-      && this.isWalkable(to) && !this.blockedEdges.has(edgeKey(from, to))
+      && this.isWalkable(to, allowWater) && !this.blockedEdges.has(edgeKey(from, to))
   }
 }
 

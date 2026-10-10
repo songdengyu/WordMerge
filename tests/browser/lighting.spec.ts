@@ -49,6 +49,49 @@ async function timeWeather(page: Page, label: string) {
   await page.getByRole('button', { name: '关闭天候测试' }).click()
 }
 
+test('water movement extinguishes the torch, survives reload, and permits relighting only after reaching shore', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.setViewportSize({ width: 320, height: 640 })
+  const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))
+  await seed(page, save => {
+    save.data.elapsedSeconds = 0; save.data.cell = { x: 5, y: 3 }
+    save.data.motion = { version: 1, position: save.data.cell }
+    save.data.survival.torchRemaining = 30
+  })
+  await page.clock.install(); await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50))
+  const torch = page.getByTestId('torch-button'), scene = page.getByTestId('camp-scene')
+  const tap = async (x: number, y: number) => {
+    const [cx, cy, zoom] = (await scene.getAttribute('data-camera'))!.split(',').map(Number)
+    const box = (await page.getByTestId('camp-canvas').boundingBox())!
+    await page.touchscreen.tap(box.x + cx + (x - y) * 32 * zoom, box.y + cy + (x + y) * 16 * zoom)
+  }
+  await expect(torch).toHaveAttribute('data-lit', 'true')
+  const before = await readSave(page)
+  await tap(3, 3); await page.clock.runFor(1200)
+  await expect(torch).toHaveAttribute('data-in-water', 'true')
+  await expect(torch).toHaveAttribute('data-lit', 'false')
+  await torch.click(); await page.clock.runFor(100)
+  await expect(torch).toContainText('上岸点燃')
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
+  const wet = await readSave(page)
+  expect(wet.data.survival.torchRemaining).toBe(0)
+  expect(wet.data.production.inventory).toEqual(before.data.production.inventory)
+  await page.screenshot({ path: 'test-results/water-torch-320.png' })
+  await page.reload(); await ready(page); await page.clock.runFor(1500)
+  await expect(scene).toHaveAttribute('data-position', '3.0000,3.0000')
+  await expect(torch).toHaveAttribute('data-in-water', 'true')
+  await expect(torch).toHaveAttribute('data-lit', 'false')
+  await tap(5.2, 3); await page.clock.runFor(3000)
+  await expect(torch).toHaveAttribute('data-in-water', 'false')
+  await expect(torch).toHaveAttribute('data-lit', 'false')
+  await torch.click(); await page.clock.runFor(100)
+  await expect(torch).toHaveAttribute('data-lit', 'true')
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide'))); await ready(page)
+  const after = await readSave(page)
+  expect(Object.keys(after.data.production.inventory.items)).toHaveLength(Object.keys(before.data.production.inventory.items).length - 2)
+  expect(errors).toEqual([])
+})
+
 test('deep night hides unlit ground, paid torch reveals a moving pool and reload preserves remaining fuel', async ({ page }) => {
   test.setTimeout(60_000)
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))

@@ -13,6 +13,7 @@ import { createProgression, progressedWorld, type ProgressionState } from './pro
 import { MAP_TAB_PROGRESSION_VERSION, PRE_MEAL_PROGRESSION_VERSION, PROGRESSION_VERSION, REGIONS } from './progressionConfig'
 import { validateProgression } from './progressionValidation'
 import { canWalkLine, finitePoint, pointCell } from './smoothNavigation'
+import { isInWater } from './waterMovement'
 import { releaseTaming } from './taming'
 import { createRegionContent, REGION_CONTENT_VERSION } from './regionContentConfig'
 import { grantLodgeFoundation, populateRegionContent } from './regionContent'
@@ -113,23 +114,25 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
   } else world = progressedWorld(world, createProgression())
   const economy = economyForWorld(data.economy, world, check)
   world = progressedWorld(world, raw.schemaVersion === 4 ? data.progression as unknown as ProgressionState : createProgression(), economy.removedObjects)
-  check(record(data) && finite(data.elapsedSeconds) && cell(data.cell) && world.isWalkable(data.cell), '世界时间或角色位置')
+  const playerTerrain = { isWalkable: (cell: Cell) => world.isWalkable(cell, true),
+    canStep: (from: Cell, to: Cell) => world.canStep(from, to, true) }
+  check(record(data) && finite(data.elapsedSeconds) && cell(data.cell) && playerTerrain.isWalkable(data.cell), '世界时间或角色位置')
   check(finite(data.progress) && data.progress < 1 && typeof data.searching === 'boolean', '移动进度')
   const continuous = data.motion !== undefined
   if (continuous) check(record(data.motion) && data.motion.version === 1 && point(data.motion.position)
-    && sameCell(pointCell(data.motion.position), data.cell) && canWalkLine(world, data.motion.position, data.motion.position) && data.progress === 0, '连续移动位置')
+    && sameCell(pointCell(data.motion.position), data.cell) && canWalkLine(playerTerrain, data.motion.position, data.motion.position) && data.progress === 0, '连续移动位置')
   check(Array.isArray(data.route) && data.route.length <= world.config.chunks.length * 256 * (continuous ? 8 : 1), '路径长度')
   let from: Cell = continuous ? (data.motion as { position: Cell }).position : data.cell
   const seenCells = new Set<string>()
   for (const next of data.route) {
-    check((continuous ? point(next) && canWalkLine(world, from, next) : cell(next) && world.canStep(from, next))
+    check((continuous ? point(next) && canWalkLine(playerTerrain, from, next) : cell(next) && playerTerrain.canStep(from, next))
       && !seenCells.has(cellKey(next as Cell)), '路径不可达或重复')
     check(point(next), '路径坐标')
     seenCells.add(cellKey(next)); from = next
   }
   check(data.route.length > 0 || data.progress === 0, '空路径不能含移动进度')
-  check(data.destination === null || (continuous ? point(data.destination) && canWalkLine(world, data.destination, data.destination)
-    : cell(data.destination) && world.isWalkable(data.destination)), '目的地')
+  check(data.destination === null || (continuous ? point(data.destination) && canWalkLine(playerTerrain, data.destination, data.destination)
+    : cell(data.destination) && playerTerrain.isWalkable(data.destination)), '目的地')
   check(!data.searching || data.destination !== null, '待寻路目标缺失')
   check(data.searching || data.destination === null || sameCell(from, data.destination as Cell), '路径终点')
   const production = data.production
@@ -230,6 +233,7 @@ export function validateSave(raw: unknown, world: WorldMap, catalog: ProductionC
     migrated.data.survival.taming = { ordered: false, job: null }
   }
   validateSurvival(migrated.data.survival, migrated.data, world, catalog, check, oldTamingFood ? [211] : undefined)
+  if (isInWater(world, migrated.data.motion?.position ?? migrated.data.cell)) migrated.data.survival.torchRemaining = 0
   // Old, unpaid travel releases berries in place; its order now requests the new food.
   // Work already paid for continues without charging again.
   if (oldTamingFood && migrated.data.survival.taming.job?.phase === 'travel') {

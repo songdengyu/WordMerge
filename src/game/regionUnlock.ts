@@ -24,7 +24,7 @@ export function regionGates(world: WorldMap, regionId: string): RegionGate[] {
 }
 
 export function reachableRegionGate(world: WorldMap, construction: ConstructionState, player: Cell, regionId: string, side?: GateSide) {
-  const grid = constructionNavigation(world, construction)
+  const grid = constructionNavigation(world, construction, 'player')
   return regionGates(world, regionId).filter(gate => !side || gate.side === side)
     .sort((a, b) => pointDistance(a.workCell, player) - pointDistance(b.workCell, player))
     .find(gate => world.isWalkable(gate.workCell) && reachable(grid, pointCell(player), gate.workCell, world))

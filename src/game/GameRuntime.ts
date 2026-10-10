@@ -3,7 +3,8 @@ import { dismantleDecoration, type DecorDismantleCommand } from './decorSalvage'
 import { requestTaming, releaseTaming, tamingAnimal, tamingName, TAMING_ORDER, TAMING_SECONDS, type TamingCommand } from './taming'
 import { SURVIVAL_RULES } from './survivalConfig'
 import type { NavigationGrid } from './navigation'
-import { canWalkLine, finitePoint, manualMovePath, moveTarget, PLAYER_SPEED, pointCell, pointDistance, smoothPath, SmoothPathSearch, walkPath } from './smoothNavigation'
+import { canWalkLine, finitePoint, manualMovePath, moveTarget, pointCell, pointDistance, smoothPath, SmoothPathSearch } from './smoothNavigation'
+import { isInWater, walkPlayerPath } from './waterMovement'
 import { sameCell, type Cell, type WorldMap } from './world'
 import { applyInventoryCommand, createProduction, type InventoryCommand, type ProductionState } from './inventory'
 import type { ProductionCatalog } from './productionConfig'
@@ -128,7 +129,7 @@ export class GameRuntime {
     this.catalog = options.catalog
     this.production = options.catalog ? createProduction(options.catalog, this.now()) : null
     this.survival = createSurvival(world)
-    this.navigation = constructionNavigation(this.world, this.construction)
+    this.navigation = constructionNavigation(this.world, this.construction, 'player')
     this.point = { ...world.config.spawn }
     if (options.saved) {
       this.restore(options.saved.data)
@@ -192,6 +193,7 @@ export class GameRuntime {
 
   private step() {
     const previous = this.position()
+    let touchedWater = isInWater(this.world, previous)
     const previousCompanion = { ...actorPosition(this.survival.companion) }
     const previousEnemies = this.enemyPositions()
     const priorDay = Math.floor((this.gameMinutes() - 360) / 1440)
@@ -219,6 +221,7 @@ export class GameRuntime {
       if (!this.catalog || !this.production) return { accepted: false, reason: '物品配置尚未就绪' } as CommandResult
       if (command.type === 'test-complete-order') return this.testCompleteOrder(command.orderId)
       if (command.type === 'torch-light') {
+        if (isInWater(this.world, this.point)) return { accepted: false, reason: '水中无法点燃火把，请先上岸' } as CommandResult
         const result = lightTorch(this.production, this.survival.torchRemaining ?? 0, this.catalog)
         if (!result.accepted) return result
         this.production = result.production
@@ -343,7 +346,7 @@ export class GameRuntime {
           this.productionOrderFocus = `building:${order?.id ?? buildingOrderId(buildingCommand)}`
         }
         this.survival = { ...this.survival, resting: false }
-        this.navigation = constructionNavigation(this.world, this.construction)
+        this.navigation = constructionNavigation(this.world, this.construction, 'player')
         if (wasTravel) this.stopMovement()
         this.feedback = result.message
         return { accepted: true, message: result.message, openProduction: result.openProduction } as CommandResult
@@ -378,13 +381,20 @@ export class GameRuntime {
       if (target) this.search = new SmoothPathSearch(this.navigation, this.point, target)
     }
     if (this.route.length) {
-      const moved = walkPath(this.point, this.route, PLAYER_SPEED * FIXED_STEP_MS / 1000)
+      const moved = walkPlayerPath(this.world, this.point, this.route, FIXED_STEP_MS / 1000)
+      if (!touchedWater && moved.throughWater) this.feedback = '进入水域，移动速度降低'
+      touchedWater ||= moved.throughWater
       if (this.production) {
         this.economy = { ...this.economy }; this.production = { ...this.production }
         spendMovementNeeds(this.economy, this.production, moved.distance)
       }
       this.point = moved.position; this.route = moved.route
       if (!this.route.length && !this.search) this.feedback = '已到达目的地，看看附近吧'
+    }
+    if (touchedWater && (this.survival.torchRemaining ?? 0) > 0) {
+      this.survival = { ...this.survival, torchRemaining: 0 }
+      this.feedback = '火把被水浇灭了，上岸后可重新点燃'
+      this.constructionChanged = true
     }
     this.advanceConstruction()
     this.advanceTaming()
@@ -399,7 +409,7 @@ export class GameRuntime {
       if (wasTamingTravel && !this.survival.taming.job) this.stopMovement()
       survivalChanged = result.critical
       if (result.message) this.feedback = result.message
-      if (result.critical) this.navigation = constructionNavigation(this.world, this.construction)
+      if (result.critical) this.navigation = constructionNavigation(this.world, this.construction, 'player')
       if (this.production.vitals.hp === 0) { this.enterFailure(result.cause); survivalChanged = true }
     }
     const discoveries = discoverRegions(this.progression, this.cell)
@@ -497,7 +507,7 @@ export class GameRuntime {
     }
     const cell = pointCell(target), chunk = this.world.chunkAt(cell)
     if (!chunk?.unlocked) return { accepted: false, reason: chunk ? '这片区域还未开放' : '这里是营地地图的边界' }
-    if (!this.world.isWalkable(cell)) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }
+    if (!this.navigation.isWalkable(cell)) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }
     // Keep precise taps, but move a tap too close to a solid edge safely inside its tile.
     const destination = moveTarget(this.navigation, target)
     if (!destination) return { accepted: false, reason: '这里不能落脚，试试旁边的空地' }
@@ -596,7 +606,7 @@ export class GameRuntime {
     }
     const xp = part.xpGranted ? 0 : config.xp
     construction.xp += xp; part.xpGranted = true
-    const navigation = constructionNavigation(this.world, construction)
+    const navigation = constructionNavigation(this.world, construction, 'player')
     if (testing && !canWalkLine(navigation, this.point, this.point)) return false
     releaseJob(construction, production.inventory, order.id)
     construction.orders = construction.orders.filter(other => other.id !== order.id)
@@ -649,15 +659,16 @@ export class GameRuntime {
 
   private finishTaming() {
     this.survival = structuredClone(this.survival)
+    const guard = this.world.isWalkable(this.cell) ? this.cell : tamingAnimal(this.survival)!.cell
     const targetId = this.survival.taming.targetId
     if (targetId) {
       const animal = this.survival.enemies.find(e => e.id === targetId)!
       const recruit = { id: animal.id, kind: animal.kind, hp: animal.hp, cell: { ...animal.cell },
         motion: { version: 1 as const, position: { ...actorPosition(animal) } }, route: [], progress: 0, target: null, cooldown: 0,
-        status: 'active' as const, mode: 'follow' as const, guard: { ...this.cell }, orderedEnemy: null, recoveryRemaining: 0 }
+        status: 'active' as const, mode: 'follow' as const, guard: { ...guard }, orderedEnemy: null, recoveryRemaining: 0 }
       this.survival.recruits = [...(this.survival.recruits ?? []), recruit]
       this.survival.enemies = this.survival.enemies.filter(e => e.id !== targetId)
-    } else Object.assign(this.survival.companion, { status: 'active', guard: { ...this.cell } })
+    } else Object.assign(this.survival.companion, { status: 'active', guard: { ...guard } })
     this.survival.taming = { ordered: false, job: null }; this.survival.decisionRemaining = 0
     this.feedback = '伙伴愿意留下了，点击它可以下达指令'; this.constructionChanged = true
   }
@@ -688,7 +699,7 @@ export class GameRuntime {
       this.construction = structuredClone(this.construction); this.survival = structuredClone(this.survival)
       populateRegionContent(this.world, this.construction, this.survival, this.progression, [this.point])
       this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
-      this.navigation = constructionNavigation(this.world, this.construction)
+      this.navigation = constructionNavigation(this.world, this.construction, 'player')
       this.feedback = `${region.name}已开放`; this.constructionChanged = true
     }
   }
@@ -742,7 +753,7 @@ export class GameRuntime {
     if (!delivered) this.economy.pendingLoot.push(object.id)
     this.recordLoot(object, rule.gold, rule.gems, rule.items, !delivered)
     this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
-    this.navigation = constructionNavigation(this.world, this.construction)
+    this.navigation = constructionNavigation(this.world, this.construction, 'player')
     this.feedback = `清理完成：${[rule.gold ? `金币 +${rule.gold}` : '', rule.gems ? `钻石 +${rule.gems}` : '', delivered ? rule.items.map(id => this.catalog!.itemById.get(id)!.name).join('、') : '物资已保留，请到商店领取'].filter(Boolean).join('，')}`
     this.constructionChanged = true
   }
@@ -753,7 +764,7 @@ export class GameRuntime {
     if (target === 'player' && (this.survival.taming.job?.phase === 'taming' || this.progression.regionUnlock?.phase === 'unlocking' || this.economy.clearing?.phase === 'clearing')) return
     const result = constructionDamage(this.construction, this.production, target, amount)
     this.construction = result.state; this.production = result.production
-    this.navigation = constructionNavigation(this.world, this.construction)
+    this.navigation = constructionNavigation(this.world, this.construction, 'player')
     if (this.search && this.destination) this.search = new SmoothPathSearch(this.navigation, this.point, this.destination)
     if (this.production.vitals.hp === 0) this.enterFailure('enemy')
     this.sceneSnapshot = this.makeSceneSnapshot(this.position()); this.publish(); void this.checkpoint()
@@ -896,8 +907,9 @@ export class GameRuntime {
     upgradeConstruction(this.construction, this.production.inventory)
     populateRegionContent(this.world, this.construction, this.survival, this.progression, [this.point, ...this.route, ...(this.destination ? [this.destination] : []), ...(this.economy.clearing ? [this.economy.clearing.workCell] : [])])
     this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)
-    this.navigation = constructionNavigation(this.world, this.construction)
+    this.navigation = constructionNavigation(this.world, this.construction, 'player')
     this.production.stamina = syncStamina(this.production.stamina, this.now())
+    if (isInWater(this.world, this.point)) this.survival.torchRemaining = 0
     this.lastAutomaticSave = this.elapsedSeconds
     this.search = restored.searching && this.destination
       ? new SmoothPathSearch(this.navigation, this.point, this.destination) : null

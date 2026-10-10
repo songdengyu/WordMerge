@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GameRuntime, type GameCommand } from './GameRuntime'
+import { constructionNavigation } from './construction'
 import { canWalkLine, manualMovePath, pointDistance, walkPath } from './smoothNavigation'
 import { actorPosition } from './survival'
 import { parseWorld, type Cell, type WorldConfig } from './world'
@@ -57,13 +58,14 @@ describe('manual movement towards unreachable clicks', () => {
     await send({ type: 'move', target: { x: 9, y: 9 } })
     expect(await send({ type: 'move', target: { x: 3, y: 3 } })).toMatchObject({ accepted: true })
     const save = validateSave(JSON.parse(runtime.exportSave()), world, catalog)
-    expect(world.isWalkable({ x: Math.round(save.data.destination!.x), y: Math.round(save.data.destination!.y) })).toBe(true)
-    expect(save.data.destination).not.toEqual({ x: 3, y: 3 })
+    expect(world.isWalkable({ x: Math.round(save.data.destination!.x), y: Math.round(save.data.destination!.y) }, true)).toBe(true)
+    expect(save.data.destination).toEqual({ x: 3, y: 3 })
+    const playerGrid = constructionNavigation(world, save.data.construction, 'player')
     const loaded = new GameRuntime(world, { catalog, saved: save, now: () => testNow }); loaded.advanceFrame(0)
     let from = loaded.getSceneSnapshot().position
     for (let time = 50; time <= 10000; time += 50) {
       loaded.advanceFrame(time); const point = loaded.getSceneSnapshot().position
-      expect(canWalkLine(world, from, point)).toBe(true); from = point
+      expect(canWalkLine(playerGrid, from, point)).toBe(true); from = point
     }
     expect(from).toEqual(save.data.destination)
     expect(loaded.getUiSnapshot().activity).toBe('idle')

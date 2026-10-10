@@ -92,7 +92,7 @@ export function validateConstruction(raw: unknown, data: RuntimeData, world: Wor
       })
     }
   }
-  const grid = constructionNavigation(world, state)
+  const grid = constructionNavigation(world, state, 'player')
   let from = data.motion?.position ?? data.cell
   if (data.motion) check(canWalkLine(grid, from, from), '角色位置与建筑木墙重叠')
   for (const next of data.route) { check(data.motion ? canWalkLine(grid, from, next) : grid.canStep(from, next), '路径穿过建筑木墙'); from = next }
