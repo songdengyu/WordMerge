@@ -8,7 +8,7 @@
 .resources > span:first-child { color: #967344; }
 .resources small { font-size: 9px; color: #8f967e; }
 .vitals { grid-column: 1 / 3; grid-row: 2; display: flex; align-items: center; justify-content: flex-start; padding: 5px 0 0; }
-.orders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-shrink: 0; margin-bottom: 5px; }
+.orders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; height: 76px; min-height: 76px; flex-shrink: 0; margin-bottom: 5px; }
 .orderSlot { min-width: 0; height: 76px; }
 .orderSlot > .order, .orderSlot > .supplyOrder { width: 100%; height: 100%; }
 .order { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 76px; padding: 6px 3px; border: 1px solid #d8ddc5; border-radius: 11px; background: #faf7e9; }
@@ -24,7 +24,7 @@
 .requirements > span { width: 24px; height: 24px; position: relative; opacity: .55; }
 .requirements .owned { opacity: 1; }
 .requirements i { font-style: normal; position: absolute; right: -1px; bottom: -1px; color: #698855; font-size: 10px; }
-.orders > p { grid-column: 1 / -1; text-align: center; padding: 6px; font-size: 12px; }
+.orders > p { grid-column: 1 / -1; align-self: center; margin: 0; text-align: center; padding: 6px; font-size: 12px; }
 .withBuildingOrders { display: flex; overflow-x: auto; scrollbar-width: none; }
 .withBuildingOrders::-webkit-scrollbar { display: none; }
 .withBuildingOrders .orderSlot { flex: 0 0 132px; }
@@ -59,7 +59,8 @@
 .itemActions button { background: #6f8762; color: #f9f2da; border: 0; padding: 8px 9px; border-radius: 7px; font-size: 10px; }
 .itemActions .discard { background: #e6e7d5; color: #939079; }
 .notice { padding: 5px 2px; min-height: 25px; font-size: 10px; line-height: 1.5; color: #9a885e; text-align: center; flex-shrink: 0; }
-.info > .feedback { position: absolute; top: 2px; left: 2px; right: 2px; margin: 0; padding: 0; color: #939b86; font-size: 10px; line-height: 1.5; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.info > .feedback { position: absolute; top: 2px; left: 2px; right: 48px; margin: 0; padding: 0; color: #939b86; font-size: 10px; line-height: 1.5; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.screen .testComplete { position: absolute; top: 0; right: 2px; width: 38px; height: 20px; padding: 0; border: 1px solid #ccd7bd; border-radius: 5px; background: #e6ead8; color: #859178; font-size: 10px; }
 .footer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 4px; flex-shrink: 0; }
 .footer button { border: 1px solid #ccd7bd; border-radius: 9px; background: #e2e8d0; min-height: 43px; font-size: 12px; }
 .footer button:last-child { background: #5f7856; color: #f6f1de; border-color: #5f7856; }

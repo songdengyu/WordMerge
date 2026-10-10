@@ -33,6 +33,24 @@ async function place(page: Page) {
   await expect(page.getByTestId('building-panel')).toHaveCount(0)
 }
 
+test('merge test button immediately completes the current construction order without materials', async ({ page }) => {
+  await enter(page); await place(page)
+  await tapSceneControl(page, page.getByTestId('build-bubble-b1:foundation'))
+  await expect(page.getByTestId('building-order-b1:foundation')).toHaveAttribute('data-current', 'true')
+  const before = await readSave(page)
+  await page.getByRole('button', { name: '测试：完成当前任务' }).click()
+  await expect(page.getByTestId('building-order-b1:foundation')).toHaveCount(0)
+  await expect.poll(async () => (await readSave(page)).data.construction.xp).toBe(10)
+  const after = await readSave(page)
+  expect(after.data.construction.buildings[0].parts.foundation.built).toBe(true)
+  expect(after.data.production.inventory).toEqual(before.data.production.inventory)
+  expect(after.data.construction.jobs).toEqual([])
+  await page.getByRole('button', { name: '返回营地', exact: true }).click()
+  await expect(page.getByTestId('build-bubble-b1:walls')).toBeVisible()
+  await page.reload(); await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
+  expect((await readSave(page)).data.construction.xp).toBe(10)
+})
+
 test('missing materials lead to merge, warehouse delivery, travel, protected construction and reload', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await enter(page); await place(page)

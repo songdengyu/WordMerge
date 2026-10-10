@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Po
 import { MergePiece } from '../../components/MergePiece'
 import { WAREHOUSE_EXPANSION_COSTS } from '../../data/mergeRules'
 import type { GameRuntime } from '../../game/GameRuntime'
+import { productionOrderIds, type TestProductionOrderCommand } from '../../game/productionOrders'
 import { activeOrders, availableItems, isActiveGenerator, matchRequirements, type InventoryCommand } from '../../game/inventory'
 import { getOrderTarget, orderMaterials } from '../../game/construction'
 import { VitalLine } from './CampCare'
@@ -43,13 +44,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const boardArea = useRef<HTMLDivElement>(null)
   const orderList = useRef<HTMLElement>(null)
   const commissions = activeOrders(inventory, catalog)
-  const orderIds = [
-    ...state.economy.clearingOrders.map(resourceOrderId),
-    ...(state.survival.taming.ordered ? [TAMING_ORDER] : []),
-    ...production.supplyOrders.map(order => `supply:${order.stat}`),
-    ...state.construction.orders.map(order => `building:${order.id}`),
-    ...commissions.map(order => `commission:${order.id}`),
-  ]
+  const orderIds = productionOrderIds(production, state.construction, state.survival, state.economy, catalog)
   const currentOrderId = orderIds.find(id => id === state.productionOrderFocus) ?? orderIds[0]
   useEffect(() => { if (orderList.current) orderList.current.scrollLeft = 0 }, [currentOrderId])
   const orderProps = (id: string, ready: boolean) => ({
@@ -65,6 +60,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const [ghost, setGhost] = useState<Ghost | null>(null)
   const [target, setTarget] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
+  const [testingOrder, setTestingOrder] = useState(false)
   useEffect(() => {
     if (!notice) return
     const timer = window.setTimeout(() => setNotice(''), 4000)
@@ -73,7 +69,7 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
   const item = selected ? inventory.items[selected] : null
   const config = item ? catalog.itemById.get(item.itemId) : null
   const selectedLocked = item?.location.kind === 'board' && inventory.board[item.location.index].lock !== 0
-  const send = useCallback(async (command: InventoryCommand | QuickSupplyCommand | TamingCommand | EconomyCommand) => {
+  const send = useCallback(async (command: InventoryCommand | QuickSupplyCommand | TamingCommand | EconomyCommand | TestProductionOrderCommand) => {
     const result = await runtime.dispatch(command)
     const text = result.accepted ? `${result.message ?? '操作完成'}${result.persisted === false ? '（尚未保存）' : ''}` : result.reason
     setNotice(text)
@@ -324,6 +320,13 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
     <section className={styles.info}><div><strong>{config ? `${sceneText(config.name)} · Lv.${config.level}` : '准备好下一份物资'}</strong>
       <p>{item?.reservedBy ? '已为任务预留。开始时消耗，此前取消会在原格释放。' : config?.description ?? '拖动相同物品合成；小屏时可在空格或棋盘两侧上下滑动。'}</p></div>{selectedActions}
       {!!notice && <p className={styles.feedback} role="status">{sceneText(notice)}</p>}
+      <button className={styles.testComplete} aria-label="测试：完成当前任务" title="直接完成绿色边框选中的任务"
+        disabled={!currentOrderId || testingOrder || !!state.pauseReasons.length} onClick={async () => {
+          if (!currentOrderId || testingOrder) return
+          setTestingOrder(true)
+          try { await send({ type: 'test-complete-order', orderId: currentOrderId }) }
+          finally { setTestingOrder(false) }
+        }}>测试</button>
     </section>
     <nav className={styles.footer}><button onClick={() => setWarehouseOpen(true)}>▦ 仓库 {usedWarehouse}/{inventory.warehouse.length}</button>
       <button onClick={close}>返回营地</button></nav>

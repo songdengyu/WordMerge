@@ -32,6 +32,32 @@ async function readSave(page: Page) {
   })
 }
 
+test('small test button completes only the selected order without resizing the board and persists rewards', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 })
+  await enter(page); await openMerge(page)
+  const board = page.getByTestId('board-scroll'), button = page.getByRole('button', { name: '测试：完成当前任务' })
+  await expect(button).toBeVisible()
+  await page.getByTestId('order-3').click()
+  await expect(page.getByTestId('order-3')).toHaveAttribute('data-current', 'true')
+  const before = await readSave(page), bounds = (await board.boundingBox())!, buttonBounds = (await button.boundingBox())!
+  expect(buttonBounds.y).toBeGreaterThanOrEqual(bounds.y + bounds.height)
+  await button.click()
+  await expect(page.getByTestId('order-3')).toHaveCount(0)
+  await expect(page.getByTestId('order-1')).toHaveAttribute('data-current', 'true')
+  await expect(page.getByTestId('production-screen')).toBeVisible()
+  await expect.poll(async () => (await readSave(page)).data.production.inventory.completedOrders).toEqual([3])
+  const after = await readSave(page), newBounds = (await board.boundingBox())!
+  expect(newBounds.width).toBeCloseTo(bounds.width, 1); expect(newBounds.height).toBeCloseTo(bounds.height, 1)
+  for (const item of Object.values(before.data.production.inventory.items) as any[]) {
+    expect(after.data.production.inventory.items[item.id]).toEqual(item)
+  }
+  await page.screenshot({ path: 'test-results/production-test-button-320.png' })
+  await page.reload(); await expect(page.getByTestId('camp-scene')).toHaveAttribute('data-ready', 'true')
+  await openMerge(page)
+  await expect(page.getByTestId('order-3')).toHaveCount(0)
+  expect((await readSave(page)).data.production.inventory.completedOrders).toEqual([3])
+})
+
 test('generation costs stamina, merging uses unique items, warehouse use survives reload', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

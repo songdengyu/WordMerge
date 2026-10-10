@@ -29,10 +29,13 @@ import { applyEconomyCommand, createEconomy, releaseClearing, resourceOrderId, s
 import { CLEAR_SECONDS, RESOURCE_RULES, toolMeets } from './economyConfig'
 import { exchangeItems } from './inventory'
 import { burnTorch, lightTorch, type LightingCommand } from './lighting'
+import { productionOrderIds, type TestProductionOrderCommand } from './productionOrders'
+import { ENCOUNTERS } from './encounters'
+import { companions } from './survival'
 
 export const FIXED_STEP_MS = 50
 export type PauseReason = 'background' | 'page-hidden' | 'renderer-loading' | 'renderer-lost' | 'story' | 'tutorial' | 'failure' | 'save-error' | 'importing'
-export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | DecorDismantleCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TestCurrencyCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
+export type GameCommand = { type: 'move'; target: Cell } | InventoryCommand | ConstructionCommand | SurvivalCommand | ProgressionCommand | DecorDismantleCommand | StoryCommand | EnvironmentCommand | QuickSupplyCommand | TestVitalCommand | TestCurrencyCommand | TestProductionOrderCommand | TamingCommand | RegionUnlockCommand | EconomyCommand | LightingCommand
 export type CommandResult = { accepted: true; persisted?: boolean; message?: string; openProduction?: boolean } | { accepted: false; reason: string }
 export interface SaveStatus { state: 'saved' | 'saving' | 'error' | 'conflict'; message: string; revision: number; savedAt: number }
 export interface RuntimeOptions { catalog?: ProductionCatalog; saved?: SaveEnvelope | null; repository?: SaveRepository; now?: () => number }
@@ -214,6 +217,7 @@ export class GameRuntime {
         return this.move(command.target, true)
       }
       if (!this.catalog || !this.production) return { accepted: false, reason: '物品配置尚未就绪' } as CommandResult
+      if (command.type === 'test-complete-order') return this.testCompleteOrder(command.orderId)
       if (command.type === 'torch-light') {
         const result = lightTorch(this.production, this.survival.torchRemaining ?? 0, this.catalog)
         if (!result.accepted) return result
@@ -418,6 +422,70 @@ export class GameRuntime {
     } else pending.forEach((entry, index) => entry.resolve(results[index]))
   }
 
+  /** Explicit test-only bypass: settle ONE displayed order, without consuming stock or advancing world time. */
+  private testCompleteOrder(orderId: string): CommandResult {
+    const production = this.production!, catalog = this.catalog!
+    const ids = productionOrderIds(production, this.construction, this.survival, this.economy, catalog)
+    const current = ids.find(id => id === this.productionOrderFocus) ?? ids[0]
+    if (!current || orderId !== current) return { accepted: false, reason: '当前任务已变化，请重新点击测试按钮' }
+    const success = (): CommandResult => ({ accepted: true, message: `测试完成：${this.feedback}` })
+    if (orderId.startsWith('commission:')) {
+      const id = Number(orderId.slice('commission:'.length))
+      // A private catalog view bypasses only the cost; the normal atomic reward,
+      // inventory-capacity and completion checks still apply. Never mutate live config.
+      const freeCatalog = { ...catalog, orders: catalog.orders.map(o => o.id === id ? { ...o, requirements: [] } : o) }
+      const result = applyInventoryCommand(production, freeCatalog, { type: 'order-complete', orderId: id }, this.now())
+      if (!result.accepted) return result
+      this.production = result.state; this.feedback = result.message
+      return success()
+    }
+    if (orderId.startsWith('supply:')) {
+      const order = production.supplyOrders.find(o => `supply:${o.stat}` === orderId)!
+      const effect = catalog.effects.get(order.itemId)!
+      this.production = { ...production, vitals: { ...production.vitals,
+        [order.stat]: Math.min(100, production.vitals[order.stat] + effect.amount) },
+        supplyOrders: production.supplyOrders.filter(o => o !== order) }
+      this.recordResourceFeedback(production, this.production, this.now())
+      this.feedback = '补给状态已恢复'
+      return success()
+    }
+    if (orderId.startsWith('building:')) {
+      const id = orderId.slice('building:'.length), order = this.construction.orders.find(o => o.id === id)!
+      if (this.survival.taming.job || this.economy.clearing || this.progression.regionUnlock
+        || this.construction.jobs[0] && this.construction.jobs[0].orderId !== id) {
+        return { accepted: false, reason: '请先完成或取消正在进行的其他作业' }
+      }
+      const error = orderError(this.construction, order)
+      if (error) return { accepted: false, reason: error }
+      if (!this.finishConstruction(id, true)) return { accepted: false, reason: '请先离开待修建的墙面位置' }
+    } else if (orderId === TAMING_ORDER) {
+      if (this.construction.jobs.length || this.economy.clearing || this.progression.regionUnlock) {
+        return { accepted: false, reason: '请先完成或取消正在进行的其他作业' }
+      }
+      const animal = tamingAnimal(this.survival), targetId = this.survival.taming.targetId
+      if (!animal || targetId && this.survival.duel?.enemy.id === targetId) return { accepted: false, reason: '这只动物现在无法驯服' }
+      if (companions(this.survival).filter(c => c.status !== 'wild').length >= ENCOUNTERS.companionLimit) {
+        return { accepted: false, reason: '伙伴数量已达上限' }
+      }
+      this.survival = structuredClone(this.survival); this.production = structuredClone(production)
+      releaseTaming(this.survival, this.production)
+      this.finishTaming()
+    } else if (orderId.startsWith('resource:')) {
+      const objectId = orderId.slice('resource:'.length), object = this.world.allObjects().find(o => o.id === objectId)
+      if (!object || !this.world.chunkAt(object)?.unlocked) return { accepted: false, reason: '物体已清理或区域尚未开放' }
+      if (this.construction.jobs.length || this.survival.taming.job || this.progression.regionUnlock
+        || this.economy.clearing && this.economy.clearing.objectId !== objectId) {
+        return { accepted: false, reason: '请先完成或取消正在进行的其他作业' }
+      }
+      this.economy = structuredClone(this.economy); this.production = structuredClone(production)
+      releaseClearing(this.economy, this.production)
+      this.finishClearing(objectId)
+    } else return { accepted: false, reason: '当前任务不支持测试完成' }
+    this.survival = { ...this.survival, resting: false }
+    this.stopMovement()
+    return success()
+  }
+
   private move(target: Cell, manual = false): CommandResult {
     if (!finitePoint(target)) return { accepted: false, reason: '请选择有效的地图位置' }
     if (manual) {
@@ -511,22 +579,31 @@ export class GameRuntime {
       const current = this.construction.jobs[0]
       current.remaining = Math.max(0, current.remaining - FIXED_STEP_MS / 1000)
       if (current.remaining > 0.000001) return
-      const { building, part, config } = getOrderTarget(this.construction, order)
-      ensureSegments(part, buildingSegments(blueprintById(building.blueprintId)!, config))
-      part.built = true
-      if (order.segmentId) setSegmentHp(part, order.segmentId, config.hp)
-      else {
-        part.hp = config.hp
-        if (part.segments) for (const id of Object.keys(part.segments)) part.segments[id] = config.hp
-      }
-      const xp = part.xpGranted ? 0 : config.xp
-      this.construction.xp += xp; part.xpGranted = true
-      this.construction.jobs.shift()
-      this.construction.orders = this.construction.orders.filter(other => other.id !== order.id)
-      this.navigation = constructionNavigation(this.world, this.construction)
-      this.feedback = `${config.name}${order.mode === 'repair' ? '修复' : '建造'}完成${xp ? `，经验 +${xp}` : ''}`
-      this.constructionChanged = true
+      this.finishConstruction(order.id)
     }
+  }
+
+  private finishConstruction(orderId: string, testing = false) {
+    const construction = structuredClone(this.construction), production = structuredClone(this.production!)
+    const order = construction.orders.find(order => order.id === orderId)!
+    const { building, part, config } = getOrderTarget(construction, order)
+    ensureSegments(part, buildingSegments(blueprintById(building.blueprintId)!, config))
+    part.built = true
+    if (order.segmentId) setSegmentHp(part, order.segmentId, config.hp)
+    else {
+      part.hp = config.hp
+      if (part.segments) for (const id of Object.keys(part.segments)) part.segments[id] = config.hp
+    }
+    const xp = part.xpGranted ? 0 : config.xp
+    construction.xp += xp; part.xpGranted = true
+    const navigation = constructionNavigation(this.world, construction)
+    if (testing && !canWalkLine(navigation, this.point, this.point)) return false
+    releaseJob(construction, production.inventory, order.id)
+    construction.orders = construction.orders.filter(other => other.id !== order.id)
+    this.construction = construction; this.production = production; this.navigation = navigation
+    this.feedback = `${config.name}${order.mode === 'repair' ? '修复' : '建造'}完成${xp ? `，经验 +${xp}` : ''}`
+    this.constructionChanged = true
+    return true
   }
 
   private abandonTaming(message: string) {
@@ -566,18 +643,23 @@ export class GameRuntime {
       const current = this.survival.taming.job!
       current.remaining = Math.max(0, current.remaining - FIXED_STEP_MS / 1000)
       if (current.remaining > .000001) return
-      const targetId = this.survival.taming.targetId
-      if (targetId) {
-        const animal = this.survival.enemies.find(e => e.id === targetId)!
-        const recruit = { id: animal.id, kind: animal.kind, hp: animal.hp, cell: { ...animal.cell },
-          motion: { version: 1 as const, position: { ...actorPosition(animal) } }, route: [], progress: 0, target: null, cooldown: 0,
-          status: 'active' as const, mode: 'follow' as const, guard: { ...this.cell }, orderedEnemy: null, recoveryRemaining: 0 }
-        this.survival.recruits = [...(this.survival.recruits ?? []), recruit]
-        this.survival.enemies = this.survival.enemies.filter(e => e.id !== targetId)
-      } else Object.assign(this.survival.companion, { status: 'active', guard: { ...this.cell } })
-      this.survival.taming = { ordered: false, job: null }; this.survival.decisionRemaining = 0
-      this.feedback = '伙伴愿意留下了，点击它可以下达指令'; this.constructionChanged = true
+      this.finishTaming()
     }
+  }
+
+  private finishTaming() {
+    this.survival = structuredClone(this.survival)
+    const targetId = this.survival.taming.targetId
+    if (targetId) {
+      const animal = this.survival.enemies.find(e => e.id === targetId)!
+      const recruit = { id: animal.id, kind: animal.kind, hp: animal.hp, cell: { ...animal.cell },
+        motion: { version: 1 as const, position: { ...actorPosition(animal) } }, route: [], progress: 0, target: null, cooldown: 0,
+        status: 'active' as const, mode: 'follow' as const, guard: { ...this.cell }, orderedEnemy: null, recoveryRemaining: 0 }
+      this.survival.recruits = [...(this.survival.recruits ?? []), recruit]
+      this.survival.enemies = this.survival.enemies.filter(e => e.id !== targetId)
+    } else Object.assign(this.survival.companion, { status: 'active', guard: { ...this.cell } })
+    this.survival.taming = { ordered: false, job: null }; this.survival.decisionRemaining = 0
+    this.feedback = '伙伴愿意留下了，点击它可以下达指令'; this.constructionChanged = true
   }
 
   private abandonRegionUnlock(message: string) {
@@ -645,12 +727,18 @@ export class GameRuntime {
     this.economy = structuredClone(this.economy)
     this.economy.clearing!.remaining = Math.max(0, job.remaining - FIXED_STEP_MS / 1000)
     if (this.economy.clearing!.remaining > 1e-6) return
-    this.production = structuredClone(this.production)
+    this.finishClearing(object.id)
+  }
+
+  private finishClearing(objectId: string) {
+    const object = this.world.allObjects().find(o => o.id === objectId)!, rule = RESOURCE_RULES[object.kind]
+    this.production = structuredClone(this.production!)
+    this.economy = structuredClone(this.economy)
     this.economy.removedObjects.push(object.id)
     this.economy.clearingOrders = this.economy.clearingOrders.filter(id => id !== object.id)
     this.economy.clearing = null
     this.production.inventory.gold += rule.gold; this.production.inventory.gems += rule.gems
-    const delivered = exchangeItems(this.production.inventory, this.catalog, [], rule.items)
+    const delivered = exchangeItems(this.production.inventory, this.catalog!, [], rule.items)
     if (!delivered) this.economy.pendingLoot.push(object.id)
     this.recordLoot(object, rule.gold, rule.gems, rule.items, !delivered)
     this.world = progressedWorld(this.world, this.progression, this.economy.removedObjects)

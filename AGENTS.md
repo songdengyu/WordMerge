@@ -14,6 +14,7 @@
 
 ## 实施要点
 
+- 合成“测试”按钮通过 `test-complete-order` 完成当前绿色订单，列表顺序由 `productionOrders.ts` 共用；必须验证命令里的订单仍是当前任务，不能将过期点击作用于下一张。免材料 / 路程 / 等待，正常结算且保存，未支付预留释放、已支付不退款；建造 / 驯服 / 清理复用完成方法，普通流程不免成本。见 `docs/implementation/MERGE-TEST-COMPLETE.md`。
 - 墙面修复配方已统一降低一级（小木屋 201、大屋 202），仅改墙体，仍逐段 2 秒。`migrations/wallRepairCost.ts` 明确迁移建筑 / 经济 / 区域旧指纹，必须先按旧配方验证预留，再释放未开工高阶材料、保留订单；已支付工程保留计时。不要将旧配方直接替换后拒绝有效旧档。见 `docs/implementation/WALL-REPAIR-COST.md`。
 - 寻路缓存 `navigationCache.ts` 只面向不可变通行拓扑，`constructionNavigation` 以 `WorldMap` / 实际墙门阻挡边复用；普通扣血不失效，破坏 / 修复 / 新建必须切换边拓扑，开地 / 清理须派生新地图。常驻怪区域使用独立连通缓存；动态自定义地图方法回退原检查。不将缓存写入存档，不降低 AI 决策频率。性能复现脚本及边界见 `docs/implementation/ENEMY-NAVIGATION-PERFORMANCE.md`。
 - 九宫格地图：`world.json` 为 (-1～1, -1～1) 共九个地块，新增六区与 60 资源由 `mapExpansionConfig.ts` 提供。`migrations/mapExpansion.ts` 明确迁移地图 `cc0401b` → `8ceb237a`、剧情目录 `dad671cf` → `5c677ab8`；不清档、不发奖，保留旧 20 分钟折算，原清晨删档授权仍只匹配三地块历史图。`LockedRegionFog.ts` 云雾固定世界坐标采样、按块缓存半分辨率纹理，地块开放销毁；不得恢复为每帧混合大量云团。见 `docs/implementation/MAP-EXPANSION-FOG.md`。
