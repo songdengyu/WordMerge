@@ -1,7 +1,7 @@
 import { sceneText } from '../../scene/contentPresentation'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { GameCommand, GameRuntime } from '../../game/GameRuntime'
-import { currentChapter, chapterReady } from '../../game/progression'
+import { currentChapter, chapterReady, chapterDelivered } from '../../game/progression'
 import { CHAPTERS, DECORATIONS, OUTFITS, type StoryChapter } from '../../scene/contentPresentation'
 import { availableItems } from '../../game/inventory'
 import { MergePiece } from '../../components/MergePiece'
@@ -15,6 +15,7 @@ export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime
   useEffect(() => { dialog.current?.showModal() }, [])
   const chapter = currentChapter(progress), catalog = runtime.catalog!
   const ready = chapter && chapterReady(chapter, progress, state.construction, state.survival, state.production!)
+  const delivered = chapter && chapterDelivered(chapter, state.production!)
   const send = async (command: GameCommand) => { const result = await runtime.dispatch(command); setNotice(result.accepted ? result.message ?? '已保存' : result.reason) }
   return <dialog ref={dialog} className={styles.journal} onCancel={close} aria-labelledby="journal-title" onClick={e => { if (e.target === e.currentTarget) close() }}>
     <header><div><small>第一章 · 有人等你回来</small><h2 id="journal-title">营地手记</h2></div><button className={styles.close} onClick={close} aria-label="关闭手记">×</button></header>
@@ -24,7 +25,8 @@ export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime
       <div className={styles.chapter} data-testid="chapter-card"><small>{progress.completed.length} / {CHAPTERS.length} 段回忆</small>
         <h3>{chapter?.title ?? '这里，也是你的家'}</h3><p>{sceneText(chapter?.goal ?? '首章试玩已完成。继续建设和照护，等待新的来信。')}</p>
         {chapter && <><p className={styles.muted}>{sceneText(chapter.hint)}</p>
-          {!!chapter.requirements.length && <div className={styles.supplies}>{chapter.requirements.map((id, i) => <span key={i}>
+          {ready && <p className={styles.reward}>目标已完成，继续故事即可推进主线。</p>}
+          {delivered ? <p className={styles.reward}>野餐物资已交付，无需重复准备。</p> : !!chapter.requirements.length && <div className={styles.supplies}>{chapter.requirements.map((id, i) => <span key={i}>
             <MergePiece item={catalog.itemById.get(id)!} compact /><small>{catalog.itemById.get(id)!.name} {availableItems(state.production!.inventory).filter(item => item.itemId === id).length}/1</small>
           </span>)}</div>}
           <p className={styles.reward}>留下的心意：{[chapter.decor && DECORATIONS.find(d => d.id === chapter.decor)?.name, chapter.outfit && OUTFITS.find(o => o.id === chapter.outfit)?.name,
@@ -33,7 +35,7 @@ export function CampJournal({ runtime, close, navigate }: { runtime: GameRuntime
           {!ready && <button className={styles.secondary} onClick={() => navigate(chapter.action)}>前往完成目标</button>}
         </>}
       </div>
-      {chapter?.requirements.length ? <p className={styles.muted}>在最后回应时交付物资。工作台奖励需要棋盘空格；满仓时可稍后再读，奖励不会丢失。</p> : null}
+      {chapter?.requirements.length ? <p className={styles.muted}>{delivered ? '已记录委托交付，最后回应时不再扣料。' : '可完成“准备野餐”委托，也可在最后回应时直接交付物资。'}工作台奖励需要棋盘空格；满仓时可稍后再读，奖励不会丢失。</p> : null}
       <p className={styles.muted}>手记与装扮不暂停世界；进入剧情对话后暂停，离开对话继续。</p>
     </>}
     {tab === 'memories' && <>

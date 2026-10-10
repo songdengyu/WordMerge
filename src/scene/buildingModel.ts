@@ -2,13 +2,14 @@ import type { Blueprint } from '../game/buildingConfig'
 import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { localToWorld, type Building } from '../game/construction'
 import { roofHeight } from './ShapedRoof'
+import { DOOR_HEIGHT_PX, WALL_HEIGHT_PX } from './buildingDimensions'
 import { houseStyle } from './houseStyle'
 
 /** XYZ mesh, in tile units. Z is height; game collision remains on the XY grid. */
 export type Vertex3 = { x: number; y: number; z: number }
 export type ModelFace = { vertices: Vertex3[]; color: number; partId: string; segmentId: string }
 export type BuildingMesh = ModelFace[]
-export const WALL_HEIGHT = 29 / 32
+export const WALL_HEIGHT = WALL_HEIGHT_PX / 32
 export const WALL_THICKNESS = .13
 
 export function normal3(vertices: Vertex3[]): Vertex3 {
@@ -67,7 +68,7 @@ export function buildingModel(building: Building, blueprint: Blueprint): Buildin
         const { from, to } = segment.edge, dx = to.x - from.x, dy = to.y - from.y
         const center = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
         mesh.push(...beam({ x: center.x - dy / 2, y: center.y + dx / 2 }, { x: center.x + dy / 2, y: center.y - dx / 2 },
-          config.kind === 'door' ? .09 : WALL_THICKNESS, config.kind === 'door' ? .75 : WALL_HEIGHT, color, config.id, segment.id))
+          config.kind === 'door' ? .09 : WALL_THICKNESS, config.kind === 'door' ? DOOR_HEIGHT_PX / 32 : WALL_HEIGHT, color, config.id, segment.id))
       } else if (config.kind === 'foundation') {
         const { x, y } = segment.cell
         mesh.push(...solid([{ x: x - .5, y: y - .5, z: 0 }, { x: x + .5, y: y - .5, z: 0 },
@@ -75,7 +76,7 @@ export function buildingModel(building: Building, blueprint: Blueprint): Buildin
       } else if (config.kind === 'roof') {
         const { x, y } = segment.cell
         const height = (x: number, y: number) => (blueprint.cells ? roofHeight(blueprint, x, y, style.rise)
-          : 29 + style.rise * (1 - Math.abs(y - (blueprint.height - 1) / 2) / (blueprint.height / 2))) / 32 + .09
+          : WALL_HEIGHT_PX + style.rise * (1 - Math.abs(y - (blueprint.height - 1) / 2) / (blueprint.height / 2))) / 32 + .09
         const center = { x, y, z: height(x, y) }
         const corners = [[x - .5, y - .5], [x + .5, y - .5], [x + .5, y + .5], [x - .5, y + .5]]
           .map(([x, y]) => ({ x, y, z: height(x, y) }))

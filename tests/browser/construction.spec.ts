@@ -327,7 +327,7 @@ test('separate wall repair bubbles restore one segment and persist the neighbori
   data.cell = { x: 8, y: 11 }; data.motion = { version: 1, position: data.cell }
   data.construction.buildings[0].parts = Object.fromEntries(Object.entries({ foundation: 100, walls: 0, door: 100, roof: 120, bed: 80 })
     .map(([id, hp]) => [id, { built: true, hp, xpGranted: true }]))
-  data.construction.buildings[0].parts.walls.segments = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`edge${i}`, i === 0 ? 10 : i === 2 ? 0 : 20]))
+  data.construction.buildings[0].parts.walls.segments = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`edge${i}`, i === 0 ? 10 : i === 2 ? 0 : 40]))
   data.construction.xp = 70
   const inv = data.production.inventory
   // Exactly one cheap wall repair, with higher-tier planks left untouched.
@@ -350,7 +350,7 @@ test('separate wall repair bubbles restore one segment and persist the neighbori
   await expect(second).toBeVisible()
   await expect(page.getByTestId('survival-game')).toHaveAttribute('data-save-state', 'saved')
   const after = await readSave(page)
-  expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge2: 0 })
+  expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 40, edge2: 0 })
   expect(after.data.construction.xp).toBe(70)
   expect(after.data.production.inventory.items[repairItemId]).toBeUndefined()
   for (const item of Object.values(inv.items) as any[]) if (item.id !== repairItemId) {

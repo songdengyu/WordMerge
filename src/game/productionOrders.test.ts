@@ -76,7 +76,7 @@ describe('test completion of the selected production order', () => {
     const h = harness(data)
     expect(await h.complete(`building:${id}`)).toMatchObject({ accepted: true })
     const after = h.saved()
-    expect(after.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge1: 3 })
+    expect(after.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 40, edge1: 3 })
     expect(after.construction.xp).toBe(70)
     expect(after.construction.jobs).toEqual([])
     expect(after.production.inventory.items[item.id]).toEqual({ ...item, reservedBy: null })

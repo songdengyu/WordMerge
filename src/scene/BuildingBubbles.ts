@@ -1,4 +1,5 @@
 import { sceneText } from './contentPresentation'
+import { BUILDING_HEIGHT_SCALE, ROOF_HEIGHT_OFFSET } from './buildingDimensions'
 import { Container, Graphics, Text } from 'pixi.js'
 import type { GameCommand, GameRuntime, UiSnapshot } from '../game/GameRuntime'
 import { BLUEPRINTS, blueprintById } from '../game/buildingConfig'
@@ -90,7 +91,7 @@ export class BuildingBubbles {
     for (const building of state.construction.buildings) {
       const blueprint = blueprintById(building.blueprintId)!, summary = buildingSummary(building)
       const anchor = gridToWorld(localToWorld(building, { x: (blueprint.width - 1) / 2, y: (blueprint.height - 1) / 2 }))
-      const rise = building.parts.roof.built ? 54 : building.parts.walls.built ? 40 : 14
+      const rise = building.parts.roof.built ? 54 + ROOF_HEIGHT_OFFSET : building.parts.walls.built ? 40 + ROOF_HEIGHT_OFFSET : 14
       const parts = blueprint.parts.flatMap(config => {
         const part = building.parts[config.id]
         if (!config.requires.every(id => building.parts[id].built)) return []
@@ -114,7 +115,7 @@ export class BuildingBubbles {
         const visualSegment = segment ?? (part.built ? buildingSegments(blueprint, config)[0] : undefined)
         const point = visualSegment ? gridToWorld(localToWorld(building, visualSegment.edge
           ? { x: (visualSegment.edge.from.x + visualSegment.edge.to.x) / 2, y: (visualSegment.edge.from.y + visualSegment.edge.to.y) / 2 } : visualSegment.cell)) : anchor
-        const height = visualSegment ? { foundation: 4, wall: 28, door: 18, roof: 54, bed: spriteMetrics('bed').bubbleHeight }[config.kind] : rise
+        const height = visualSegment ? { foundation: 4, wall: 28 * BUILDING_HEIGHT_SCALE, door: 18 * BUILDING_HEIGHT_SCALE, roof: 54 + ROOF_HEIGHT_OFFSET, bed: spriteMetrics('bed').bubbleHeight }[config.kind] : rise
         return { id: `build-bubble-${orderId}`, x: point.x - (materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP) / 2, y: point.y - height - MATERIAL_HEIGHT - 5,
           width: materials.length * (SIZE + MATERIAL_GAP) - MATERIAL_GAP, height: MATERIAL_HEIGHT, kind: 'materials', materials,
           ready, phase: job?.phase ?? 'materials', disabled: !!job,

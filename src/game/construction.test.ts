@@ -212,7 +212,7 @@ describe('atomic orders and construction', () => {
     pump(6000)
     expect(constructionNavigation(world, runtime.getSaveData().construction).canStep({ x: 8, y: 10 }, { x: 8, y: 9 })).toBe(false)
     expect(runtime.getSaveData().construction.xp).toBe(40)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge1).toBe(20)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge1).toBe(40)
     expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(0)
   })
   it('completes a full house in dependency order and retains a usable door and exactly one XP award per part', async () => {
@@ -259,10 +259,10 @@ describe('atomic orders and construction', () => {
     expect(runtime.getSaveData().construction.buildings[0].parts.walls.hp).toBe(10)
     expect(runtime.getSaveData().construction.buildings[0].parts.door.hp).toBe(75)
     pump(6000)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(20)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(40)
     expect(runtime.getSaveData().construction.xp).toBe(40)
     runtime.applyDamage({ buildingId: 'b1', partId: 'walls' }, 1)
-    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(19)
+    expect(runtime.getSaveData().construction.buildings[0].parts.walls.segments!.edge0).toBe(39)
   })
 })
 
@@ -277,8 +277,8 @@ describe('M2 migration and M3 validation', () => {
       const old = JSON.parse(runtime.exportSave())
       const currentBuildings = structuredClone(old.data.construction.buildings)
       const walls = old.data.construction.buildings[0].parts.walls
-      walls.hp *= 8
-      for (const id of Object.keys(walls.segments)) walls.segments[id] *= 8
+      walls.hp *= 4
+      for (const id of Object.keys(walls.segments)) walls.segments[id] *= 4
       old.schemaVersion = 2; delete old.data.survival
       old.configVersion = m3ConfigVersion(world, catalog).replace(/[^-]+$/, M3_INITIAL_BUILDING_VERSION)
       old.data.construction.jobs[0].remaining = repair ? 3 : 8

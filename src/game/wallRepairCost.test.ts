@@ -12,8 +12,8 @@ const world = worldFixture(), catalog = productionFixture()
 function oldRepair(phase: 'queued' | 'travel' | 'building') {
   const data = dataFixture(), bp = blueprintById('cabin')!, parts = createBuildingParts(bp)
   for (const p of bp.parts) {
-    Object.assign(parts[p.id], { built: true, hp: p.hp, xpGranted: true })
-    if (parts[p.id].segments) for (const id in parts[p.id].segments) parts[p.id].segments![id] = p.hp
+    Object.assign(parts[p.id], { built: true, hp: p.kind === 'wall' ? p.hp / 2 : p.hp, xpGranted: true })
+    if (parts[p.id].segments) for (const id in parts[p.id].segments) parts[p.id].segments![id] = p.kind === 'wall' ? p.hp / 2 : p.hp
   }
   setSegmentHp(parts.walls, 'edge0', 0); setSegmentHp(parts.walls, 'edge1', 7)
   data.construction.buildings = [{ id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0, parts }]
@@ -44,7 +44,7 @@ describe('cheaper wall repair save upgrade', () => {
     const inventory = structuredClone(before.data.production.inventory)
     inventory.items[itemId].reservedBy = null
     expect(data.production.inventory).toEqual(inventory)
-    expect(data.construction.buildings).toEqual(before.data.construction.buildings)
+    expect(data.construction.buildings).toEqual(doubled(before.data.construction).buildings)
     expect(data.construction.xp).toBe(70)
     expect(data.construction.jobs).toEqual([])
     expect(data.construction.orders).toEqual(before.data.construction.orders)
@@ -58,7 +58,7 @@ describe('cheaper wall repair save upgrade', () => {
 
   it('retains already paid work and its remaining time without refunds or a second charge', () => {
     const { save } = oldRepair('building'), result = validateSave(save, world, catalog)
-    expect(result.data.construction).toEqual(save.data.construction)
+    expect(result.data.construction).toEqual(doubled(save.data.construction))
     expect(result.data.production).toEqual(save.data.production)
     expect(result.data.construction.jobs[0].remaining).toBe(.75)
     expect(validateSave(result, world, catalog)).toEqual(result)
@@ -73,3 +73,12 @@ describe('cheaper wall repair save upgrade', () => {
     expect(() => validateSave(current, world, catalog)).toThrow('预留实例')
   })
 })
+
+function doubled(construction: ReturnType<typeof dataFixture>['construction']) {
+  const copy = structuredClone(construction)
+  for (const b of copy.buildings) {
+    b.parts.walls.hp *= 2
+    for (const id in b.parts.walls.segments) b.parts.walls.segments[id] *= 2
+  }
+  return copy
+}

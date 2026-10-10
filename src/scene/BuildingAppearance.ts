@@ -6,6 +6,7 @@ import { footprint, localToWorld } from '../game/construction'
 import type { Cell } from '../game/world'
 import { gridToWorld } from './camera'
 import { beam, buildingModel } from './buildingModel'
+import { DOOR_HEIGHT_PX } from './buildingDimensions'
 import { drawBuildingMesh } from './BuildingModelView'
 import { texturedSurface } from './SceneArt'
 
@@ -91,7 +92,7 @@ export class BuildingAppearance {
           const a = gridToWorld(hinge), b = gridToWorld(end)
           const opposite = gridToWorld({ x: middle.x - tangent.x / 2, y: middle.y - tangent.y / 2 })
           for (const p of [a, b, opposite]) { p.x -= anchor.x; p.y -= anchor.y }
-          const g = entry.art.clear(), h = 24
+          const g = entry.art.clear(), h = DOOR_HEIGHT_PX
           for (const p of [a, opposite]) g.moveTo(p.x, p.y).lineTo(p.x, p.y - h - 2).stroke({ width: 3, color: 0x806247 })
           drawBuildingMesh(g, beam(hinge, end, .09, h / 32, hp < config.hp ? 0x947b63 : 0xb6814e), anchor)
           if (building.blueprintId === 'cabin') {

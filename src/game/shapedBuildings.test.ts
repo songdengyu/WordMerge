@@ -51,7 +51,7 @@ describe('shaped house geometry and compatibility', () => {
       expect(decorError('rug', project(0, 0), progress, state)).toBeNull()
     }
     // The inner eaves meet the wall top, never spanning over the notch.
-    expect(roofHeight(bp, 1.5, 3, 20)).toBe(29)
+    expect(roofHeight(bp, 1.5, 3, 20)).toBe(43.5)
   })
   it('rejects disconnected/duplicate occupancy, courtyard work positions and internal doors', () => {
     const bp = blueprintById(cases[0])!
@@ -120,7 +120,7 @@ describe('shaped house geometry and compatibility', () => {
     const loaded = new GameRuntime(world, { catalog, saved: upgraded, now: () => testNow }); loaded.advanceFrame(0)
     for (let t = 50; t <= 2100; t += 50) loaded.advanceFrame(t)
     const after = validateSave(JSON.parse(loaded.exportSave()), world, catalog)
-    expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge1: 3 })
+    expect(after.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 40, edge1: 3 })
     expect(after.data.production.inventory).toEqual(old.data.production.inventory)
     expect(after.data.construction.xp).toBe(70)
   })

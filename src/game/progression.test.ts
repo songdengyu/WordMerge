@@ -3,7 +3,7 @@ import { BLUEPRINTS } from './buildingConfig'
 import { GameRuntime, type GameCommand } from './GameRuntime'
 import { exchangeItems } from './inventory'
 import { CHAPTERS } from './progressionConfig'
-import { createProgression, grantDecoration, validateProgressionCatalog } from './progression'
+import { createProgression, grantDecoration, validateProgressionCatalog, chapterReady } from './progression'
 import { m4ConfigVersion, validateSave, type RuntimeData } from './saveData'
 import { dataFixture, envelopeFixture, productionFixture, testNow, worldFixture } from './testFixtures'
 
@@ -38,6 +38,52 @@ async function readChapter(runtime: GameRuntime, id: string, choice = 0) {
 }
 
 describe('M5 persistent first chapter', () => {
+  it.each([false, true])('recognizes a picnic receipt after reload and never consumes a second set of food (test=%s)', async test => {
+    const data = dataFixture(); cabin(data); completePrefix(data, 3)
+    data.progression.unlockedRegions = ['brook']; data.progression.discoveries = ['brook']
+    exchangeItems(data.production.inventory, catalog, [], [212, 222])
+    const h = harness(data)
+    h.runtime.focusProductionOrder('commission:2')
+    expect(await h.send(test ? { type: 'test-complete-order', orderId: 'commission:2' } : { type: 'order-complete', orderId: 2 })).toMatchObject({ accepted: true })
+    const saved = validateSave(JSON.parse(h.runtime.exportSave()), world, catalog)
+    expect(saved.data.production.inventory.completedOrders).toContain(2)
+    expect(chapterReady(CHAPTERS[3], saved.data.progression, saved.data.construction, saved.data.survival, saved.data.production)).toBe(true)
+    // Extra supplies remain the player's property even when continuing the story.
+    exchangeItems(saved.data.production.inventory, catalog, [], [212, 222])
+    const supplies = Object.values(saved.data.production.inventory.items).filter(i => [212, 222].includes(i.itemId))
+    const resumed = harness(saved.data).runtime
+    expect(await readChapter(resumed, 'visitor')).toMatchObject({ accepted: true })
+    const after = resumed.getSaveData()
+    for (const item of supplies) expect(after.production.inventory.items[item.id]).toEqual(item)
+    expect(after.production.inventory.gems).toBe(saved.data.production.inventory.gems)
+    expect(Object.values(after.production.inventory.items).filter(i => i.itemId === 102)).toHaveLength(1)
+    expect(after.progression.completed).toContain('visitor')
+    expect(await resumed.dispatch({ type: 'story-choice', chapterId: 'visitor', choiceId: 'welcome' })).toMatchObject({ accepted: false })
+    expect(validateSave(JSON.parse(resumed.exportSave()), world, catalog).data.progression.completed).toContain('visitor')
+  })
+
+  it('accepts an existing picnic receipt but still requires discovery and earlier story chapters', async () => {
+    const data = dataFixture(); cabin(data); completePrefix(data, 3)
+    data.production.inventory.completedOrders.push(2)
+    const h = harness(data)
+    expect(await h.runtime.dispatch({ type: 'story-open', chapterId: 'visitor' })).toMatchObject({ accepted: false })
+    data.progression.unlockedRegions = ['brook']; data.progression.discoveries = ['brook']
+    const saved = validateSave(envelopeFixture(data), world, catalog)
+    expect(await readChapter(harness(saved.data).runtime, 'visitor')).toMatchObject({ accepted: true })
+    const early = dataFixture(); early.production.inventory.completedOrders.push(2)
+    expect(await harness(early).runtime.dispatch({ type: 'story-open', chapterId: 'visitor' })).toMatchObject({ accepted: false })
+  })
+
+  it('retains a delivered picnic when the story reward has no board space', async () => {
+    const data = dataFixture(); cabin(data); completePrefix(data, 3)
+    data.progression.unlockedRegions = ['brook']; data.progression.discoveries = ['brook']
+    data.production.inventory.completedOrders.push(2)
+    while (data.production.inventory.board.some(s => s.lock === 0 && !s.instanceId)) exchangeItems(data.production.inventory, catalog, [], [201])
+    const h = harness(data), before = h.runtime.getSaveData().production
+    expect(await readChapter(h.runtime, 'visitor')).toMatchObject({ accepted: false })
+    expect(h.runtime.getSaveData().production).toEqual(before)
+    expect(h.runtime.getSaveData().progression.completed).not.toContain('visitor')
+  })
   it('validates every production prerequisite against reachable initial sources', () => {
     expect(() => validateProgressionCatalog(world, catalog)).not.toThrow()
     const broken = { ...catalog, initialBoard: catalog.initialBoard.map(slot => ({ ...slot, itemId: null })) }

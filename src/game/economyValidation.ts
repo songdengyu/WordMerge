@@ -5,6 +5,7 @@ import { sameCell, type Cell, type WorldMap } from './world'
 import { PRE_CONTENT_ECONOMY_VERSION, PRE_CONTENT_PRODUCTS } from './migrations/contentExpansion'
 import { PRE_TOOLS_ECONOMY_VERSION } from './migrations/groveTools'
 import { PRE_REPAIR_ECONOMY_VERSION } from './migrations/wallRepairCost'
+import { PRE_DOUBLE_ECONOMY_VERSION } from './migrations/doubleWallDurability'
 
 type Check = (condition: unknown, name: string) => asserts condition
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -15,7 +16,7 @@ export function economyForWorld(raw: unknown, world: WorldMap, check: Check): Ec
   const legacy = record(raw) && raw.version === PRE_CONTENT_ECONOMY_VERSION
   const oldTools = record(raw) && raw.version === PRE_TOOLS_ECONOMY_VERSION
   const oldShapes = record(raw) && raw.version === PRE_SHAPES_ECONOMY_VERSION
-  const oldRepairCost = record(raw) && raw.version === PRE_REPAIR_ECONOMY_VERSION
+  const oldRepairCost = record(raw) && [PRE_REPAIR_ECONOMY_VERSION, PRE_DOUBLE_ECONOMY_VERSION].includes(String(raw.version))
   check(record(raw) && (raw.version === ECONOMY_VERSION || legacy || oldTools || oldShapes || oldRepairCost) && list(raw.removedObjects, objects), '经济版本或清理记录')
   const removed = raw.removedObjects
   check(list(raw.clearingOrders, objects.filter(id => !removed.includes(id)))

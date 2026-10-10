@@ -49,6 +49,48 @@ async function next(page: Page) {
   await ready(page)
 }
 
+test('picnic commission continues the main story without a second food delivery and survives reload', async ({ page }) => {
+  await seed(page, save => {
+    prepared(save, 3)
+    save.data.progression.unlockedRegions = ['brook']; save.data.progression.discoveries = ['brook']
+    supply(save, 212); supply(save, 222)
+  })
+  await page.getByRole('button', { name: '营地手记', exact: true }).click()
+  // Enter merge directly, as a player can submit the picnic independently of the journal.
+  await page.getByRole('button', { name: '关闭手记' }).click()
+  await page.getByRole('button', { name: '合成物资' }).click()
+  await page.getByTestId('order-2').click()
+  await expect(page.getByTestId('production-screen')).toHaveCount(0)
+  await expect(page.getByTestId('story-dialogue')).toContainText('溪谷的来客')
+  await ready(page)
+  const delivered = await readSave(page)
+  expect(delivered.data.production.inventory.completedOrders).toContain(2)
+  expect(Object.values(delivered.data.production.inventory.items).filter((i: any) => [212, 222].includes(i.itemId))).toHaveLength(0)
+  await page.reload(); await ready(page)
+  await next(page); await next(page)
+  await page.getByRole('button', { name: '留下吃饭吧，过去慢慢说' }).click()
+  await expect(page.getByTestId('survival-game')).toHaveAttribute('data-chapter', 'shelter')
+  await ready(page)
+  const after = await readSave(page)
+  expect(after.data.production.inventory.gems).toBe(delivered.data.production.inventory.gems)
+  expect(Object.values(after.data.production.inventory.items).filter((i: any) => i.itemId === 102)).toHaveLength(1)
+  await page.reload(); await ready(page)
+  expect((await readSave(page)).data.progression.completed).toEqual(['letter', 'foundation', 'friend', 'visitor'])
+})
+
+test('an already submitted picnic shows completed supplies in the journal without needing new food', async ({ page }) => {
+  await seed(page, save => {
+    prepared(save, 3)
+    save.data.progression.unlockedRegions = ['brook']; save.data.progression.discoveries = ['brook']
+    save.data.production.inventory.completedOrders.push(2)
+  })
+  await expect(page.getByRole('button', { name: '营地手记', exact: true })).toContainText('目标已完成')
+  await page.getByRole('button', { name: '营地手记', exact: true }).click()
+  await expect(page.getByTestId('chapter-card')).toContainText('野餐物资已交付')
+  await page.getByRole('button', { name: '继续故事', exact: true }).click()
+  await expect(page.getByTestId('story-dialogue')).toContainText('溪谷的来客')
+})
+
 test('the opening story pauses, resumes its exact page after reload, and records only one choice', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message))
   await page.goto('/?game=survival'); await ready(page)

@@ -18,7 +18,7 @@ function groveSave(old = false) {
   const cabin = blueprintById('cabin')!, lodge = blueprintById('lodge')!
   data.construction.buildings = [
     { id: 'b1', blueprintId: 'cabin', origin: { x: 7, y: 10 }, rotation: 0,
-      parts: Object.fromEntries(cabin.parts.map(p => [p.id, { built: true, hp: p.hp, xpGranted: true }])) },
+      parts: Object.fromEntries(cabin.parts.map(p => [p.id, { built: true, hp: old && p.kind === 'wall' ? p.hp / 2 : p.hp, xpGranted: true }])) },
     ...(old ? [{ id: 'b2', blueprintId: 'lodge', origin: { x: 25, y: 3 }, rotation: 0 as const, parts: createBuildingParts(lodge) }] : []),
   ]
   data.construction.xp = 70; data.construction.nextId = old ? 3 : 2

@@ -52,7 +52,7 @@ describe('group construction, individual damage and repair', () => {
       const data = home(), b = data.construction.buildings[0]; b.rotation = rotation; b.origin = { x: 8, y: 11 }
       const result = constructionDamage(data.construction, data.production, { buildingId: b.id, partId: 'walls', segmentId: 'edge1' }, 999)
       const wall = result.state.buildings[0].parts.walls
-      expect(wall.segments!.edge1).toBe(0); expect(wall.segments!.edge0).toBe(20)
+      expect(wall.segments!.edge1).toBe(0); expect(wall.segments!.edge0).toBe(40)
       const grid = constructionNavigation(world, result.state, 'enemy')
       expect(grid.canStep(localToWorld(b, { x: 1, y: 0 }), localToWorld(b, { x: 1, y: -1 }))).toBe(true)
       expect(grid.canStep(localToWorld(b, { x: 0, y: 0 }), localToWorld(b, { x: 0, y: -1 }))).toBe(false)
@@ -74,15 +74,15 @@ describe('group construction, individual damage and repair', () => {
     h.runtime.applyDamage({ buildingId: 'b1', partId: 'walls', segmentId: 'edge0' }, 90)
     h.runtime.applyDamage({ buildingId: 'b1', partId: 'walls', segmentId: 'edge1' }, 2)
     const before = h.saved()
-    expect(before.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 12, edge1: 10 })
+    expect(before.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 32, edge1: 30 })
     const restored = run(before); restored.pump(2)
-    expect(restored.saved().construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge1: 10 })
+    expect(restored.saved().construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 40, edge1: 30 })
     expect(restored.saved().production.inventory).toEqual(before.production.inventory)
     expect(restored.saved().construction.xp).toBe(70)
     expect(await restored.send({ type: 'building-interact', buildingId: 'b1', partId: 'walls', segmentId: 'edge0' })).toMatchObject({ accepted: false })
     expect(await restored.send({ type: 'building-interact', buildingId: 'b1', partId: 'walls', segmentId: 'edge1' })).toMatchObject({ accepted: true })
     restored.pump(2)
-    expect(restored.saved().construction.buildings[0].parts.walls.hp).toBe(20)
+    expect(restored.saved().construction.buildings[0].parts.walls.hp).toBe(40)
   })
 
   it('migrates old reserved and paid group repairs without losing timing, inventory, position or XP', () => {
@@ -127,8 +127,8 @@ describe('group construction, individual damage and repair', () => {
     const h = run(data); h.pump(.05)
     const saved = h.saved(), enemy = saved.survival.enemies[0]
     expect(enemy.target).toMatchObject({ kind: 'part', buildingId: 'b1', partId: 'walls', segmentId: 'edge2' })
-    expect(segmentHp(saved.construction.buildings[0].parts.walls, 'edge2')).toBeLessThan(20)
-    expect(segmentHp(saved.construction.buildings[0].parts.walls, 'edge0')).toBe(20)
+    expect(segmentHp(saved.construction.buildings[0].parts.walls, 'edge2')).toBeLessThan(40)
+    expect(segmentHp(saved.construction.buildings[0].parts.walls, 'edge0')).toBe(40)
   })
 
   it('accepts precise interior destinations, enters through the door and keeps floor damage walkable', async () => {

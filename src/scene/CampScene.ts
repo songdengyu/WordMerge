@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Text } from 'pixi.js'
+import { BUILDING_HEIGHT_SCALE, WALL_HEIGHT_PX } from './buildingDimensions'
 import { CHUNK_SIZE, type Cell, type WorldObject } from '../game/world'
 import type { GameRuntime, SceneSnapshot } from '../game/GameRuntime'
 import { Camera, gridToWorld, worldToPosition } from './camera'
@@ -447,7 +448,7 @@ export class CampScene {
             const dx = to.x - from.x, dy = to.y - from.y
             const a = gridToWorld({ x: (from.x + to.x) / 2 - dy / 2, y: (from.y + to.y) / 2 + dx / 2 })
             const b = gridToWorld({ x: (from.x + to.x) / 2 + dy / 2, y: (from.y + to.y) / 2 - dx / 2 })
-            const h = 29
+            const h = WALL_HEIGHT_PX, s = BUILDING_HEIGHT_SCALE
             layers.push({ depth: (a.y + b.y) / 2, draw: g => {
             drawBuildingMesh(g, model.filter(f => f.partId === config.id && f.segmentId === segment.id))
             if (building.blueprintId === 'cabin') {
@@ -456,17 +457,17 @@ export class CampScene {
                 hp < config.hp ? 0xb9a58d : b.y > a.y ? 0xffffff : 0xdad6c9)
             }
             g.moveTo(a.x, a.y - h).lineTo(b.x, b.y - h).stroke({ width: 2.5, color: style.trim })
-            for (const row of [1, 2, 3]) g.moveTo(a.x, a.y - row * 7).lineTo(b.x, b.y - row * 7)
+            for (const row of [1, 2, 3]) g.moveTo(a.x, a.y - row * 7 * s).lineTo(b.x, b.y - row * 7 * s)
               .stroke({ width: .7, color: 0x806f5d, alpha: .22 })
             if (Number(segment.id.replace('edge', '')) % 3 === 1) {
               const l = { x: a.x + (b.x - a.x) * .3, y: a.y + (b.y - a.y) * .3 }, r = { x: a.x + (b.x - a.x) * .7, y: a.y + (b.y - a.y) * .7 }
-              g.moveTo(l.x, l.y - 8).lineTo(r.x, r.y - 8).lineTo(r.x, r.y - 19)
-                .quadraticCurveTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 28, l.x, l.y - 19).closePath()
+              g.moveTo(l.x, l.y - 8 * s).lineTo(r.x, r.y - 8 * s).lineTo(r.x, r.y - 19 * s)
+                .quadraticCurveTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 28 * s, l.x, l.y - 19 * s).closePath()
                 .fill(style.accent).stroke({ width: 2, color: style.trim })
-              g.moveTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 8).lineTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 22).stroke({ width: 1, color: style.trim })
-              g.moveTo(l.x - 2, l.y - 7).lineTo(r.x + 2, r.y - 7).stroke({ width: 3, color: 0xa18c69 })
+              g.moveTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 8 * s).lineTo((l.x + r.x) / 2, (l.y + r.y) / 2 - 22 * s).stroke({ width: 1, color: style.trim })
+              g.moveTo(l.x - 2, l.y - 7 * s).lineTo(r.x + 2, r.y - 7 * s).stroke({ width: 3, color: 0xa18c69 })
               if (style.tier !== '简朴') for (const t of [.2, .5, .8]) {
-                const x = l.x + (r.x - l.x) * t, y = l.y + (r.y - l.y) * t - 8
+                const x = l.x + (r.x - l.x) * t, y = l.y + (r.y - l.y) * t - 8 * s
                 g.ellipse(x, y, 3, 2).fill(0x81966c); g.circle(x, y - 2, 1.6).fill(style.tier === '精致' ? 0xd4a3ad : 0xe4d2a0)
               }
             }

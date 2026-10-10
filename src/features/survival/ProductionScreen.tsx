@@ -4,6 +4,7 @@ import { MergePiece } from '../../components/MergePiece'
 import { WAREHOUSE_EXPANSION_COSTS } from '../../data/mergeRules'
 import type { GameRuntime } from '../../game/GameRuntime'
 import { productionOrderIds, type TestProductionOrderCommand } from '../../game/productionOrders'
+import { currentChapter, chapterCommission, chapterDelivered, chapterReady } from '../../game/progression'
 import { activeOrders, availableItems, isActiveGenerator, matchRequirements, type InventoryCommand } from '../../game/inventory'
 import { getOrderTarget, orderMaterials } from '../../game/construction'
 import { VitalLine } from './CampCare'
@@ -77,8 +78,18 @@ export function ProductionScreen({ runtime, close, message }: { runtime: GameRun
     if (result.accepted && command.type === 'item-move') {
       setSelected(runtime.getUiSnapshot().production!.inventory.board[command.targetIndex].instanceId)
     }
+    if (result.accepted && (command.type === 'order-complete' || command.type === 'test-complete-order')) {
+      const latest = runtime.getUiSnapshot(), chapter = currentChapter(latest.progression)
+      const commission = chapter && chapterCommission(chapter)
+      const submitted = command.type === 'order-complete' ? command.orderId === commission : command.orderId === `commission:${commission}`
+      if (submitted && chapter && chapterDelivered(chapter, latest.production!)
+        && chapterReady(chapter, latest.progression, latest.construction, latest.survival, latest.production!)) {
+        const story = await runtime.dispatch({ type: 'story-open', chapterId: chapter.id })
+        if (story.accepted) close()
+      }
+    }
     return result
-  }, [runtime, message])
+  }, [runtime, message, close])
   const tap = useCallback((id: string) => {
     const current = runtime.getUiSnapshot().production!.inventory
     const item = current.items[id]

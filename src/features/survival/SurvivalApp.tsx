@@ -20,7 +20,7 @@ import { StaminaValue } from './ResourceFeedback'
 import { HealthScreenEffect } from './HealthScreenEffect'
 import { TorchButton } from './TorchButton'
 import { DecorationPanel } from './DecorationPanel'
-import { currentChapter, decorError } from '../../game/progression'
+import { currentChapter, chapterReady, chapterCommission, decorError } from '../../game/progression'
 import { reachableRegionGate } from '../../game/regionUnlock'
 import { DECORATIONS, REGIONS, type DecorId, type StoryChapter } from '../../scene/contentPresentation'
 import { footprint, localToWorld } from '../../game/construction'
@@ -159,13 +159,18 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
   const bubblesHidden = companionControl || placing || mergeOpen || buildingOpen || wheelOpen || journalOpen || settingsOpen || shopOpen || decorationOpen || paused
   useEffect(() => { scene.current?.setBubblesHidden(bubblesHidden) }, [bubblesHidden, attempt])
   const chapter = currentChapter(state.progression)
+  const storyReady = chapter && state.production && chapterReady(chapter, state.progression, state.construction, state.survival, state.production)
   const navigate = (action: StoryChapter['action']) => {
     setJournalOpen(false)
     if (action === 'build') setBuildingOpen(true)
     else if (action === 'dress') setDecorationOpen(true)
     else if (action === 'care') scene.current?.centerCell(state.survival.companion.cell)
     else if (action === 'brook' || action === 'grove') {
-      if (state.progression.discoveries.includes(action)) setMergeOpen(true)
+      if (state.progression.discoveries.includes(action)) {
+        const commission = chapter && chapterCommission(chapter)
+        if (commission !== undefined) runtime.focusProductionOrder(`commission:${commission}`)
+        setMergeOpen(true)
+      }
       else if (!state.progression.unlockedRegions.includes(action)) {
         const gate = reachableRegionGate(runtime.world, state.construction, state.player, action)
         if (gate) { scene.current?.centerCell(gate.anchor); message('点击边界指示牌开放区域') }
@@ -250,7 +255,7 @@ function CampGame({ runtime, notice, reset }: { runtime: GameRuntime; notice: st
     </section> : <footer className={styles.footer}>
       <div className={styles.footerCard}>
         <button className={styles.hint} aria-label="营地手记" onClick={openJournal}><span className={styles.hintIcon}><Icon kind="book" /></span>
-          <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{sceneText(chapter?.goal ?? '首章完成 · 继续建设与装扮')}</p></div></button>
+          <div><strong>{chapter?.title ?? '这里，也是你的家'} <span aria-hidden="true">›</span></strong><p>{storyReady ? '目标已完成 · 点击继续故事' : sceneText(chapter?.goal ?? '首章完成 · 继续建设与装扮')}</p></div></button>
         <div className={styles.footerActions}>
           <button onClick={() => setShopOpen(true)}>商店</button>
           <button onClick={() => setDecorationOpen(true)}>装饰</button>

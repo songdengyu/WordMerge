@@ -71,7 +71,11 @@ describe('three by three map expansion', () => {
     data.progression.unlockedRegions = ['brook']
     data.cell = { x: 15, y: 7 }; data.motion = { version: 1, position: data.cell }
     data.progression.regionUnlock = { regionId: 'grove', side: 'west', phase: 'unlocking', workCell: data.cell, remaining: 1.1 }
-    const old = prior(); old.data = data
+    const old = prior(); old.data = structuredClone(data)
+    for (const b of old.data.construction.buildings) {
+      b.parts.walls.hp /= 2
+      for (const id in b.parts.walls.segments) b.parts.walls.segments[id] /= 2
+    }
     const upgraded = validateSave(old, world, catalog)
     expect(upgraded.data.construction).toEqual(data.construction)
     expect(upgraded.data.progression.regionUnlock).toEqual(data.progression.regionUnlock)

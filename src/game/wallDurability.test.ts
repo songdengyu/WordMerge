@@ -39,8 +39,8 @@ describe('wall durability rebalance compatibility', () => {
     old.data.construction.jobs = [{ orderId: 'b1:walls:edge0', phase: 'building', workCell: old.data.cell, remaining: 1.25, reservedIds: [] }]
     const source = structuredClone(old), migrated = validateSave(old, world, catalog)
     expect(old).toEqual(source)
-    expect(migrated.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 10, edge1: 0, edge2: 20 })
-    expect(migrated.data.construction.buildings[1].parts.walls.segments).toMatchObject({ edge0: 15, edge1: 0, edge2: 30 })
+    expect(migrated.data.construction.buildings[0].parts.walls.segments).toMatchObject({ edge0: 20, edge1: 0, edge2: 40 })
+    expect(migrated.data.construction.buildings[1].parts.walls.segments).toMatchObject({ edge0: 30, edge1: 0, edge2: 60 })
     expect(migrated.data.progression.regionContent.version).toBe(REGION_CONTENT_VERSION)
     expect(migrated.data.production).toEqual(old.data.production)
     expect(migrated.data.construction.jobs).toEqual(old.data.construction.jobs)
@@ -54,8 +54,8 @@ describe('wall durability rebalance compatibility', () => {
     old.data.construction.buildings[0].parts.walls.hp = 80
     delete old.data.construction.buildings[0].parts.walls.segments
     const migrated = validateSave(old, world, catalog)
-    expect(migrated.data.construction.buildings[0].parts.walls.hp).toBe(10)
-    expect(Object.values(migrated.data.construction.buildings[0].parts.walls.segments!)).toEqual(Array(9).fill(10))
+    expect(migrated.data.construction.buildings[0].parts.walls.hp).toBe(20)
+    expect(Object.values(migrated.data.construction.buildings[0].parts.walls.segments!)).toEqual(Array(9).fill(20))
     expect(migrated.data.production).toEqual(old.data.production)
   })
 
@@ -69,8 +69,8 @@ describe('wall durability rebalance compatibility', () => {
     expect(() => validateSave(old, world, catalog)).toThrow('不匹配')
   })
 
-  it('destroys one full cabin/lodge wall on the fifth/eighth boar hit', () => {
-    for (const [index, hits] of [[0, 5], [1, 8]]) {
+  it('destroys one full cabin/lodge wall on the tenth/fifteenth boar hit', () => {
+    for (const [index, hits] of [[0, 10], [1, 15]]) {
       const data = houses(true), target = { buildingId: data.construction.buildings[index].id, partId: 'walls', segmentId: 'edge0' }
       let construction = data.construction
       for (let hit = 1; hit <= hits; hit++) {
@@ -78,7 +78,7 @@ describe('wall durability rebalance compatibility', () => {
         const hp = construction.buildings[index].parts.walls.segments!.edge0
         expect(hit === hits ? hp === 0 : hp > 0).toBe(true)
       }
-      expect(construction.buildings[index].parts.walls.segments!.edge1).toBe(index === 0 ? 20 : 30)
+      expect(construction.buildings[index].parts.walls.segments!.edge1).toBe(index === 0 ? 40 : 60)
     }
   })
 })

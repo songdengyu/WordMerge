@@ -5,6 +5,7 @@ import { localToWorld } from '../game/construction'
 import { buildingSegments, segmentHp } from '../game/buildingSegments'
 import { gridToWorld, type Point } from './camera'
 import type { HouseStyle } from './houseStyle'
+import { WALL_HEIGHT_PX } from './buildingDimensions'
 
 /** Shared vertex heights give adjoining wings a continuous hipped roof without covering the courtyard. */
 export function roofHeight(blueprint: Blueprint, x: number, y: number, rise: number) {
@@ -17,7 +18,7 @@ export function roofHeight(blueprint: Blueprint, x: number, y: number, rise: num
     const py = dy ? cy : Math.max(cy - .5, Math.min(cy + .5, y))
     distance = Math.min(distance, Math.hypot(x - px, y - py))
   }
-  return 29 + rise * Math.min(1, distance)
+  return WALL_HEIGHT_PX + rise * Math.min(1, distance)
 }
 
 export function drawShapedRoof(g: Graphics, building: Building, blueprint: Blueprint, style: HouseStyle, anchor: Point) {

@@ -46,7 +46,7 @@ const BASE_BLUEPRINTS: readonly Blueprint[] = [{
   id: 'cabin', name: '林间小木屋', width: 3, height: 2,
   parts: [
     { id: 'foundation', name: '木地基', kind: 'foundation', requires: [], materials: [202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 100, xp: 10, work: [{ x: 1, y: 1 }], edges: [] },
-    { id: 'walls', name: '围护木墙', kind: 'wall', requires: ['foundation'], materials: [202, 202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 20, xp: 20, work: [{ x: 1, y: 1 }], edges: [
+    { id: 'walls', name: '围护木墙', kind: 'wall', requires: ['foundation'], materials: [202, 202], repairMaterials: [201], seconds: 2, repairSeconds: 2, hp: 40, xp: 20, work: [{ x: 1, y: 1 }], edges: [
       { from: { x: 0, y: 0 }, to: { x: 0, y: -1 } }, { from: { x: 1, y: 0 }, to: { x: 1, y: -1 } }, { from: { x: 2, y: 0 }, to: { x: 2, y: -1 } },
       { from: { x: 0, y: 0 }, to: { x: -1, y: 0 } }, { from: { x: 0, y: 1 }, to: { x: -1, y: 1 } },
       { from: { x: 2, y: 0 }, to: { x: 3, y: 0 } }, { from: { x: 2, y: 1 }, to: { x: 3, y: 1 } },
@@ -60,7 +60,7 @@ const BASE_BLUEPRINTS: readonly Blueprint[] = [{
   id: 'lodge', name: '林地大屋', width: 5, height: 4, fixedRegion: 'grove',
   parts: [
     { id: 'foundation', name: '大屋地基', kind: 'foundation', requires: [], materials: [203, 203], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 180, xp: 20, work: [{ x: 2, y: 2 }], edges: [] },
-    { id: 'walls', name: '大屋围墙', kind: 'wall', requires: ['foundation'], materials: [203, 203, 203], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 30, xp: 30, work: [{ x: 2, y: 3 }], edges: [
+    { id: 'walls', name: '大屋围墙', kind: 'wall', requires: ['foundation'], materials: [203, 203, 203], repairMaterials: [202], seconds: 2, repairSeconds: 2, hp: 60, xp: 30, work: [{ x: 2, y: 3 }], edges: [
       ...Array.from({ length: 5 }, (_, x) => ({ from: { x, y: 0 }, to: { x, y: -1 } })),
       ...Array.from({ length: 4 }, (_, y) => ({ from: { x: 0, y }, to: { x: -1, y } })),
       ...Array.from({ length: 4 }, (_, y) => ({ from: { x: 4, y }, to: { x: 5, y } })),
@@ -105,12 +105,12 @@ export const BLUEPRINTS: readonly Blueprint[] = [...BASE_BLUEPRINTS,
     const source = BASE_BLUEPRINTS[variant.id === 'guest-cabin' ? 1 : 0]
     return { ...source, ...variant, fixedRegion: undefined, parts: source.parts.map(part => ({ ...part })) }
   }),
-  expandedHouse('meadow-hut', '苔原草顶屋', 3, 2, 203, 20),
-  expandedHouse('cedar-home', '暖杉小筑', 4, 3, 204, 40),
-  expandedHouse('rose-manor', '蔷薇庄园', 5, 4, 206, 60),
-  shapedHouse('forest-corner', '森语转角屋', 4, 4, 204, 40,
+  expandedHouse('meadow-hut', '苔原草顶屋', 3, 2, 203, 40),
+  expandedHouse('cedar-home', '暖杉小筑', 4, 3, 204, 80),
+  expandedHouse('rose-manor', '蔷薇庄园', 5, 4, 206, 120),
+  shapedHouse('forest-corner', '森语转角屋', 4, 4, 204, 80,
     Array.from({ length: 16 }, (_, i) => ({ x: i % 4, y: Math.floor(i / 4) })).filter(c => c.x < 2 || c.y < 2), { x: 1, y: 3 }),
-  shapedHouse('flower-court', '花庭小院', 5, 4, 206, 60,
+  shapedHouse('flower-court', '花庭小院', 5, 4, 206, 120,
     Array.from({ length: 20 }, (_, i) => ({ x: i % 5, y: Math.floor(i / 5) })).filter(c => c.x !== 2 || c.y < 2), { x: 2, y: 1 }),
 ]
 export const BUILDING_VERSION = fingerprint(JSON.stringify(BASE_BLUEPRINTS.filter(blueprint => !blueprint.fixedRegion)))

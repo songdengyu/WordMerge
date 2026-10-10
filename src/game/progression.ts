@@ -42,11 +42,19 @@ export const progressedWorld = (world: WorldMap, progress: ProgressionState, rem
   REGION_EXTENSIONS.map(region => region.id === 'grove' && progress.regionContent?.statue
     ? { ...region, objects: [...region.objects, { ...progress.regionContent.statue, id: GROVE_STATUE_ID, kind: 'statue' as const }] } : region), removed)
 export const currentChapter = (progress: ProgressionState) => CHAPTERS[progress.completed.length] as StoryChapter | undefined
+/** Existing completed-order receipts also satisfy the matching story delivery. */
+export const chapterCommission = (chapter: StoryChapter) => chapter.id === 'visitor' ? 2 : undefined
+export const chapterDelivered = (chapter: StoryChapter, production: ProductionState) => {
+  const orderId = chapterCommission(chapter)
+  return orderId !== undefined && production.inventory.completedOrders.includes(orderId)
+}
+export const chapterMaterials = (chapter: StoryChapter, production: ProductionState) =>
+  chapterDelivered(chapter, production) ? [] : chapter.requirements
 export function chapterReady(chapter: StoryChapter, progress: ProgressionState, construction: ConstructionState, survival: SurvivalState, production: ProductionState) {
   const conditions = { always: true, foundation: construction.buildings.some(b => b.parts.foundation.built), companion: survival.companion.status !== 'wild',
     brook: progress.discoveries.includes('brook'), cabin: construction.buildings.some(b => buildingSummary(b).complete),
     grove: progress.discoveries.includes('grove'), dawn: progress.witnessedDawn && progress.decorations.length > 0 }
-  return conditions[chapter.condition] && matchRequirements(production.inventory, chapter.requirements) !== null
+  return conditions[chapter.condition] && matchRequirements(production.inventory, chapterMaterials(chapter, production)) !== null
 }
 export function regionError(regionId: string, progress: ProgressionState, construction: ConstructionState): string | null {
   const region = REGIONS.find(r => r.id === regionId)
@@ -116,7 +124,7 @@ export function applyStoryCommand(original: ProgressionState, source: Production
   const choice = chapter.choices.find(c => c.id === command.choiceId)
   if (!choice) return reject('请选择有效的回应')
   if (!chapterReady(chapter, state, construction, survival, production)) return reject('所需物资或目标已变化，请整理后再来')
-  if (!exchangeItems(production.inventory, catalog, chapter.requirements, chapter.rewardItems)) return reject('请先在棋盘留出奖励空位，物资尚未扣除；可稍后再读')
+  if (!exchangeItems(production.inventory, catalog, chapterMaterials(chapter, production), chapter.rewardItems)) return reject('请先在棋盘留出奖励空位，物资尚未扣除；可稍后再读')
   state.completed.push(chapter.id); state.choices[chapter.id] = choice.id; state.dialogue = null
   if (chapter.decor) grantDecoration(state, chapter.decor)
   if (chapter.outfit && !state.ownedOutfits.includes(chapter.outfit)) state.ownedOutfits.push(chapter.outfit)
@@ -130,6 +138,9 @@ export function validateProgressionCatalog(world: WorldMap, catalog: ProductionC
     item.drops.forEach(drop => reachableItems.add(drop.itemId))
   }
   for (const chapter of CHAPTERS) {
+    const commission = chapterCommission(chapter)
+    if (commission !== undefined && JSON.stringify(catalog.orders.find(o => o.id === commission)?.requirements.slice().sort())
+      !== JSON.stringify(chapter.requirements.slice().sort())) throw new Error(`首章 ${chapter.id} 的关联委托物资不一致`)
     if (chapter.requirements.some(id => !reachableItems.has(id) || catalog.itemById.get(id)?.itemType === 'generator')
       || chapter.rewardItems.some(id => !catalog.itemById.has(id)) || !chapter.lines.length || !chapter.choices.length) throw new Error(`首章 ${chapter.id} 的物资来源或对话配置无效`)
     if (chapter.decor && !DECORATIONS.some(d => d.id === chapter.decor)) throw new Error('首章摆件配置无效')
